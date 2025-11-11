@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { Modal, Descriptions, Tag, Button, Image, Divider } from "antd";
+import { Modal, Descriptions, Tag, Button, Image, Divider, Tooltip } from "antd";
 import dayjs from "dayjs";
 
 interface Props {
@@ -22,10 +22,12 @@ const ClaimDetailModal: React.FC<Props> = ({
 }) => {
   if (!data) return null;
 
+  // ✅ Map trạng thái
   const statusMap: Record<string, { text: string; color: string }> = {
     Reported: { text: "Đã báo cáo", color: "orange" },
     Processing: { text: "Đang xử lý", color: "blue" },
     Settled: { text: "Đã quyết toán", color: "green" },
+    Completed: { text: "Hoàn tất", color: "green" },
     Rejected: { text: "Từ chối", color: "red" },
   };
 
@@ -38,20 +40,32 @@ const ClaimDetailModal: React.FC<Props> = ({
       title={<span className="text-lg font-semibold">🧾 Chi tiết hồ sơ bảo hiểm</span>}
       footer={null}
       width={900}
-      bodyStyle={{ maxHeight: "80vh", overflowY: "auto" }}
+      styles={{
+        body: { maxHeight: "80vh", overflowY: "auto", padding: "16px" },
+      }}
     >
-      {/* ====== 1️⃣ Thông tin người thuê ====== */}
+      {/* ===== 1️⃣ Thông tin người thuê ===== */}
       <Divider orientation="left">👤 Thông tin người thuê</Divider>
-      <Descriptions bordered column={2} size="small" labelStyle={{ fontWeight: 600 }}>
+      <Descriptions
+        bordered
+        column={2}
+        size="small"
+        styles={{ label: { fontWeight: 600 } }}
+      >
         <Descriptions.Item label="Tên người thuê">{data.renterName}</Descriptions.Item>
         <Descriptions.Item label="Số điện thoại">{data.renterPhone}</Descriptions.Item>
         <Descriptions.Item label="Email">{data.renterEmail}</Descriptions.Item>
         <Descriptions.Item label="Địa chỉ">{data.address}</Descriptions.Item>
       </Descriptions>
 
-      {/* ====== 2️⃣ Thông tin xe & hợp đồng ====== */}
+      {/* ===== 2️⃣ Thông tin xe & hợp đồng ===== */}
       <Divider orientation="left">🚗 Thông tin xe & hợp đồng</Divider>
-      <Descriptions bordered column={2} size="small" labelStyle={{ fontWeight: 600 }}>
+      <Descriptions
+        bordered
+        column={2}
+        size="small"
+        styles={{ label: { fontWeight: 600 } }}
+      >
         <Descriptions.Item label="Tên xe">{data.vehicleModelName}</Descriptions.Item>
         <Descriptions.Item label="Biển số">{data.licensePlate}</Descriptions.Item>
         <Descriptions.Item label="Mô tả xe" span={2}>
@@ -67,9 +81,14 @@ const ClaimDetailModal: React.FC<Props> = ({
         </Descriptions.Item>
       </Descriptions>
 
-      {/* ====== 3️⃣ Thông tin bảo hiểm ====== */}
+      {/* ===== 3️⃣ Gói bảo hiểm ===== */}
       <Divider orientation="left">🛡️ Gói bảo hiểm</Divider>
-      <Descriptions bordered column={2} size="small" labelStyle={{ fontWeight: 600 }}>
+      <Descriptions
+        bordered
+        column={2}
+        size="small"
+        styles={{ label: { fontWeight: 600 } }}
+      >
         <Descriptions.Item label="Tên gói">{data.packageName}</Descriptions.Item>
         <Descriptions.Item label="Phí gói (VNĐ)">
           {data.packageFee?.toLocaleString("vi-VN")} đ
@@ -97,9 +116,14 @@ const ClaimDetailModal: React.FC<Props> = ({
         </Descriptions.Item>
       </Descriptions>
 
-      {/* ====== 4️⃣ Thông tin sự cố ====== */}
+      {/* ===== 4️⃣ Chi tiết sự cố ===== */}
       <Divider orientation="left">⚠️ Chi tiết sự cố</Divider>
-      <Descriptions bordered column={2} size="small" labelStyle={{ fontWeight: 600 }}>
+      <Descriptions
+        bordered
+        column={2}
+        size="small"
+        styles={{ label: { fontWeight: 600 } }}
+      >
         <Descriptions.Item label="Ngày sự cố">
           {dayjs(data.incidentDate).format("HH:mm:ss DD/MM/YYYY")}
         </Descriptions.Item>
@@ -109,7 +133,7 @@ const ClaimDetailModal: React.FC<Props> = ({
         </Descriptions.Item>
       </Descriptions>
 
-      {/* ====== Ảnh minh chứng ====== */}
+      {/* ===== Ảnh minh chứng ===== */}
       {data.incidentImages?.length > 0 && (
         <div className="mt-4">
           <p className="font-semibold mb-2">📷 Hình ảnh minh chứng:</p>
@@ -128,28 +152,36 @@ const ClaimDetailModal: React.FC<Props> = ({
         </div>
       )}
 
-      {/* ====== Hành động ====== */}
+      {/* ===== Hành động ===== */}
       <div className="flex justify-end mt-6 gap-3">
         <Button onClick={onClose}>Đóng</Button>
+
+        {/* ✅ Chỉ cho duyệt khi mới Reported */}
         {data.status === "Reported" && (
           <Button type="primary" onClick={() => onApprove(data.id)}>
             Duyệt hồ sơ
           </Button>
         )}
-        {(data.status === "Reported" || data.status === "Processing") && (
+
+        {/* ✅ Chỉ cho nhập bồi thường khi đang xử lý */}
+        {data.status === "Processing" && (
           <Button danger onClick={() => onSettlement(data.id)}>
             Nhập kết quả bồi thường
           </Button>
         )}
-<Button
-  type="default"
-  onClick={() => onEdit?.(data)} // ✅ dùng ?. để tránh lỗi
-  style={{ marginLeft: 8 }}
->
-  Chỉnh sửa hồ sơ
-</Button>
 
-
+        {/* ✅ Chỉ cho chỉnh sửa khi claim còn ở Reported */}
+        {data.status === "Reported" ? (
+          <Button type="default" onClick={() => onEdit?.(data)}>
+            Chỉnh sửa hồ sơ
+          </Button>
+        ) : (
+          <Tooltip title="Không thể chỉnh sửa hồ sơ đã duyệt hoặc hoàn tất">
+            <Button type="default" disabled>
+              Chỉnh sửa hồ sơ
+            </Button>
+          </Tooltip>
+        )}
       </div>
     </Modal>
   );
