@@ -1972,6 +1972,51 @@
       }
     }
   ],
+  "handover_records": [
+  {
+    "id": 1,
+    "code": "HD-001",
+    "bookingId": "BK-29102",
+    "renterName": "Phạm C",
+    "vehiclePlate": "68A1-123.45",
+    "staffName": "Nguyễn Minh",
+    "createdAt": "2025-09-12T12:05:00",
+    "status": "completed"
+  },
+  {
+    "id": 2,
+    "code": "HD-002",
+    "bookingId": "BK-29056",
+    "renterName": "Trần Thị B",
+    "vehiclePlate": "EVO-MAX-017",
+    "staffName": "Phạm Tuấn",
+    "createdAt": "2025-09-10T10:05:00",
+    "status": "processing"
+  }
+],
+"return_records": [
+  {
+    "id": 1,
+    "code": "RT-001",
+    "bookingId": "BK-29102",
+    "renterName": "Phạm C",
+    "vehiclePlate": "68A1-123.45",
+    "staffName": "Nguyễn Minh",
+    "createdAt": "2025-09-13T11:20:00",
+    "status": "completed"
+  },
+  {
+    "id": 2,
+    "code": "RT-002",
+    "bookingId": "BK-29056",
+    "renterName": "Trần Thị B",
+    "vehiclePlate": "EVO-MAX-017",
+    "staffName": "Phạm Tuấn",
+    "createdAt": "2025-09-13T09:40:00",
+    "status": "processing"
+  }
+],
+
   "reports": [
     {
       "id": "RPT2025-09",

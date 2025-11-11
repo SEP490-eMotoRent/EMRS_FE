@@ -1,88 +1,90 @@
 "use client";
-
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie";
-import { loginAdmin } from "./action";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const res = await loginAdmin(email, password);
-      if (res.success) {
-        // ✅ Lưu token vào cookie để middleware đọc
-        Cookies.set("emoto_token", res.token, { expires: 1 });
-        // ✅ Redirect tới dashboard
-        router.push("/dashboard/admin/dashboard");
-      } else {
-        setError(res.message);
+      // ✅ Gọi API qua proxy tránh CORS
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        setError(json.message || "Sai tên đăng nhập hoặc mật khẩu!");
+        setLoading(false);
+        return;
       }
+
+      const data = json.data;
+      const user = data.user;
+      const token = data.accessToken;
+
+      // ✅ Lưu thông tin vào localStorage
+      localStorage.setItem("token", token);
+      localStorage.setItem("role", user.role);
+      localStorage.setItem("branchId", user.branchId);
+      localStorage.setItem("branchName", user.branchName);
+      localStorage.setItem("fullName", user.fullName);
+
+      // ✅ Điều hướng theo role
+      if (user.role === "MANAGER") {
+  router.push("/dashboard/manager/dashboard");
+} else if (user.role === "ADMIN") {
+  router.push("/dashboard/admin/dashboard");
+}
+
     } catch (err) {
       console.error(err);
-      setError("Lỗi đăng nhập!");
+      setError("Lỗi kết nối đến server!");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="flex items-center justify-center h-screen bg-gray-100">
       <form
-        onSubmit={handleSubmit}
-        className="bg-white rounded-2xl shadow-md p-8 w-full max-w-md"
+        onSubmit={handleLogin}
+        className="bg-white p-6 rounded-lg shadow-md w-80 space-y-4"
       >
-        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">
-          Đăng nhập Admin
-        </h1>
+        <h2 className="text-center text-lg font-semibold">Đăng nhập</h2>
+        {error && <p className="text-red-500 text-sm">{error}</p>}
 
-        {error && (
-          <div className="bg-red-100 text-red-600 text-sm p-2 rounded mb-4">
-            {error}
-          </div>
-        )}
+        <input
+          type="text"
+          placeholder="Tên đăng nhập"
+          className="w-full border rounded p-2 text-sm"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-gray-600">
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full border rounded-lg p-2 focus:ring focus:ring-blue-200"
-            placeholder="admin@gmail.com"
-          />
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-1 text-gray-600">
-            Mật khẩu
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full border rounded-lg p-2 focus:ring focus:ring-blue-200"
-            placeholder="••••••"
-          />
-        </div>
+        <input
+          type="password"
+          placeholder="Mật khẩu"
+          className="w-full border rounded p-2 text-sm"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded text-sm disabled:opacity-50"
         >
           {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
