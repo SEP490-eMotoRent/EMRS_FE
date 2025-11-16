@@ -15,7 +15,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // ✅ Gọi API qua proxy tránh CORS
+      // ❗ BẮT BUỘC PHẢI CÓ SLASH "/" ĐẦU TIÊN
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -30,27 +30,18 @@ export default function LoginPage() {
         return;
       }
 
-      const data = json.data;
-      const user = data.user;
-      const token = data.accessToken;
+      const user = json.data.user;
 
-      // ✅ Lưu thông tin vào localStorage
-      localStorage.setItem("token", token);
-      localStorage.setItem("role", user.role);
-      localStorage.setItem("branchId", user.branchId);
-      localStorage.setItem("branchName", user.branchName);
-      localStorage.setItem("fullName", user.fullName);
-
-      // ✅ Điều hướng theo role
       if (user.role === "MANAGER") {
-  router.push("/dashboard/manager/dashboard");
-} else if (user.role === "ADMIN") {
-  router.push("/dashboard/admin/dashboard");
-}
-
+        router.push("/dashboard/manager");
+      } else if (user.role === "ADMIN") {
+        router.push("/dashboard/admin");
+      } else {
+        setError("Tài khoản không có quyền truy cập!");
+      }
     } catch (err) {
       console.error(err);
-      setError("Lỗi kết nối đến server!");
+      setError("Không thể kết nối server!");
     } finally {
       setLoading(false);
     }
@@ -58,11 +49,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
-      <form
-        onSubmit={handleLogin}
-        className="bg-white p-6 rounded-lg shadow-md w-80 space-y-4"
-      >
-        <h2 className="text-center text-lg font-semibold">Đăng nhập</h2>
+      <form onSubmit={handleLogin} className="bg-white p-6 shadow-md rounded-lg w-80 space-y-4">
+        <h2 className="text-center font-semibold text-lg">Đăng nhập</h2>
+
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
         <input
