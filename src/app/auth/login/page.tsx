@@ -1,22 +1,37 @@
 "use client";
-import React, { useState } from "react";
+
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError("");
+
     setLoading(true);
+    setErrorMsg("");
+
+    const formData = new FormData(e.currentTarget);
+    const username = formData.get("username");
+    const password = formData.get("password");
+
+    if (!username || !password) {
+      setErrorMsg("Vui lòng nhập đầy đủ thông tin đăng nhập");
+      setLoading(false);
+      return;
+    }
 
     try {
-      // ❗ BẮT BUỘC PHẢI CÓ SLASH "/" ĐẦU TIÊN
-      const res = await fetch("/api/auth/login", {
+      // Gọi thẳng vào BE (giống Swagger)
+      const baseUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "https://emrssep490-haevbjfhdkbzhaaj.southeastasia-01.azurewebsites.net/api";
+
+      const res = await fetch(`${baseUrl}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -25,55 +40,74 @@ export default function LoginPage() {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        setError(json.message || "Sai tên đăng nhập hoặc mật khẩu!");
+        setErrorMsg(json.message || "Sai tài khoản hoặc mật khẩu");
         setLoading(false);
         return;
       }
 
-      const user = json.data.user;
+      const { accessToken, user } = json.data;
 
-      if (user.role === "MANAGER") {
-        router.push("/dashboard/manager");
-      } else if (user.role === "ADMIN") {
+      // Tự set cookie phía client để middleware đọc được
+      const expires = new Date();
+      expires.setDate(expires.getDate() + 7); // 7 ngày
+      document.cookie = `token=${accessToken}; path=/; expires=${expires.toUTCString()}`;
+      document.cookie = `role=${user.role ?? ""}; path=/; expires=${expires.toUTCString()}`;
+      document.cookie = `fullName=${encodeURIComponent(
+        user.fullName ?? ""
+      )}; path=/; expires=${expires.toUTCString()}`;
+      document.cookie = `branchId=${user.branchId ?? ""}; path=/; expires=${expires.toUTCString()}`;
+      document.cookie = `branchName=${encodeURIComponent(
+        user.branchName ?? ""
+      )}; path=/; expires=${expires.toUTCString()}`;
+
+      const role = (user.role ?? "").toUpperCase();
+
+      if (role === "ADMIN") {
         router.push("/dashboard/admin");
+      } else if (role === "MANAGER") {
+        router.push("/dashboard/manager");
       } else {
-        setError("Tài khoản không có quyền truy cập!");
+        setErrorMsg("Tài khoản không có quyền truy cập");
       }
     } catch (err) {
       console.error(err);
-      setError("Không thể kết nối server!");
+      setErrorMsg("Đã xảy ra lỗi, thử lại sau");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
-      <form onSubmit={handleLogin} className="bg-white p-6 shadow-md rounded-lg w-80 space-y-4">
-        <h2 className="text-center font-semibold text-lg">Đăng nhập</h2>
-
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white shadow-lg p-8 rounded-xl w-[350px] flex flex-col gap-4"
+      >
+        <h2 className="text-2xl font-semibold text-center">Đăng nhập</h2>
 
         <input
-          type="text"
+          name="username"
           placeholder="Tên đăng nhập"
-          className="w-full border rounded p-2 text-sm"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          className="border p-2 rounded w-full"
+          autoComplete="username"
         />
 
         <input
+          name="password"
           type="password"
           placeholder="Mật khẩu"
-          className="w-full border rounded p-2 text-sm"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          className="border p-2 rounded w-full"
+          autoComplete="current-password"
         />
 
+        {errorMsg && (
+          <p className="text-red-500 text-sm text-center">{errorMsg}</p>
+        )}
+
         <button
-          type="submit"
           disabled={loading}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded text-sm disabled:opacity-50"
+          type="submit"
+          className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition disabled:opacity-50"
         >
           {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "eMotoRent Admin",
+  title: "eMotoRent",
   description: "Hệ thống quản trị eMotoRent",
 };
 
