@@ -17,9 +17,8 @@ import {
 } from "recharts";
 
 import { getBranches } from "@/app/dashboard/admin/branches/branch_service";
-import { getVehicles } from "@/services/vehicle_service";
-import { getBookings } from "@/services/booking_service";
-import { getPayments } from "@/services/payment_service";
+import { getVehicles } from "@/app/dashboard/admin/vehicles/vehicle_service";
+
 
 export default function Dashboard() {
   const [data, setData] = useState<any>({
@@ -36,8 +35,6 @@ export default function Dashboard() {
         const [branches, vehicles, bookings, payments] = await Promise.all([
           getBranches(),
           getVehicles(),
-          getBookings(),
-          getPayments(),
         ]);
         setData({ branches, vehicles, bookings, payments });
       } catch (err) {
