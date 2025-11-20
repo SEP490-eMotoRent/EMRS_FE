@@ -6,7 +6,7 @@ import { Table, Input, Tag } from "antd";
 import { Search } from "lucide-react";
 import dayjs from "dayjs";
 
-import { getVehicles, VehicleFilters } from "./fleet_service";
+import { getVehicleModels } from "./fleet_service";
 
 const { Search: AntSearch } = Input;
 
@@ -29,23 +29,24 @@ const getStatusInfo = (status: string) => {
 };
 
 export default function FleetPage() {
-  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [vehicleModels, setVehicleModels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
-  const [filters, setFilters] = useState<VehicleFilters>({});
 
   useEffect(() => {
-    loadVehicles();
-  }, [filters]);
+    loadVehicleModels();
+  }, []);
 
-  const loadVehicles = async () => {
+  const loadVehicleModels = async () => {
     try {
       setLoading(true);
-      const data = await getVehicles(filters);
-      setVehicles(Array.isArray(data) ? data : []);
+      const data = await getVehicleModels();
+      console.log("Loaded vehicle models data:", data);
+      console.log("Number of models:", data?.length || 0);
+      setVehicleModels(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Error loading vehicles:", err);
-      setVehicles([]);
+      console.error("Error loading vehicle models:", err);
+      setVehicleModels([]);
     } finally {
       setLoading(false);
     }
@@ -53,41 +54,36 @@ export default function FleetPage() {
 
   const handleSearch = (value: string) => {
     setSearchText(value);
-    // Search by license plate, model name, or status
-    if (value.trim()) {
-      // We'll filter on the client side for now, or you can implement server-side search
-      // For now, let's filter client-side
-    } else {
-      setFilters({});
-    }
   };
 
-  // Filter vehicles based on search text
-  const filteredVehicles = vehicles.filter((vehicle) => {
+  // Filter vehicle models based on search text
+  const filteredModels = vehicleModels.filter((model) => {
     if (!searchText.trim()) return true;
     const searchLower = searchText.toLowerCase();
     return (
-      (vehicle.licensePlate || "")
+      (model.modelName || "")
         .toLowerCase()
         .includes(searchLower) ||
-      (vehicle.vehicleModel?.modelName || vehicle.modelName || "")
+      (model.category || "")
         .toLowerCase()
         .includes(searchLower) ||
-      (vehicle.status || "").toLowerCase().includes(searchLower)
+      (model.vehicleModelId || "")
+        .toLowerCase()
+        .includes(searchLower)
     );
   });
 
   const columns = [
     {
-      title: "MÃ XE",
-      dataIndex: "licensePlate",
-      key: "licensePlate",
+      title: "MÃ MODEL",
+      dataIndex: "vehicleModelId",
+      key: "vehicleModelId",
       render: (text: string, record: any) => (
         <Link
-          href={`/dashboard/manager/fleet/${record.vehicleId || record.id}`}
-          className="text-blue-600 hover:underline"
+          href={`/dashboard/manager/fleet/model/${record.vehicleModelId || record.id}`}
+          className="text-blue-600 hover:underline font-mono"
         >
-          {text || record.vehicleId || record.id || "N/A"}
+          {text || record.id || "N/A"}
         </Link>
       ),
     },
@@ -95,51 +91,58 @@ export default function FleetPage() {
       title: "MODEL",
       dataIndex: "modelName",
       key: "modelName",
-      render: (_: any, record: any) =>
-        record.vehicleModel?.modelName ||
-        record.modelName ||
-        record.vehicleModelName ||
-        "N/A",
+      render: (text: string) => text || "N/A",
     },
     {
-      title: "% PIN",
-      dataIndex: "batteryHealthPercentage",
-      key: "batteryHealthPercentage",
-      render: (value: number) => `${value || 0}%`,
-    },
-    {
-      title: "TRẠNG THÁI",
-      dataIndex: "status",
-      key: "status",
-      render: (status: string) => {
-        const statusInfo = getStatusInfo(status || "");
-        return (
-          <Tag color={statusInfo.color}>{statusInfo.label}</Tag>
-        );
+      title: "PHÂN LOẠI",
+      dataIndex: "category",
+      key: "category",
+      render: (category: string) => {
+        const categoryMap: Record<string, { label: string; color: string }> = {
+          ECONOMY: { label: "ECONOMY", color: "blue" },
+          STANDARD: { label: "STANDARD", color: "green" },
+          PREMIUM: { label: "PREMIUM", color: "gold" },
+        };
+        const info = categoryMap[category] || { label: category || "N/A", color: "default" };
+        return <Tag color={info.color}>{info.label}</Tag>;
       },
     },
     {
-      title: "CHI NHÁNH",
-      dataIndex: "branchName",
-      key: "branchName",
-      render: (_: any, record: any) =>
-        record.branch?.branchName ||
-        record.branchName ||
-        "N/A",
+      title: "DUNG LƯỢNG PIN",
+      dataIndex: "batteryCapacityKwh",
+      key: "batteryCapacityKwh",
+      render: (value: number) => `${value || 0} kWh`,
     },
     {
-      title: "LẦN CUỐI",
-      dataIndex: "lastUpdatedAt",
-      key: "lastUpdatedAt",
-      render: (date: string, record: any) => {
-        const dateValue =
-          date ||
-          record.updatedAt ||
-          record.lastMaintenanceDate ||
-          record.createdAt;
-        return dateValue
-          ? dayjs(dateValue).format("YYYY-MM-DD HH:mm")
-          : "N/A";
+      title: "TẦM HOẠT ĐỘNG",
+      dataIndex: "maxRangeKm",
+      key: "maxRangeKm",
+      render: (value: number) => `${value || 0} km`,
+    },
+    {
+      title: "GIÁ THUÊ",
+      dataIndex: "rentalPrice",
+      key: "rentalPrice",
+      render: (value: number) => {
+        if (!value) return "N/A";
+        return `${value.toLocaleString("vi-VN")} đ`;
+      },
+    },
+    {
+      title: "TỔNG SỐ XE",
+      dataIndex: "countTotal",
+      key: "countTotal",
+      render: (value: number) => value || 0,
+    },
+    {
+      title: "XE CÓ SẴN",
+      dataIndex: "countAvailable",
+      key: "countAvailable",
+      render: (value: number, record: any) => {
+        const available = value || 0;
+        const total = record.countTotal || 0;
+        const color = available > 0 ? "green" : "red";
+        return <Tag color={color}>{available} / {total}</Tag>;
       },
     },
     {
@@ -147,7 +150,7 @@ export default function FleetPage() {
       key: "action",
       render: (_: any, record: any) => (
         <Link
-          href={`/dashboard/manager/fleet/${record.vehicleId || record.id}`}
+          href={`/dashboard/manager/fleet/model/${record.vehicleModelId || record.id}`}
           className="text-blue-600 hover:underline"
         >
           Xem chi tiết
@@ -165,7 +168,7 @@ export default function FleetPage() {
 
         <div className="mb-4">
           <AntSearch
-            placeholder="Tìm xe theo mã / model / trạng thái"
+            placeholder="Tìm model theo tên / phân loại / mã model"
             allowClear
             enterButton={<Search className="w-4 h-4" />}
             size="large"
@@ -181,15 +184,15 @@ export default function FleetPage() {
 
       <div className="bg-white shadow rounded-lg p-4">
         <Table
-          rowKey={(record) => record.vehicleId || record.id || Math.random()}
+          rowKey={(record) => record.vehicleModelId || record.id || Math.random()}
           loading={loading}
           columns={columns}
-          dataSource={filteredVehicles}
-          locale={{ emptyText: "Không có xe nào" }}
+          dataSource={filteredModels}
+          locale={{ emptyText: "Không có model nào" }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
-            showTotal: (total) => `Tổng ${total} xe`,
+            showTotal: (total) => `Tổng ${total} model`,
           }}
         />
       </div>

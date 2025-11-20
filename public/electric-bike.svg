@@ -1,0 +1,67 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Electric Bike Silhouette -->
+  <g stroke="#4F46E5" fill="none">
+    <!-- Main Frame -->
+    <path d="M150 400 L200 350 L400 300 L500 280 L600 300 L650 350" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Front Wheel -->
+    <circle cx="650" cy="400" r="70" stroke-width="8"/>
+    <circle cx="650" cy="400" r="50" stroke-width="6"/>
+    <circle cx="650" cy="400" r="30" stroke-width="4"/>
+    <circle cx="650" cy="400" r="10" fill="#4F46E5"/>
+    <!-- Spokes -->
+    <line x1="650" y1="330" x2="650" y2="470" stroke-width="3"/>
+    <line x1="580" y1="400" x2="720" y2="400" stroke-width="3"/>
+    <line x1="600" y1="330" x2="700" y2="470" stroke-width="2"/>
+    <line x1="700" y1="330" x2="600" y2="470" stroke-width="2"/>
+    
+    <!-- Rear Wheel -->
+    <circle cx="200" cy="400" r="70" stroke-width="8"/>
+    <circle cx="200" cy="400" r="50" stroke-width="6"/>
+    <circle cx="200" cy="400" r="30" stroke-width="4"/>
+    <circle cx="200" cy="400" r="10" fill="#4F46E5"/>
+    <!-- Spokes -->
+    <line x1="200" y1="330" x2="200" y2="470" stroke-width="3"/>
+    <line x1="130" y1="400" x2="270" y2="400" stroke-width="3"/>
+    <line x1="150" y1="330" x2="250" y2="470" stroke-width="2"/>
+    <line x1="250" y1="330" x2="150" y2="470" stroke-width="2"/>
+    
+    <!-- Seat -->
+    <path d="M250 320 Q280 300 320 310" stroke-width="8" stroke-linecap="round"/>
+    <ellipse cx="285" cy="315" rx="25" ry="10" fill="#4F46E5" opacity="0.6"/>
+    
+    <!-- Handlebar -->
+    <path d="M550 280 L580 260 M550 280 L580 300" stroke-width="8" stroke-linecap="round"/>
+    <path d="M580 260 L620 250 M580 300 L620 310" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="620" cy="250" r="8" fill="#4F46E5"/>
+    <circle cx="620" cy="310" r="8" fill="#4F46E5"/>
+    
+    <!-- Battery Box -->
+    <rect x="350" y="320" width="100" height="50" rx="8" stroke-width="6"/>
+    <line x1="370" y1="335" x2="430" y2="335" stroke-width="3"/>
+    <line x1="370" y1="350" x2="430" y2="350" stroke-width="3"/>
+    <line x1="370" y1="365" x2="430" y2="365" stroke-width="3"/>
+    <!-- Battery indicator -->
+    <rect x="445" y="330" width="8" height="30" rx="2" fill="#4F46E5" opacity="0.7"/>
+    
+    <!-- Motor (rear) -->
+    <circle cx="200" cy="400" r="30" stroke-width="6"/>
+    <circle cx="200" cy="400" r="20" fill="#4F46E5" opacity="0.4"/>
+    <circle cx="200" cy="400" r="8" fill="#4F46E5"/>
+    
+    <!-- Chain -->
+    <path d="M200 340 L350 320" stroke-width="4" stroke-dasharray="8,4" opacity="0.6"/>
+    
+    <!-- Pedal -->
+    <circle cx="350" cy="320" r="15" stroke-width="4" fill="#4F46E5" opacity="0.3"/>
+    <line x1="350" y1="305" x2="350" y2="335" stroke-width="3"/>
+    <line x1="335" y1="320" x2="365" y2="320" stroke-width="3"/>
+    
+    <!-- Front fork -->
+    <path d="M600 300 L650 400" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- Rear frame detail -->
+    <path d="M200 350 L250 320" stroke-width="6" stroke-linecap="round"/>
+  </g>
+</svg>
+

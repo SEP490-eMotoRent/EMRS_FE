@@ -10,9 +10,19 @@ export async function GET(request: Request) {
     const token = cookieStore.get("token")?.value;
     const branchId = cookieStore.get("branchId")?.value;
 
-    if (!token || !branchId) {
+    console.log("Vehicle API - branchId from cookie:", branchId);
+
+    if (!token) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized" },
+        { success: false, message: "Unauthorized - No token" },
+        { status: 401 }
+      );
+    }
+
+    if (!branchId) {
+      console.error("Vehicle API - No branchId in cookie!");
+      return NextResponse.json(
+        { success: false, message: "Unauthorized - No branchId" },
         { status: 401 }
       );
     }
@@ -41,23 +51,43 @@ export async function GET(request: Request) {
     }
     if (searchParams.get("PageSize")) {
       params.append("PageSize", searchParams.get("PageSize")!);
+    } else {
+      // Default PageSize nếu không có
+      params.append("PageSize", "100");
     }
     if (searchParams.get("PageNum")) {
       params.append("PageNum", searchParams.get("PageNum")!);
+    } else {
+      // Default PageNum nếu không có
+      params.append("PageNum", "1");
     }
     
-    // Luôn filter theo BranchId của manager
+    // Luôn filter theo BranchId của manager - BẮT BUỘC
     params.append("BranchId", branchId);
 
     const queryString = params.toString();
     const url = `/Vehicle${queryString ? `?${queryString}` : ""}`;
+
+    console.log("Vehicle API - Final URL:", url);
+    console.log("Vehicle API - BranchId filter:", branchId);
 
     const beRes = await emrsFetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     const text = await beRes.text();
-    return new NextResponse(text, { status: beRes.status });
+    
+    // Log for debugging
+    console.log("Vehicle API - URL:", url);
+    console.log("Vehicle API - Status:", beRes.status);
+    console.log("Vehicle API - Response:", text.substring(0, 500));
+    
+    return new NextResponse(text, { 
+      status: beRes.status,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   } catch (err) {
     console.error("Vehicle list error:", err);
     return NextResponse.json(

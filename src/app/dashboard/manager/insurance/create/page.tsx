@@ -1,15 +1,93 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Form, Input, DatePicker, Upload, Button, message } from "antd";
+import {
+  Form,
+  Input,
+  DatePicker,
+  Upload,
+  Button,
+  message,
+  Select,
+  Spin,
+} from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
+
+import {
+  getBookingsByBranch,
+  getBookingById,
+} from "../../bookings/booking_service";
 
 export default function InsuranceCreatePage() {
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
+  const [loadingBookings, setLoadingBookings] = useState(true);
+  const [bookings, setBookings] = useState<any[]>([]);
   const router = useRouter();
+
+  useEffect(() => {
+    loadBookings();
+  }, []);
+
+  const loadBookings = async () => {
+    try {
+      setLoadingBookings(true);
+      const list = await getBookingsByBranch(undefined, {
+        PageSize: 100,
+        orderByDescending: true,
+      });
+      const withDetail = await Promise.all(
+        list.map(async (booking: any) => {
+          const id = booking.id || booking.bookingId || booking.bookingCode;
+          if (!id) return booking;
+          try {
+            const detail = await getBookingById(id);
+            return { ...booking, ...detail };
+          } catch (err) {
+            console.warn("Không thể lấy chi tiết booking", id, err);
+            return booking;
+          }
+        })
+      );
+      const allowedStatuses = new Set(["pending", "rending"]);
+      const filtered = withDetail.filter((item) => {
+        const status = (item.bookingStatus || item.status || "").toLowerCase();
+        return allowedStatuses.has(status);
+      });
+
+      setBookings(filtered);
+    } catch (err) {
+      console.error("Không thể tải bookings cho bảo hiểm:", err);
+      message.error("Không thể tải danh sách booking");
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
+
+  const bookingOptions = useMemo(
+    () =>
+      bookings.map((b) => {
+        const name =
+          b.renter?.account?.fullname ||
+          b.renter?.fullName ||
+          b.renterName ||
+          "Khách";
+        const status = b.bookingStatus || b.status || "";
+        const model =
+          b.vehicleModel?.modelName || b.vehicleModelName || "N/A";
+        return {
+          label: `${b.bookingCode || b.id} • ${name} • ${model}`,
+          value: b.id || b.bookingId || b.bookingCode,
+          status,
+          name,
+          model,
+          start: b.startDatetime,
+        };
+      }),
+    [bookings]
+  );
 
   const handleSubmit = async () => {
     try {
@@ -76,11 +154,42 @@ export default function InsuranceCreatePage() {
 
       <Form form={form} layout="vertical">
         <Form.Item
-          label="BookingId"
+          label="Booking"
           name="BookingId"
-          rules={[{ required: true, message: "Vui lòng nhập BookingId" }]}
+          rules={[{ required: true, message: "Vui lòng chọn Booking" }]}
         >
-          <Input placeholder="Nhập BookingId liên quan đến sự cố" />
+          <Select
+            showSearch
+            placeholder="Chọn booking liên quan"
+            loading={loadingBookings}
+            optionFilterProp="label"
+            filterOption={(input, option) =>
+              (option?.label as string)
+                ?.toLowerCase()
+                .includes(input.toLowerCase())
+            }
+            notFoundContent={
+              loadingBookings ? <Spin size="small" /> : "Không có booking"
+            }
+          >
+            {bookingOptions.map((opt) => (
+              <Select.Option key={opt.value} value={opt.value} label={opt.label}>
+                <div className="flex flex-col">
+                  <span className="font-semibold">
+                    {opt.label.split("•")[0]}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {opt.name} • {opt.model}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {opt.start
+                      ? dayjs(opt.start).format("DD/MM/YYYY HH:mm")
+                      : ""}
+                  </span>
+                </div>
+              </Select.Option>
+            ))}
+          </Select>
         </Form.Item>
 
         <Form.Item

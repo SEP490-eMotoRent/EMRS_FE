@@ -44,7 +44,20 @@ export async function getBookingsByBranch(
 
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};
-  return json.data || json || [];
+
+  if (Array.isArray(json.data)) {
+    return json.data;
+  }
+
+  if (json.data?.items) {
+    return json.data.items;
+  }
+
+  if (Array.isArray(json)) {
+    return json;
+  }
+
+  return [];
 }
 
 export async function getBookingById(id: string) {

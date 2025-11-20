@@ -6,7 +6,7 @@ import { ArrowLeft, Tag } from "lucide-react";
 import { Button, Card, Descriptions, Spin, Tag as AntTag } from "antd";
 import dayjs from "dayjs";
 
-import { getVehicleById } from "../fleet_service";
+import { getVehicleModelById } from "../fleet_service";
 
 const getStatusInfo = (status: string) => {
   const statusMap: Record<string, { label: string; color: string }> = {
@@ -40,7 +40,7 @@ export default function VehicleDetailPage() {
   const loadVehicle = async () => {
     try {
       setLoading(true);
-      const data = await getVehicleById(params.id as string);
+      const data = await getVehicleModelById(params.id as string);
       setVehicle(data);
     } catch (err) {
       console.error("Error loading vehicle:", err);

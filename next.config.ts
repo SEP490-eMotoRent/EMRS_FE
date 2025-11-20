@@ -4,9 +4,11 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: "/api/:path*", // pattern cho route local
+        // Dùng khi muốn gọi trực tiếp xuống BE (bỏ qua BFF internal routes)
+        // Ví dụ: fetch("/api/raw/Vehicle/...")
+        source: "/api/raw/:path*",
         destination:
-          "https://emrssep490-haevbjfhdkbzhaaj.southeastasia-01.azurewebsites.net/api/:path*", // backend thật
+          "https://emrssep490-haevbjfhdkbzhaaj.southeastasia-01.azurewebsites.net/api/:path*",
       },
     ];
   },
