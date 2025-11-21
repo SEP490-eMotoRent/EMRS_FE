@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
+import Link from "next/link";
 import mqtt, { MqttClient } from "mqtt";
 import {
   MapContainer,
@@ -47,6 +48,49 @@ interface VehicleLocation {
   lng: number;
   speed?: number;
   ts?: number;
+}
+
+function parseCoord(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const num =
+    typeof value === "string"
+      ? parseFloat(value)
+      : typeof value === "number"
+      ? value
+      : null;
+
+  if (num === null || Number.isNaN(num)) return null;
+  return num;
+}
+
+function extractLatLng(obj: any): { lat: number; lng: number } | null {
+  if (!obj || typeof obj !== "object") return null;
+
+  const candidates: Array<[any, any]> = [
+    [obj.lastLatitude, obj.lastLongitude],
+    [obj.lastLat, obj.lastLng],
+    [obj.latitude, obj.longitude],
+    [obj.lat, obj.lng],
+    [obj["position.latitude"], obj["position.longitude"]],
+    [obj["position.lat"], obj["position.lng"]],
+    [obj["gps.latitude"], obj["gps.longitude"]],
+    [obj["gps.lat"], obj["gps.lng"]],
+    [obj?.location?.latitude, obj?.location?.longitude],
+    [obj?.location?.lat, obj?.location?.lng],
+    [obj?.currentLocation?.latitude, obj?.currentLocation?.longitude],
+    [obj?.currentLocation?.lat, obj?.currentLocation?.lng],
+    [obj?.position?.latitude, obj?.position?.longitude],
+  ];
+
+  for (const [rawLat, rawLng] of candidates) {
+    const lat = parseCoord(rawLat);
+    const lng = parseCoord(rawLng);
+    if (lat !== null && lng !== null) {
+      return { lat, lng };
+    }
+  }
+
+  return null;
 }
 
 // Component để pan map khi vị trí thay đổi
@@ -103,15 +147,16 @@ export default function VehicleTrackingPage({
         console.log("Tracking API parsed response:", json);
 
         // Thử lấy vị trí cuối cùng từ response nếu có
-        if (json.success && json.data && !cancelled) {
-          const lastLat = json.data.lastLatitude || json.data.latitude;
-          const lastLng = json.data.lastLongitude || json.data.longitude;
-          if (lastLat && lastLng) {
-            console.log("Found last known position in API response:", { lastLat, lastLng });
-            setLocation({
-              lat: parseFloat(lastLat),
-              lng: parseFloat(lastLng),
-            });
+        if (json && !cancelled) {
+          const possibleLocation =
+            extractLatLng(json.data) ||
+            extractLatLng(json.data?.vehicle) ||
+            extractLatLng(json.data?.trackingInfo) ||
+            extractLatLng(json);
+
+          if (possibleLocation) {
+            console.log("Found last known position in API response:", possibleLocation);
+            setLocation(possibleLocation);
           }
         }
 
@@ -168,6 +213,14 @@ export default function VehicleTrackingPage({
           const licensePlate = json.data?.licensePlate || json.licensePlate || "";
           setLicensePlate(licensePlate);
           setPayload(normalizedPayload);
+          // Nếu payload có sẵn vị trí cuối cùng thì tận dụng luôn
+          const payloadLocation =
+            extractLatLng(trackingData) ||
+            extractLatLng(trackingData?.lastKnownLocation);
+          if (payloadLocation) {
+            console.log("Found last known position in payload:", payloadLocation);
+            setLocation(payloadLocation);
+          }
         }
       } catch (err) {
         console.error("Error loading tracking info:", err);
@@ -182,6 +235,70 @@ export default function VehicleTrackingPage({
       cancelled = true;
     };
   }, [vehicleId]);
+
+  const fetchTelemetryPosition = useCallback(async (): Promise<VehicleLocation | null> => {
+    if (!payload?.tmpToken || (!payload.deviceId && !payload.imei)) return null;
+
+    try {
+      const deviceIdentifier = payload.deviceId || payload.imei;
+      const url = `https://flespi.io/gw/devices/${deviceIdentifier}/telemetry/position`;
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `FlespiToken ${payload.tmpToken}`,
+        },
+      });
+
+      if (!res.ok) {
+        console.warn(
+          "Failed to fetch telemetry position:",
+          res.status,
+          res.statusText
+        );
+        return null;
+      }
+
+      const json = await res.json();
+      const telemetryEntry = json?.result?.[0]?.telemetry?.position;
+      const value = telemetryEntry?.value;
+
+      if (!value) {
+        console.warn(
+          "Telemetry position response missing value for device",
+          deviceIdentifier,
+          json
+        );
+        return null;
+      }
+
+      const coords = extractLatLng({
+        latitude: value.latitude ?? telemetryEntry?.latitude,
+        longitude: value.longitude ?? telemetryEntry?.longitude,
+        lat: value.lat,
+        lng: value.lng,
+      });
+
+      if (!coords) return null;
+
+      return {
+        lat: coords.lat,
+        lng: coords.lng,
+        speed:
+          parseCoord(value.speed) ??
+          parseCoord(telemetryEntry?.speed) ??
+          undefined,
+        ts:
+          parseCoord(value.ts) ??
+          parseCoord(telemetryEntry?.ts) ??
+          parseCoord(value.timestamp) ??
+          parseCoord(telemetryEntry?.timestamp) ??
+          undefined,
+      };
+    } catch (error) {
+      console.error("Failed to fetch telemetry position:", error);
+      return null;
+    }
+  }, [payload]);
 
   // 2) Kết nối MQTT WebSocket tới flespi và subscribe topic
   useEffect(() => {
@@ -291,20 +408,67 @@ export default function VehicleTrackingPage({
     };
   }, [payload]);
 
+  // 3) Fallback: gọi REST flespi để lấy location gần nhất nếu MQTT chưa gửi kịp
+  useEffect(() => {
+    if (!payload?.tmpToken || (!payload.deviceId && !payload.imei)) return;
+
+    let cancelled = false;
+
+    async function fetchAndSet() {
+      const latest = await fetchTelemetryPosition();
+      if (!cancelled && latest) {
+        setLocation(latest);
+      }
+    }
+
+    fetchAndSet();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [payload, fetchTelemetryPosition]);
+
+  // 4) Poll telemetry định kỳ (5-10s) để cập nhật vị trí mới nhất
+  useEffect(() => {
+    if (!payload?.tmpToken || (!payload.deviceId && !payload.imei)) return;
+
+    const interval = setInterval(async () => {
+      const latest = await fetchTelemetryPosition();
+      if (latest) {
+        setLocation((prev) => {
+          if (prev?.lat === latest.lat && prev?.lng === latest.lng && prev?.ts === latest.ts) {
+            return prev;
+          }
+          return latest;
+        });
+      }
+    }, 8000); // ~8s để nằm giữa ngưỡng 5-10s
+
+    return () => clearInterval(interval);
+  }, [payload, fetchTelemetryPosition]);
+
   // vị trí mặc định nếu chưa có GPS (Hồ Chí Minh)
   const defaultCenter: LatLngExpression = [10.776, 106.7];
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">
-            Theo dõi vị trí xe realtime
-          </h1>
-          <p className="text-sm text-gray-500">
-            Vehicle ID: {vehicleId}{" "}
-            {licensePlate && `| Biển số: ${licensePlate}`}
-          </p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/manager/iot"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+          >
+            ← Quay lại danh sách
+          </Link>
+          <div>
+            <h1 className="text-xl font-semibold">
+              Theo dõi vị trí xe realtime
+            </h1>
+            <p className="text-sm text-gray-500">
+              Vehicle ID: {vehicleId}{" "}
+              {licensePlate && `| Biển số: ${licensePlate}`}
+            </p>
+          </div>
         </div>
         <div className="text-sm">
           <span className="font-medium">MQTT: </span>
