@@ -67,6 +67,10 @@ export default function LoginPage() {
       document.cookie = `fullName=${encodeURIComponent(
         user.fullName ?? ""
       )}; path=/; expires=${expires.toUTCString()}`;
+      document.cookie = `username=${encodeURIComponent(
+        user.username ?? ""
+      )}; path=/; expires=${expires.toUTCString()}`;
+      document.cookie = `userId=${user.id ?? ""}; path=/; expires=${expires.toUTCString()}`;
       document.cookie = `branchId=${branchId}; path=/; expires=${expires.toUTCString()}`;
       document.cookie = `branchName=${encodeURIComponent(
         branchName

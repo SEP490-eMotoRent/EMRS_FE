@@ -1,8 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Bell, Menu } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Bell, Menu, LogOut } from "lucide-react";
+import { message } from "antd";
 
 const menuItems = [
   { name: "Tổng quan", path: "/dashboard/manager" },
@@ -11,37 +12,64 @@ const menuItems = [
   { name: "Bookings", path: "/dashboard/manager/bookings" },
   { name: "Điều chuyển xe", path: "/dashboard/manager/transfers" },
   { name: "Sự cố & Bảo hiểm", path: "/dashboard/manager/insurance" },
-  { name: "Sửa chữa", path: "/dashboard/manager/repair" },
-  { name: "Nhân sự", path: "/dashboard/manager/staffs" },
   { name: "IoT Realtime", path: "/dashboard/manager/iot" },
-  { name: "Báo cáo", path: "/dashboard/manager/reports" },
   { name: "Cài đặt", path: "/dashboard/manager/settings" },
 ];
 
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [branchName, setBranchName] = useState<string>("...");
   const [managerName, setManagerName] = useState<string>("Manager");
   const [managerEmail, setManagerEmail] = useState<string>("");
 
+  const handleLogout = async () => {
+    try {
+      // Xóa tất cả cookies
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "branchId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "branchName=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "fullName=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "username=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "userId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      
+      message.success("Đã đăng xuất thành công");
+      // Chuyển về trang login đúng route
+      router.push("/auth/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+      message.error("Đăng xuất thất bại");
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
-        // Ưu tiên đọc tên chi nhánh từ cookie (đã set khi login)
+        // Ưu tiên đọc từ cookie (đã set khi login)
         if (typeof document !== "undefined") {
           const cookieStr = document.cookie || "";
-          const match = cookieStr
-            .split(";")
-            .map((s) => s.trim())
-            .find((c) => c.startsWith("branchName="));
-          if (match) {
-            const value = decodeURIComponent(match.split("=")[1] || "");
-            if (value) {
-              setBranchName(value);
+          const cookies: Record<string, string> = {};
+          cookieStr.split(";").forEach((c) => {
+            const [key, value] = c.trim().split("=");
+            if (key && value) {
+              cookies[key] = decodeURIComponent(value);
             }
+          });
+
+          // Đọc từ cookie trước
+          if (cookies.branchName) {
+            setBranchName(cookies.branchName);
+          }
+          if (cookies.fullName) {
+            setManagerName(cookies.fullName);
+          }
+          if (cookies.username) {
+            setManagerEmail(cookies.username);
           }
         }
 
+        // Sau đó gọi API để cập nhật nếu cần
         const res = await fetch("/api/account", { cache: "no-store" });
         if (!res.ok) return;
         const json = await res.json();
@@ -52,8 +80,13 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
         const managerAcc =
           accArray.find((a: any) => a.role === "MANAGER") || accArray[0] || {};
 
-        setManagerName(managerAcc.fullName ?? "Manager");
-        setManagerEmail(managerAcc.username ?? "");
+        // Chỉ cập nhật nếu API trả về dữ liệu
+        if (managerAcc.fullName) {
+          setManagerName(managerAcc.fullName);
+        }
+        if (managerAcc.username) {
+          setManagerEmail(managerAcc.username);
+        }
 
         // Lấy tên chi nhánh từ cấu trúc staff linh hoạt (object hoặc mảng)
         const staffRaw = managerAcc.staff;
@@ -124,7 +157,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <Bell className="w-5 h-5 text-gray-600" />
+            <Bell className="w-5 h-5 text-gray-600 cursor-pointer hover:text-gray-800" />
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center font-semibold text-sm">
                 {(managerName || "M").charAt(0).toUpperCase()}
@@ -134,6 +167,14 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
                 <p className="text-gray-500 text-xs">{managerEmail}</p>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Đăng xuất"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Đăng xuất</span>
+            </button>
           </div>
         </header>
 

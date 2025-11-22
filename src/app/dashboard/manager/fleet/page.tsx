@@ -40,10 +40,20 @@ export default function FleetPage() {
   const loadVehicleModels = async () => {
     try {
       setLoading(true);
-      const data = await getVehicleModels();
-      console.log("Loaded vehicle models data:", data);
-      console.log("Number of models:", data?.length || 0);
-      setVehicleModels(Array.isArray(data) ? data : []);
+      const response = await getVehicleModels();
+      console.log("Loaded vehicle models data:", response);
+      
+      // Xử lý response mới có pagination
+      if (response && typeof response === 'object' && 'items' in response) {
+        console.log("Number of models:", response.items?.length || 0);
+        setVehicleModels(Array.isArray(response.items) ? response.items : []);
+      } else if (Array.isArray(response)) {
+        // Fallback cho structure cũ
+        console.log("Number of models:", response.length);
+        setVehicleModels(response);
+      } else {
+        setVehicleModels([]);
+      }
     } catch (err) {
       console.error("Error loading vehicle models:", err);
       setVehicleModels([]);
@@ -191,7 +201,9 @@ export default function FleetPage() {
           locale={{ emptyText: "Không có model nào" }}
           pagination={{
             pageSize: 10,
-            showSizeChanger: true,
+            showSizeChanger: false,
+            showQuickJumper: false,
+            hideOnSinglePage: false, // Luôn hiển thị pagination để người dùng biết đang ở trang nào
             showTotal: (total) => `Tổng ${total} model`,
           }}
         />

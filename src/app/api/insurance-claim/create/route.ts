@@ -6,7 +6,9 @@ import { emrsFetch } from "@/utils/emrsApi";
 // Gửi multipart/form-data lên BE /InsuranceClaim/create
 export async function POST(req: Request) {
   try {
-    const token = cookies().get("token")?.value;
+    // ⛔ BẮT BUỘC: cookies() phải await theo chuẩn Next.js 15
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -17,21 +19,37 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
 
+    console.log("Insurance claim form data:", {
+      BookingId: formData.get("BookingId"),
+      IncidentDate: formData.get("IncidentDate"),
+      IncidentLocation: formData.get("IncidentLocation"),
+      Description: formData.get("Description"),
+      filesCount: Array.from(formData.getAll("IncidentImageFiles")).length,
+    });
+
     const beRes = await emrsFetch("/InsuranceClaim/create", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
+        // Không set Content-Type cho FormData, browser sẽ tự set với boundary
       },
       body: formData,
     });
 
     const text = await beRes.text();
+    console.log("Insurance claim API response status:", beRes.status);
+    console.log("Insurance claim API response:", text.substring(0, 500));
 
-    return new NextResponse(text, { status: beRes.status });
+    return new NextResponse(text, { 
+      status: beRes.status,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   } catch (err) {
     console.error("Create Insurance Claim error:", err);
     return NextResponse.json(
-      { success: false, message: "Internal BFF Error" },
+      { success: false, message: "Internal BFF Error", error: String(err) },
       { status: 500 }
     );
   }

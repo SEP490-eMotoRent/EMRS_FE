@@ -1,185 +1,378 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
-import { getHandoverRecords, getReturnRecords } from "./operation_service";
+import { Table, Tag, Button, Modal, Descriptions, Image, Space, message } from "antd";
+import { EyeOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
+import { getRentalReceipts, getRentalReceiptById } from "./operation_service";
 
 export default function OperationPage() {
-  const [tab, setTab] = useState<"handover" | "return">("handover");
-  const [records, setRecords] = useState<any[]>([]);
-  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [tab, setTab] = useState<"all" | "handover" | "return">("all");
+  const [receipts, setReceipts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      setSelectedRecord(null);
-      try {
-        const data =
-          tab === "handover"
-            ? await getHandoverRecords()
-            : await getReturnRecords();
-        setRecords(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [tab]);
+    loadReceipts();
+  }, []);
 
-  const renderStatus = (status: string) => {
-    switch (status) {
-      case "completed":
-        return (
-          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
-            Hoàn tất
-          </span>
-        );
-      case "processing":
-        return (
-          <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">
-            Đang xử lý
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
-            -
-          </span>
-        );
+  const loadReceipts = async () => {
+    try {
+      setLoading(true);
+      const data = await getRentalReceipts();
+      setReceipts(data || []);
+    } catch (err: any) {
+      console.error(err);
+      message.error(err.message || "Không thể tải danh sách biên bản");
+      setReceipts([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
-      <h2 className="font-semibold text-lg mb-4">
-        Vận hành (Biên bản giao xe / trả xe)
-      </h2>
+  const handleViewDetail = async (id: string) => {
+    try {
+      setDetailLoading(true);
+      const detail = await getRentalReceiptById(id);
+      setSelectedReceipt(detail);
+    } catch (err: any) {
+      console.error(err);
+      message.error(err.message || "Không thể tải chi tiết biên bản");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        <button
-          className={`px-3 py-1 rounded-lg text-sm ${
-            tab === "handover"
-              ? "bg-indigo-600 text-white"
-              : "bg-gray-100 text-gray-700"
-          }`}
-          onClick={() => setTab("handover")}
+  // Filter receipts theo tab
+  const filteredReceipts = receipts.filter((receipt) => {
+    if (tab === "all") return true;
+    if (tab === "handover") {
+      // Có hình ảnh giao xe và chưa có hình ảnh trả xe
+      return (
+        receipt.handOverVehicleImageFiles &&
+        receipt.handOverVehicleImageFiles.length > 0 &&
+        (!receipt.returnVehicleImageFiles ||
+          receipt.returnVehicleImageFiles.length === 0)
+      );
+    }
+    if (tab === "return") {
+      // Có hình ảnh trả xe
+      return (
+        receipt.returnVehicleImageFiles &&
+        receipt.returnVehicleImageFiles.length > 0
+      );
+    }
+    return true;
+  });
+
+  const columns = [
+    {
+      title: "Mã biên bản",
+      dataIndex: "id",
+      key: "id",
+      render: (id: string) => (
+        <span className="font-mono text-sm">{id.substring(0, 8)}...</span>
+      ),
+    },
+    {
+      title: "Mã Booking",
+      dataIndex: "bookingId",
+      key: "bookingId",
+      render: (bookingId: string) => (
+        <span className="font-mono text-sm">{bookingId?.substring(0, 8)}...</span>
+      ),
+    },
+    {
+      title: "Xe",
+      dataIndex: "vehicleId",
+      key: "vehicleId",
+      render: (vehicleId: string) => (
+        <span className="font-mono text-sm">{vehicleId?.substring(0, 8)}...</span>
+      ),
+    },
+    {
+      title: "Trạng thái",
+      key: "status",
+      render: (_: any, record: any) => {
+        const hasHandover =
+          record.handOverVehicleImageFiles &&
+          record.handOverVehicleImageFiles.length > 0;
+        const hasReturn =
+          record.returnVehicleImageFiles &&
+          record.returnVehicleImageFiles.length > 0;
+
+        if (hasHandover && hasReturn) {
+          return <Tag color="green">Đã giao & trả</Tag>;
+        } else if (hasHandover) {
+          return <Tag color="orange">Đã giao</Tag>;
+        } else {
+          return <Tag color="default">Chưa giao</Tag>;
+        }
+      },
+    },
+    {
+      title: "Số km bắt đầu",
+      dataIndex: "startOdometerKm",
+      key: "startOdometerKm",
+      render: (km: number) => (km ? `${km} km` : "-"),
+    },
+    {
+      title: "Pin bắt đầu",
+      dataIndex: "startBatteryPercentage",
+      key: "startBatteryPercentage",
+      render: (percent: number) => (percent ? `${percent}%` : "-"),
+    },
+    {
+      title: "Số km kết thúc",
+      dataIndex: "endOdometerKm",
+      key: "endOdometerKm",
+      render: (km: number) => (km ? `${km} km` : "-"),
+    },
+    {
+      title: "Pin kết thúc",
+      dataIndex: "endBatteryPercentage",
+      key: "endBatteryPercentage",
+      render: (percent: number) => (percent ? `${percent}%` : "-"),
+    },
+    {
+      title: "Xác nhận khách",
+      dataIndex: "renterConfirmedAt",
+      key: "renterConfirmedAt",
+      render: (date: string) =>
+        date ? dayjs(date).format("DD/MM/YYYY HH:mm") : "-",
+    },
+    {
+      title: "Hành động",
+      key: "action",
+      render: (_: any, record: any) => (
+        <Button
+          type="link"
+          icon={<EyeOutlined />}
+          onClick={() => handleViewDetail(record.id)}
         >
-          Biên bản giao xe
-        </button>
-        <button
-          className={`px-3 py-1 rounded-lg text-sm ${
-            tab === "return"
-              ? "bg-indigo-600 text-white"
-              : "bg-gray-100 text-gray-700"
-          }`}
-          onClick={() => setTab("return")}
-        >
-          Biên bản trả xe
-        </button>
+          Xem chi tiết
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold mb-4">
+          Vận hành (Giao/Trả)
+        </h1>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-4">
+          <Button
+            type={tab === "all" ? "primary" : "default"}
+            onClick={() => setTab("all")}
+          >
+            Tất cả
+          </Button>
+          <Button
+            type={tab === "handover" ? "primary" : "default"}
+            onClick={() => setTab("handover")}
+          >
+            Đã giao xe
+          </Button>
+          <Button
+            type={tab === "return" ? "primary" : "default"}
+            onClick={() => setTab("return")}
+          >
+            Đã trả xe
+          </Button>
+        </div>
       </div>
 
-      {/* Danh sách */}
-      {loading ? (
-        <p className="text-gray-400 text-sm">Đang tải dữ liệu...</p>
-      ) : records.length === 0 ? (
-        <p className="text-gray-400 text-sm">Không có biên bản nào.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-gray-600 border-b">
-                <th className="text-left py-2 px-3">Mã biên bản</th>
-                <th className="text-left py-2 px-3">Biển số xe</th>
-                <th className="text-left py-2 px-3">Khách thuê</th>
-                <th className="text-left py-2 px-3">Nhân viên lập</th>
-                <th className="text-left py-2 px-3">Thời gian</th>
-                <th className="text-left py-2 px-3">Trạng thái</th>
-                <th className="text-center py-2 px-3">Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-b hover:bg-gray-50 transition"
-                >
-                  <td className="py-2 px-3 font-medium">{r.code}</td>
-                  <td className="py-2 px-3">{r.vehiclePlate}</td>
-                  <td className="py-2 px-3">{r.renterName}</td>
-                  <td className="py-2 px-3">{r.staffName}</td>
-                  <td className="py-2 px-3 text-gray-500">
-                    {new Date(r.createdAt).toLocaleString("vi-VN")}
-                  </td>
-                  <td className="py-2 px-3">{renderStatus(r.status)}</td>
-                  <td className="py-2 px-3 text-center">
-                    <button
-                      onClick={() => setSelectedRecord(r)}
-                      className="text-indigo-600 text-sm font-medium hover:underline"
-                    >
-                      Xem chi tiết
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="bg-white shadow rounded-lg p-4">
+        <Table
+          rowKey="id"
+          loading={loading}
+          columns={columns}
+          dataSource={filteredReceipts}
+          locale={{ emptyText: "Không có biên bản nào" }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng ${total} biên bản`,
+          }}
+        />
+      </div>
 
-      {/* ===== Modal chi tiết ===== */}
-      {selectedRecord && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl p-6 relative animate-fadeIn">
-            {/* Nút đóng */}
-            <button
-              onClick={() => setSelectedRecord(null)}
-              className="absolute top-3 right-4 text-gray-500 hover:text-gray-700 text-xl"
-            >
-              ×
-            </button>
+      {/* Modal chi tiết */}
+      <Modal
+        title="Chi tiết biên bản giao/trả xe"
+        open={!!selectedReceipt}
+        onCancel={() => setSelectedReceipt(null)}
+        footer={[
+          <Button key="close" onClick={() => setSelectedReceipt(null)}>
+            Đóng
+          </Button>,
+        ]}
+        width={1000}
+        loading={detailLoading}
+      >
+        {selectedReceipt && (
+          <div className="space-y-6">
+            {/* Thông tin cơ bản */}
+            <Descriptions title="Thông tin cơ bản" bordered column={2}>
+              <Descriptions.Item label="Mã biên bản">
+                {selectedReceipt.id}
+              </Descriptions.Item>
+              <Descriptions.Item label="Mã Booking">
+                {selectedReceipt.bookingId}
+              </Descriptions.Item>
+              <Descriptions.Item label="Xe">
+                {selectedReceipt.vehicleId}
+              </Descriptions.Item>
+              <Descriptions.Item label="Nhân viên">
+                {selectedReceipt.staffId}
+              </Descriptions.Item>
+              <Descriptions.Item label="Ghi chú">
+                {selectedReceipt.notes || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Xác nhận khách">
+                {selectedReceipt.renterConfirmedAt
+                  ? dayjs(selectedReceipt.renterConfirmedAt).format(
+                      "DD/MM/YYYY HH:mm"
+                    )
+                  : "Chưa xác nhận"}
+              </Descriptions.Item>
+            </Descriptions>
 
-            <h3 className="font-semibold text-lg mb-4 text-gray-800">
-              Chi tiết biên bản: {selectedRecord.code}
-            </h3>
+            {/* Thông tin giao xe */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Thông tin giao xe</h3>
+              <Descriptions bordered column={2}>
+                <Descriptions.Item label="Số km">
+                  {selectedReceipt.startOdometerKm
+                    ? `${selectedReceipt.startOdometerKm} km`
+                    : "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Pin">
+                  {selectedReceipt.startBatteryPercentage
+                    ? `${selectedReceipt.startBatteryPercentage}%`
+                    : "-"}
+                </Descriptions.Item>
+              </Descriptions>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500">Mã Booking</p>
-                <p className="font-medium">{selectedRecord.bookingId}</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500">Khách thuê</p>
-                <p className="font-medium">{selectedRecord.renterName}</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500">Xe</p>
-                <p className="font-medium">{selectedRecord.vehiclePlate}</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-gray-500">Nhân viên lập</p>
-                <p className="font-medium">{selectedRecord.staffName}</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg col-span-2">
-                <p className="text-gray-500 mb-1">Thời gian lập biên bản</p>
-                <p className="font-medium">
-                  {new Date(selectedRecord.createdAt).toLocaleString("vi-VN")}
-                </p>
-              </div>
+              {/* Hình ảnh giao xe */}
+              {selectedReceipt.handOverVehicleImageFiles &&
+                selectedReceipt.handOverVehicleImageFiles.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Hình ảnh giao xe:</h4>
+                    <Image.PreviewGroup>
+                      <Space wrap>
+                        {selectedReceipt.handOverVehicleImageFiles.map(
+                          (img: string, idx: number) => (
+                            <Image
+                              key={idx}
+                              src={img}
+                              alt={`Giao xe ${idx + 1}`}
+                              width={150}
+                              height={150}
+                              className="object-cover rounded"
+                            />
+                          )
+                        )}
+                      </Space>
+                    </Image.PreviewGroup>
+                  </div>
+                )}
+
+              {/* Checklist giao xe */}
+              {selectedReceipt.checkListHandoverFile &&
+                selectedReceipt.checkListHandoverFile.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Checklist giao xe:</h4>
+                    <Image.PreviewGroup>
+                      <Space wrap>
+                        {selectedReceipt.checkListHandoverFile.map(
+                          (img: string, idx: number) => (
+                            <Image
+                              key={idx}
+                              src={img}
+                              alt={`Checklist giao xe ${idx + 1}`}
+                              width={200}
+                              className="object-cover rounded"
+                            />
+                          )
+                        )}
+                      </Space>
+                    </Image.PreviewGroup>
+                  </div>
+                )}
             </div>
 
-            <div className="text-right mt-5">
-              <button
-                onClick={() => setSelectedRecord(null)}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm"
-              >
-                Đóng
-              </button>
+            {/* Thông tin trả xe */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Thông tin trả xe</h3>
+              <Descriptions bordered column={2}>
+                <Descriptions.Item label="Số km">
+                  {selectedReceipt.endOdometerKm
+                    ? `${selectedReceipt.endOdometerKm} km`
+                    : "Chưa trả"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Pin">
+                  {selectedReceipt.endBatteryPercentage
+                    ? `${selectedReceipt.endBatteryPercentage}%`
+                    : "Chưa trả"}
+                </Descriptions.Item>
+              </Descriptions>
+
+              {/* Hình ảnh trả xe */}
+              {selectedReceipt.returnVehicleImageFiles &&
+                selectedReceipt.returnVehicleImageFiles.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Hình ảnh trả xe:</h4>
+                    <Image.PreviewGroup>
+                      <Space wrap>
+                        {selectedReceipt.returnVehicleImageFiles.map(
+                          (img: string, idx: number) => (
+                            <Image
+                              key={idx}
+                              src={img}
+                              alt={`Trả xe ${idx + 1}`}
+                              width={150}
+                              height={150}
+                              className="object-cover rounded"
+                            />
+                          )
+                        )}
+                      </Space>
+                    </Image.PreviewGroup>
+                  </div>
+                )}
+
+              {/* Checklist trả xe */}
+              {selectedReceipt.checkListReturnFile &&
+                selectedReceipt.checkListReturnFile.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Checklist trả xe:</h4>
+                    <Image.PreviewGroup>
+                      <Space wrap>
+                        {selectedReceipt.checkListReturnFile.map(
+                          (img: string, idx: number) => (
+                            <Image
+                              key={idx}
+                              src={img}
+                              alt={`Checklist trả xe ${idx + 1}`}
+                              width={200}
+                              className="object-cover rounded"
+                            />
+                          )
+                        )}
+                      </Space>
+                    </Image.PreviewGroup>
+                  </div>
+                )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

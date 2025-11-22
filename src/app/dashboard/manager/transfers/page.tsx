@@ -35,6 +35,7 @@ export default function ManagerTransfersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [models, setModels] = useState<VehicleModelOption[]>([]);
+  const [loadingModels, setLoadingModels] = useState(true);
 
   const [form] = Form.useForm();
 
@@ -78,30 +79,62 @@ export default function ManagerTransfersPage() {
     // load vehicle models để chọn vehicleModelId
     (async () => {
       try {
-        const res = await fetch("/api/vehicle-model/list", {
+        setLoadingModels(true);
+        const res = await fetch("/api/vehicle-model/list?pageNum=1&pageSize=100&descendingOrder=false", {
           cache: "no-store",
         });
+        
+        if (!res.ok) {
+          console.error("Vehicle model API error:", res.status, res.statusText);
+          message.error("Không thể tải danh sách mẫu xe");
+          return;
+        }
+
         const text = await res.text();
         let json: any;
         try {
           json = JSON.parse(text);
         } catch {
-          json = null;
+          console.error("Failed to parse vehicle model response:", text);
+          message.error("Dữ liệu mẫu xe không hợp lệ");
+          return;
         }
 
-        const list: any[] =
-          (json && (json.data ?? json)) && Array.isArray(json.data ?? json)
-            ? json.data ?? json
-            : [];
+        // Xử lý nhiều cấu trúc response có thể có
+        let list: any[] = [];
+        
+        if (json?.success && json?.data) {
+          // Có pagination với items
+          if (json.data.items && Array.isArray(json.data.items)) {
+            list = json.data.items;
+          } 
+          // Data là array trực tiếp
+          else if (Array.isArray(json.data)) {
+            list = json.data;
+          }
+        } 
+        // Response là array trực tiếp
+        else if (Array.isArray(json?.data)) {
+          list = json.data;
+        } 
+        else if (Array.isArray(json)) {
+          list = json;
+        }
+
+        console.log("Vehicle models loaded:", list.length);
+        console.log("Sample model:", list[0]);
 
         setModels(
           list.map((m: any) => ({
-            vehicleModelId: m.vehicleModelId,
-            modelName: m.modelName,
+            vehicleModelId: m.vehicleModelId || m.id,
+            modelName: m.modelName || m.name || "N/A",
           }))
         );
       } catch (err) {
-        console.error(err);
+        console.error("Error loading vehicle models:", err);
+        message.error("Không thể tải danh sách mẫu xe");
+      } finally {
+        setLoadingModels(false);
       }
     })();
   }, []);
@@ -265,12 +298,14 @@ export default function ManagerTransfersPage() {
           >
             <Select
               placeholder="Chọn mẫu xe"
+              loading={loadingModels}
               options={models.map((m) => ({
                 label: m.modelName,
                 value: m.vehicleModelId,
               }))}
               showSearch
               optionFilterProp="label"
+              notFoundContent={loadingModels ? "Đang tải..." : "Không có mẫu xe nào"}
             />
           </Form.Item>
           <Form.Item

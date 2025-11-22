@@ -10,13 +10,11 @@ interface VehicleRealtimeInfo {
   status: string;
   batteryHealthPercentage: number;
   color: string;
-  hasTracking?: boolean;
+  hasTracking: boolean;
 }
 
-// Danh sách vehicle IDs có tracking capability
-const TRACKING_VEHICLE_IDS = [
-  "072ea2b3-c69b-4607-85ff-ff5825ff8e2a",
-];
+// ID của xe có tracking
+const TRACKING_VEHICLE_ID = "072ea2b3-c69b-4607-85ff-ff5825ff8e2a";
 
 export default function IoTRealtimePage() {
   const [loading, setLoading] = useState(true);
@@ -28,84 +26,50 @@ export default function IoTRealtimePage() {
       try {
         setLoading(true);
 
-        const res = await fetch("/api/vehicle");
+        // Lấy danh sách vehicle models với vehicles từ API mới
+        const res = await fetch("/api/vehicle-model/list?pageNum=1&pageSize=100&descendingOrder=false");
         
         if (!res.ok) {
-          console.error("Vehicle API failed:", res.status, res.statusText);
+          console.error("Vehicle model API failed:", res.status, res.statusText);
           return;
         }
 
         const json = await res.json();
-        console.log("Vehicle API response:", json);
+        console.log("Vehicle model API response:", json);
 
-        // Handle response structure: { success: true, data: [...] } or direct array
-        let vehiclesList: any[] = [];
+        // Xử lý response structure mới: { success: true, data: { items: [...] } }
+        let allVehicles: any[] = [];
         
-        if (json.success && Array.isArray(json.data)) {
-          vehiclesList = json.data;
-        } else if (Array.isArray(json.data)) {
-          vehiclesList = json.data;
-        } else if (Array.isArray(json)) {
-          vehiclesList = json;
-        } else if (json.success && json.data && typeof json.data === 'object') {
-          // Nếu data là object (có thể là pagination object hoặc empty object)
-          // Kiểm tra xem có items/vehicles property không
-          if (Array.isArray(json.data.items)) {
-            vehiclesList = json.data.items;
-          } else if (Array.isArray(json.data.vehicles)) {
-            vehiclesList = json.data.vehicles;
-          } else if (Array.isArray(json.data.data)) {
-            vehiclesList = json.data.data;
+        if (json.success && json.data) {
+          if (json.data.items && Array.isArray(json.data.items)) {
+            // Lấy tất cả vehicles từ các models
+            json.data.items.forEach((model: any) => {
+              if (model.vehicles && Array.isArray(model.vehicles)) {
+                allVehicles = allVehicles.concat(model.vehicles);
+              }
+            });
           }
         }
 
-        console.log("Vehicles list:", vehiclesList);
-        console.log("Tracking vehicle IDs:", TRACKING_VEHICLE_IDS);
+        console.log("All vehicles from models:", allVehicles);
 
-        // Normalize IDs để so sánh (lowercase, trim)
-        const normalizedTrackingIds = TRACKING_VEHICLE_IDS.map(id => id.toLowerCase().trim());
-
-        let list: VehicleRealtimeInfo[] = [];
-
-        // Nếu có vehicles từ API, map và filter
-        if (vehiclesList.length > 0) {
-          list = vehiclesList
-            .map((v: any) => {
-              const vehicleId = String(v.id || v.vehicleId || "").trim();
-              const normalizedId = vehicleId.toLowerCase();
-              const hasTracking = normalizedTrackingIds.includes(normalizedId);
-              
-              console.log(`Vehicle ID: ${vehicleId}, License: ${v.licensePlate}, Has tracking: ${hasTracking}`);
-              
-              return {
-                id: vehicleId,
-                licensePlate: v.licensePlate,
-                status: v.status,
-                batteryHealthPercentage: v.batteryHealthPercentage,
-                color: v.color,
-                hasTracking: hasTracking,
-              };
-            })
-            // Chỉ hiển thị xe có tracking
-            .filter((v: VehicleRealtimeInfo) => v.hasTracking);
-        }
-
-        // Nếu không có xe từ API nhưng có tracking IDs, tạo placeholder entries
-        // để user vẫn có thể click vào xem tracking
-        if (list.length === 0 && TRACKING_VEHICLE_IDS.length > 0) {
-          console.warn("Không tìm thấy xe từ API. Tạo placeholder cho tracking vehicles:");
-          list = TRACKING_VEHICLE_IDS.map((id) => ({
-            id: id,
-            licensePlate: `Vehicle ${id.substring(0, 8)}...`,
-            status: "Unknown",
-            batteryHealthPercentage: 0,
-            color: "",
+        // Chỉ lấy xe có ID tracking (không cần gọi API tracking nữa)
+        const vehiclesWithTracking = allVehicles
+          .filter((vehicle: any) => {
+            const vehicleId = vehicle.id || vehicle.vehicleId;
+            return vehicleId && vehicleId.toLowerCase() === TRACKING_VEHICLE_ID.toLowerCase();
+          })
+          .map((vehicle: any) => ({
+            id: vehicle.id || vehicle.vehicleId,
+            licensePlate: vehicle.licensePlate || "N/A",
+            status: vehicle.status || "Unknown",
+            batteryHealthPercentage: vehicle.batteryHealthPercentage || 0,
+            color: vehicle.color || "",
             hasTracking: true,
-          }));
-        }
-        
-        console.log("Filtered vehicles with tracking:", list);
-        setVehicles(list);
+          } as VehicleRealtimeInfo));
+
+        console.log("Vehicles with tracking:", vehiclesWithTracking);
+        setVehicles(vehiclesWithTracking);
       } catch (err) {
         console.error("Realtime list error:", err);
       } finally {
@@ -184,7 +148,13 @@ export default function IoTRealtimePage() {
         columns={columns}
         dataSource={filtered}
         rowKey="id"
-        pagination={{ pageSize: 10 }}
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: false,
+          showQuickJumper: false,
+          hideOnSinglePage: false, // Luôn hiển thị pagination để người dùng biết đang ở trang nào
+          showTotal: (total) => `Tổng ${total} xe có tracking`,
+        }}
       />
     </div>
   );

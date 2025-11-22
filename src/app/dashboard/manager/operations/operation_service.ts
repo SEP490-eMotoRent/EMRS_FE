@@ -1,16 +1,37 @@
 // app/dashboard/manager/operations/operation_service.ts
-export const API_BASE_URL = "http://localhost:4000";
 
-// 🟢 Biên bản giao xe
-export async function getHandoverRecords() {
-  const res = await fetch(`${API_BASE_URL}/handover_records`, { cache: "no-store" });
-  if (!res.ok) throw new Error("Không thể tải biên bản giao xe");
-  return res.json();
+// Lấy danh sách tất cả rental receipts (bao gồm cả giao và trả)
+export async function getRentalReceipts() {
+  const res = await fetch("/api/rental/receipt", {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error("Không thể tải danh sách biên bản");
+  }
+
+  const json = await res.json();
+  if (!json.success) {
+    throw new Error(json.message || "Không thể tải danh sách biên bản");
+  }
+
+  return json.data || [];
 }
 
-// 🔵 Biên bản trả xe
-export async function getReturnRecords() {
-  const res = await fetch(`${API_BASE_URL}/return_records`, { cache: "no-store" });
-  if (!res.ok) throw new Error("Không thể tải biên bản trả xe");
-  return res.json();
+// Lấy chi tiết một rental receipt
+export async function getRentalReceiptById(id: string) {
+  const res = await fetch(`/api/rental/receipt/${id}`, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error("Không thể tải chi tiết biên bản");
+  }
+
+  const json = await res.json();
+  if (!json.success) {
+    throw new Error(json.message || "Không thể tải chi tiết biên bản");
+  }
+
+  return json.data;
 }

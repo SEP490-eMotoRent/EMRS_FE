@@ -310,57 +310,19 @@ export default function BookingsPage() {
       key: "action",
       align: "center" as const,
       render: (_: any, record: any) => (
-        <Space size="small" wrap>
-          <Button
-            size="small"
-            type="link"
-            onClick={() =>
-              router.push(
-                `/dashboard/manager/bookings/${
-                  record.id || record.bookingId || record.bookingCode
-                }`
-              )
-            }
-          >
-            Chi tiết
-          </Button>
-          <Tooltip title="Giao xe cho khách">
-            <Button
-              size="small"
-              type="link"
-              disabled={
-                (record.bookingStatus || record.status) === "completed" ||
-                (record.bookingStatus || record.status) === "cancelled"
-              }
-              onClick={() => handleAssignVehicle(record.id || record.bookingId)}
-            >
-              Giao xe
-            </Button>
-          </Tooltip>
-          <Tooltip title="Xử lý trả xe">
-            <Button
-              size="small"
-              type="link"
-              disabled={
-                (record.bookingStatus || record.status) === "completed" ||
-                (record.bookingStatus || record.status) === "cancelled"
-              }
-              onClick={() => handleReturnVehicle(record.id || record.bookingId)}
-            >
-              Trả xe
-            </Button>
-          </Tooltip>
-          <Tooltip title="Tạo báo cáo sự cố/bảo hiểm">
-            <Button
-              size="small"
-              type="link"
-              danger
-              onClick={() => handleIncident(record.id || record.bookingId)}
-            >
-              Sự cố
-            </Button>
-          </Tooltip>
-        </Space>
+        <Button
+          size="small"
+          type="link"
+          onClick={() =>
+            router.push(
+              `/dashboard/manager/bookings/${
+                record.id || record.bookingId || record.bookingCode
+              }`
+            )
+          }
+        >
+          Chi tiết
+        </Button>
       ),
     },
   ];
@@ -384,7 +346,7 @@ export default function BookingsPage() {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-4">
-          Bookings - giao/nhận, hợp đồng, cọc
+          Bookings
         </h1>
 
         <div className="flex gap-4 items-center mb-4">

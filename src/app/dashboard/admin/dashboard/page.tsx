@@ -63,20 +63,9 @@ export default function Dashboard() {
         new Date(b.created_at).toDateString() === new Date().toDateString()
     )?.length ?? 0;
 
-  const chartRevenue = [
-    { day: "T2", value: 22 },
-    { day: "T3", value: 28 },
-    { day: "T4", value: 25 },
-    { day: "T5", value: 30 },
-    { day: "T6", value: 27 },
-    { day: "T7", value: 35 },
-    { day: "CN", value: 40 },
-  ];
-
-  const branchStats = data.branches?.map((b: any, i: number) => ({
-    name: b.branch_name || `CN${i + 1}`,
-    count: Math.floor(Math.random() * 100) + 20, // demo
-  }));
+  // Chart data sẽ được tính từ dữ liệu thực tế từ API
+  const chartRevenue: any[] = [];
+  const branchStats: any[] = [];
 
   const activeRatio = Math.round(
     (activeVehicles / (data.vehicles?.length || 1)) * 100
@@ -90,7 +79,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card title="Tổng khách thuê (hôm nay)" value={todayBookings} />
         <Card title="Xe đang được thuê" value={activeVehicles} />
-        <Card title="Doanh thu (hôm nay)" value="78.5 triệu" />
+        <Card title="Doanh thu (hôm nay)" value={totalRevenue ? `${(totalRevenue / 1000000).toFixed(1)} triệu` : "0"} />
         <Card title="Xe bảo trì" value={maintenanceVehicles} />
       </div>
 
@@ -99,30 +88,42 @@ export default function Dashboard() {
         {/* Line Chart */}
         <div className="bg-white border rounded-2xl p-4">
           <h2 className="font-semibold mb-2">Doanh thu 7 ngày gần nhất</h2>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartRevenue}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="value" stroke="#4F46E5" strokeWidth={3} />
-            </LineChart>
-          </ResponsiveContainer>
+          {chartRevenue.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={chartRevenue}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="value" stroke="#4F46E5" strokeWidth={3} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[200px] text-gray-400">
+              Chưa có dữ liệu
+            </div>
+          )}
           <p className="text-gray-400 text-xs mt-1">Đơn vị: triệu VND</p>
         </div>
 
         {/* Bar Chart */}
         <div className="bg-white border rounded-2xl p-4">
           <h2 className="font-semibold mb-2">Xe theo chi nhánh</h2>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={branchStats}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#6366F1" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {branchStats.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={branchStats}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#6366F1" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[200px] text-gray-400">
+              Chưa có dữ liệu
+            </div>
+          )}
         </div>
 
         {/* Pie Chart */}
