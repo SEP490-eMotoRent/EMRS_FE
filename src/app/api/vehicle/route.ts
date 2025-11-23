@@ -19,13 +19,8 @@ export async function GET(request: Request) {
       );
     }
 
-    if (!branchId) {
-      console.error("Vehicle API - No branchId in cookie!");
-      return NextResponse.json(
-        { success: false, message: "Unauthorized - No branchId" },
-        { status: 401 }
-      );
-    }
+    // Admin có thể không cần branchId, manager thì cần
+    // Nếu không có branchId và không có trong query params, vẫn cho phép (admin)
 
     const { searchParams } = new URL(request.url);
     const params = new URLSearchParams();
@@ -62,8 +57,23 @@ export async function GET(request: Request) {
       params.append("PageNum", "1");
     }
     
-    // Luôn filter theo BranchId của manager - BẮT BUỘC
-    params.append("BranchId", branchId);
+    // Filter theo BranchId nếu có (cho manager), admin có thể không filter
+    const branchIdParam = searchParams.get("BranchId");
+    console.log("Vehicle API - branchId from cookie:", branchId);
+    console.log("Vehicle API - branchIdParam from query:", branchIdParam);
+    
+    if (branchId && !branchIdParam) {
+      // Manager: dùng branchId từ cookie
+      params.append("BranchId", branchId);
+      console.log("Vehicle API - Using branchId from cookie:", branchId);
+    } else if (branchIdParam && branchIdParam !== "all") {
+      // Admin: dùng branchId từ query param (nếu không phải "all")
+      params.append("BranchId", branchIdParam);
+      console.log("Vehicle API - Using branchIdParam from query:", branchIdParam);
+    } else {
+      // Nếu branchIdParam === "all" hoặc không có, không append BranchId (admin xem tất cả)
+      console.log("Vehicle API - Not filtering by BranchId (admin view all)");
+    }
 
     const queryString = params.toString();
     const url = `/Vehicle${queryString ? `?${queryString}` : ""}`;

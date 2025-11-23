@@ -17,7 +17,8 @@ export default function SettingsPage() {
     try {
       setLoading(true);
       
-      // Ưu tiên đọc từ cookie (đã set khi login)
+      // Lấy username từ cookie để tìm account
+      let username: string | null = null;
       if (typeof document !== "undefined") {
         const cookieStr = document.cookie || "";
         const cookies: Record<string, string> = {};
@@ -27,60 +28,114 @@ export default function SettingsPage() {
             cookies[key] = decodeURIComponent(value);
           }
         });
-
-        // Tạo account data từ cookie (ưu tiên cookie vì đây là dữ liệu từ login)
-        const accountFromCookie = {
-          fullName: cookies.fullName || "",
-          username: cookies.username || "",
-          role: cookies.role || "MANAGER",
-          id: cookies.userId || "",
-        };
-        
-        console.log("Account from cookie:", accountFromCookie);
-        
-        if (accountFromCookie.fullName || accountFromCookie.username) {
-          setAccountData(accountFromCookie);
-        }
+        username = cookies.username || null;
+        console.log("Username from cookie:", username);
       }
       
-      // Lấy thông tin tài khoản từ API để bổ sung (nhưng không override username từ cookie)
+      // Bước 1: Gọi GET /api/account để lấy tất cả accounts
       try {
-        const accountRes = await fetch("/api/account", { cache: "no-store" });
+        const allAccountsRes = await fetch("/api/account", { cache: "no-store" });
+        if (!allAccountsRes.ok) {
+          throw new Error(`Failed to fetch accounts: ${allAccountsRes.status}`);
+        }
+        
+        const allAccountsJson = await allAccountsRes.json();
+        const accountsData = allAccountsJson.data || [];
+        
+        console.log("All accounts data:", accountsData);
+        
+        // Bước 2: Tìm account theo username (hoặc role MANAGER nếu không tìm thấy)
+        let targetAccount = null;
+        if (username) {
+          targetAccount = Array.isArray(accountsData) 
+            ? accountsData.find((acc: any) => acc.username === username)
+            : null;
+        }
+        
+        // Nếu không tìm thấy theo username, tìm theo role MANAGER
+        if (!targetAccount && Array.isArray(accountsData)) {
+          targetAccount = accountsData.find((acc: any) => acc.role === "MANAGER");
+        }
+        
+        if (!targetAccount) {
+          console.warn("No account found, using first account or cookie data");
+          // Fallback: dùng cookie data
+          if (typeof document !== "undefined") {
+            const cookieStr = document.cookie || "";
+            const cookies: Record<string, string> = {};
+            cookieStr.split(";").forEach((c) => {
+              const [key, value] = c.trim().split("=");
+              if (key && value) {
+                cookies[key] = decodeURIComponent(value);
+              }
+            });
+            
+            const accountFromCookie = {
+              fullname: cookies.fullName || "",
+              username: cookies.username || "",
+              role: cookies.role || "MANAGER",
+              id: cookies.userId || "",
+            };
+            
+            if (accountFromCookie.fullname || accountFromCookie.username) {
+              setAccountData(accountFromCookie);
+            }
+          }
+          return;
+        }
+        
+        console.log("Target account found:", targetAccount);
+        
+        // Bước 3: Lấy account.id (KHÔNG phải staff.id)
+        const accountId = targetAccount.id;
+        if (!accountId) {
+          console.error("Account ID not found in target account");
+          message.error("Không tìm thấy ID tài khoản");
+          return;
+        }
+        
+        console.log("Fetching account details with account ID:", accountId);
+        
+        // Bước 4: Gọi GET /api/account/{accountId} để lấy đầy đủ thông tin
+        const accountRes = await fetch(`/api/account/${accountId}`, { cache: "no-store" });
+        
         if (accountRes.ok) {
           const accountJson = await accountRes.json();
-          const raw = accountJson.data ?? accountJson;
-          const accArray = Array.isArray(raw) ? raw : [raw];
-          const managerAcc = accArray.find((a: any) => a.role === "MANAGER") || accArray[0] || {};
+          console.log("Account detail API response:", accountJson);
           
-          // Merge với dữ liệu từ cookie, nhưng ưu tiên username và fullName từ cookie (từ login)
-          setAccountData((prev: any) => {
-            // Ưu tiên cookie (từ login response) cho username và fullName
-            // Chỉ dùng API data nếu cookie không có
-            const merged = {
-              ...prev,
-              ...managerAcc,
-              // Luôn ưu tiên cookie trước (từ login response) - không override nếu đã có
-              username: (prev?.username && prev.username !== "") ? prev.username : (managerAcc.username || ""),
-              fullName: (prev?.fullName && prev.fullName !== "") ? prev.fullName : (managerAcc.fullName || ""),
-              // Các field khác lấy từ API
-              phoneNumber: managerAcc.phoneNumber || prev?.phoneNumber,
-              email: managerAcc.email || managerAcc.username || prev?.email || prev?.username,
-            };
-            console.log("Merged account data:", merged);
-            return merged;
+          const accountDataFromApi = accountJson.data || accountJson;
+          
+          console.log("Account data from API:", accountDataFromApi);
+          
+          // Set account data
+          setAccountData(accountDataFromApi);
+          
+          // Lấy branch data từ staff.branch (theo cấu trúc response: data.staff.branch)
+          const staff = accountDataFromApi.staff;
+          if (staff && staff.branch) {
+            console.log("Branch data from staff:", staff.branch);
+            setBranchData(staff.branch);
+          } else {
+            console.warn("No branch data found in staff:", staff);
+          }
+        } else {
+          const errorText = await accountRes.text();
+          let errorJson;
+          try {
+            errorJson = JSON.parse(errorText);
+          } catch {
+            errorJson = { message: errorText };
+          }
+          console.error("Failed to fetch account by ID:", {
+            status: accountRes.status,
+            statusText: accountRes.statusText,
+            error: errorJson
           });
+          message.error(`Không thể tải thông tin tài khoản: ${errorJson.message || accountRes.statusText || accountRes.status}`);
         }
       } catch (err) {
-        console.warn("Could not fetch account from API:", err);
-      }
-
-      // Lấy thông tin chi nhánh
-      const branchRes = await fetch("/api/manager/dashboard", { cache: "no-store" });
-      if (branchRes.ok) {
-        const branchJson = await branchRes.json();
-        if (branchJson.success && branchJson.data?.branch) {
-          setBranchData(branchJson.data.branch);
-        }
+        console.error("Error fetching account data:", err);
+        message.error("Không thể tải thông tin tài khoản");
       }
     } catch (err) {
       console.error("Error loading settings data:", err);
@@ -112,11 +167,11 @@ export default function SettingsPage() {
             icon={<UserOutlined />}
             className="bg-indigo-500"
           >
-            {accountData?.fullName?.charAt(0)?.toUpperCase() || "M"}
+            {(accountData?.fullname || accountData?.fullName)?.charAt(0)?.toUpperCase() || "M"}
           </Avatar>
           <div className="flex-1">
             <h2 className="text-xl font-semibold mb-2">
-              {accountData?.fullName || "Manager"}
+              {accountData?.fullname || accountData?.fullName || "Manager"}
             </h2>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-gray-600">
@@ -144,7 +199,7 @@ export default function SettingsPage() {
             {accountData?.email || accountData?.username || "-"}
           </Descriptions.Item>
           <Descriptions.Item label="Họ và tên">
-            {accountData?.fullName || "-"}
+            {accountData?.fullname || accountData?.fullName || "-"}
           </Descriptions.Item>
           <Descriptions.Item label="Số điện thoại">
             {accountData?.phoneNumber || "-"}

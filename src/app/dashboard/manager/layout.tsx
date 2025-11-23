@@ -11,6 +11,7 @@ const menuItems = [
   { name: "Quản lý Fleet", path: "/dashboard/manager/fleet" },
   { name: "Bookings", path: "/dashboard/manager/bookings" },
   { name: "Điều chuyển xe", path: "/dashboard/manager/transfers" },
+  { name: "Tickets - Hỗ trợ kỹ thuật", path: "/dashboard/manager/tickets" },
   { name: "Sự cố & Bảo hiểm", path: "/dashboard/manager/insurance" },
   { name: "IoT Realtime", path: "/dashboard/manager/iot" },
   { name: "Cài đặt", path: "/dashboard/manager/settings" },
@@ -47,6 +48,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
     (async () => {
       try {
         // Ưu tiên đọc từ cookie (đã set khi login)
+        let username: string | null = null;
         if (typeof document !== "undefined") {
           const cookieStr = document.cookie || "";
           const cookies: Record<string, string> = {};
@@ -66,40 +68,78 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
           }
           if (cookies.username) {
             setManagerEmail(cookies.username);
+            username = cookies.username;
           }
         }
 
-        // Sau đó gọi API để cập nhật nếu cần
-        const res = await fetch("/api/account", { cache: "no-store" });
-        if (!res.ok) return;
-        const json = await res.json();
-        const raw = json.data ?? json;
-
-        // BE /api/account có thể trả về 1 object hoặc 1 mảng account
-        const accArray = Array.isArray(raw) ? raw : [raw];
-        const managerAcc =
-          accArray.find((a: any) => a.role === "MANAGER") || accArray[0] || {};
-
-        // Chỉ cập nhật nếu API trả về dữ liệu
-        if (managerAcc.fullName) {
-          setManagerName(managerAcc.fullName);
-        }
-        if (managerAcc.username) {
-          setManagerEmail(managerAcc.username);
-        }
-
-        // Lấy tên chi nhánh từ cấu trúc staff linh hoạt (object hoặc mảng)
-        const staffRaw = managerAcc.staff;
-        const staff = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw;
-
-        const apiBranchName =
-          staff?.branchName ||
-          staff?.branch?.branchName ||
-          managerAcc.branchName ||
-          "";
-
-        if (apiBranchName) {
-          setBranchName(apiBranchName);
+        // Nếu có username, gọi API để lấy đầy đủ thông tin
+        if (username) {
+          try {
+            // Bước 1: Gọi GET /api/account để lấy tất cả accounts
+            const allAccountsRes = await fetch("/api/account", { cache: "no-store" });
+            if (!allAccountsRes.ok) {
+              console.warn("Failed to fetch accounts:", allAccountsRes.status);
+              return;
+            }
+            
+            const allAccountsJson = await allAccountsRes.json();
+            const accountsData = allAccountsJson.data || [];
+            
+            // Bước 2: Tìm account theo username
+            let targetAccount = null;
+            if (Array.isArray(accountsData)) {
+              targetAccount = accountsData.find((acc: any) => acc.username === username);
+            }
+            
+            // Nếu không tìm thấy theo username, tìm theo role MANAGER
+            if (!targetAccount && Array.isArray(accountsData)) {
+              targetAccount = accountsData.find((acc: any) => acc.role === "MANAGER");
+            }
+            
+            if (!targetAccount) {
+              console.warn("No account found for username:", username);
+              return;
+            }
+            
+            // Bước 3: Lấy account.id (KHÔNG phải staff.id)
+            const accountId = targetAccount.id;
+            if (!accountId) {
+              console.warn("Account ID not found");
+              return;
+            }
+            
+            // Bước 4: Gọi GET /api/account/{accountId} để lấy đầy đủ thông tin
+            const accountRes = await fetch(`/api/account/${accountId}`, { cache: "no-store" });
+            if (!accountRes.ok) {
+              console.warn("Failed to fetch account details:", accountRes.status);
+              return;
+            }
+            
+            const accountJson = await accountRes.json();
+            const accountData = accountJson.data || accountJson;
+            
+            // Cập nhật tên manager (hỗ trợ cả fullname và fullName)
+            const fullName = accountData.fullname || accountData.fullName;
+            if (fullName) {
+              setManagerName(fullName);
+            }
+            
+            // Cập nhật username/email
+            if (accountData.username) {
+              setManagerEmail(accountData.username);
+            }
+            
+            // Lấy tên chi nhánh từ staff.branch
+            const staff = accountData.staff;
+            if (staff && staff.branch) {
+              const branchNameFromApi = staff.branch.branchName || "";
+              if (branchNameFromApi) {
+                setBranchName(branchNameFromApi);
+              }
+            }
+          } catch (e) {
+            console.error("Error fetching account details:", e);
+          }
         }
       } catch (e) {
         console.error("Fetch account failed", e);
@@ -164,7 +204,6 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
               </div>
               <div className="text-sm">
                 <p className="font-medium">{managerName}</p>
-                <p className="text-gray-500 text-xs">{managerEmail}</p>
               </div>
             </div>
             <button

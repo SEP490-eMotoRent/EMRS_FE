@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
-// GET /api/account - lấy tất cả accounts từ BE
-export async function GET() {
+// GET /api/account/[id] - lấy thông tin account theo ID từ BE
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     // ⛔ cookies() phải await theo chuẩn Next.js 15
     const cookieStore = await cookies();
@@ -16,7 +19,8 @@ export async function GET() {
       );
     }
 
-    const beRes = await emrsFetch("/account", {
+    const { id } = await params;
+    const beRes = await emrsFetch(`/account/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -49,7 +53,7 @@ export async function GET() {
 
     return NextResponse.json(data, { status: beRes.status });
   } catch (err) {
-    console.error("Account API error:", err);
+    console.error("Account by ID API error:", err);
     return NextResponse.json(
       { 
         success: false, 
@@ -60,3 +64,4 @@ export async function GET() {
     );
   }
 }
+
