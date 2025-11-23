@@ -3,10 +3,11 @@ import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
 // POST /api/vehicle-transfer-request/create
-// Body JSON: { vehicleModelId, quantityRequested, description }
 export async function POST(req: Request) {
   try {
-    const token = cookies().get("token")?.value;
+    // ⭐ Fix: cookies() phải await
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
       body: JSON.stringify(body),
     });
 
+    // ⭐ giữ nguyên hành vi: trả raw text
     const text = await beRes.text();
     return new NextResponse(text, { status: beRes.status });
   } catch (err) {
@@ -36,5 +38,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-

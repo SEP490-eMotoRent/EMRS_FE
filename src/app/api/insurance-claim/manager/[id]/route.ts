@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { emrsFetch } from "@/utils/emrsApi";
 import { cookies } from "next/headers";
 
+// =======================
+// GET /api/insurance-claim/manager/[id]
+// =======================
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ⭐ Fix: await params
+    const { id } = await context.params;
+
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -17,12 +23,13 @@ export async function GET(
       );
     }
 
-    const beRes = await emrsFetch(`/InsuranceClaim/manager/${params.id}`, {
+    const beRes = await emrsFetch(`/InsuranceClaim/manager/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     const text = await beRes.text();
     let json;
+
     try {
       json = JSON.parse(text);
     } catch (e) {
@@ -42,11 +49,17 @@ export async function GET(
   }
 }
 
+// =======================
+// PUT /api/insurance-claim/manager/[id]
+// =======================
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ⭐ Fix: await params
+    const { id } = await context.params;
+
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -59,7 +72,7 @@ export async function PUT(
 
     const formData = await req.formData();
 
-    const beRes = await emrsFetch(`/InsuranceClaim/manager/${params.id}`, {
+    const beRes = await emrsFetch(`/InsuranceClaim/manager/${id}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
@@ -67,6 +80,7 @@ export async function PUT(
 
     const text = await beRes.text();
     let json;
+
     try {
       json = JSON.parse(text);
     } catch (e) {
@@ -82,4 +96,3 @@ export async function PUT(
     );
   }
 }
-

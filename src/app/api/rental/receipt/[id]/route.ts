@@ -3,12 +3,13 @@ import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
 // GET /api/rental/receipt/[id]
-// Lấy chi tiết rental receipt theo ID
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+ 
+    const { id } = await context.params;
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -19,12 +20,13 @@ export async function GET(
       );
     }
 
-    const beRes = await emrsFetch(`/Rental/receipt/by/${params.id}`, {
+    const beRes = await emrsFetch(`/Rental/receipt/by/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     const text = await beRes.text();
     let json;
+
     try {
       json = JSON.parse(text);
     } catch (e) {
@@ -43,4 +45,3 @@ export async function GET(
     );
   }
 }
-

@@ -107,22 +107,22 @@ export async function assignStaff(ticketId: string, staffId: string, status: str
     throw new Error("TicketId, StaffId, and Status are required");
   }
 
-  // Tạo FormData từ client-side - Gửi Id, Status, StaffId (đúng format backend yêu cầu)
-  const formData = new FormData();
-  formData.append("Id", ticketId);
-  formData.append("Status", status);
-  formData.append("StaffId", staffId);
+  // Tạo JSON body - Gửi { id, status, staffId } (đúng format backend yêu cầu)
+  const requestBody = {
+    id: ticketId,
+    status: status,
+    staffId: staffId,
+  };
 
-  console.log("🔵 [Client] FormData contents:");
-  for (const [key, value] of formData.entries()) {
-    console.log(`  ${key}: ${value}`);
-  }
+  console.log("🔵 [Client] Request body:", requestBody);
 
   // Sử dụng route /api/ticket (PUT) - route đã có sẵn và ổn định
   const res = await fetch(`${API_PREFIX}`, {
     method: "PUT",
-    // KHÔNG set Content-Type, browser sẽ tự set multipart/form-data với boundary
-    body: formData,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
   });
 
   const text = await res.text();

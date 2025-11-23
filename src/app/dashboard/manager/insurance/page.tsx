@@ -119,7 +119,8 @@ export default function InsurancePage() {
       title: "Chi nhánh",
       dataIndex: "handoverBranchName",
       key: "handoverBranchName",
-      width: 150,
+      width: 180,
+      ellipsis: false,
     },
     {
       title: "Trạng thái",

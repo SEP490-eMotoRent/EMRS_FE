@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
 import {
   Card,
   Descriptions,
@@ -76,11 +77,26 @@ export default function TicketDetailPage() {
         resolutionNote: data.resolutionNote || data.resolutionNote,
       };
       
+      // Lấy branchName từ cookie (fallback đầu tiên)
+      let branchNameFromCookie: string | null = null;
+      if (typeof document !== "undefined") {
+        const cookieStr = document.cookie || "";
+        const cookies: Record<string, string> = {};
+        cookieStr.split(";").forEach((c) => {
+          const [key, value] = c.trim().split("=");
+          if (key && value) {
+            cookies[key] = decodeURIComponent(value);
+          }
+        });
+        branchNameFromCookie = cookies.branchName || null;
+      }
+      
       // Fetch booking info nếu có bookingId
       if (normalized.bookingId) {
         try {
           const booking = await getBookingById(normalized.bookingId);
           if (booking) {
+            console.log("Booking data:", booking);
             // Lấy thông tin khách hàng từ booking
             normalized.renterName = booking.renter?.fullName || booking.renter?.account?.fullname || booking.renterName || data.renterName || data.renter?.fullName || data.renter?.account?.fullname;
             normalized.renterPhone = booking.renter?.phoneNumber || booking.renter?.phone || booking.renterPhone || data.renterPhone || data.renter?.phoneNumber || data.renter?.phone;
@@ -91,8 +107,16 @@ export default function TicketDetailPage() {
             normalized.licensePlate = booking.vehicle?.licensePlate || booking.licensePlate || data.licensePlate || data.vehicle?.licensePlate;
             normalized.vehicleDescription = booking.vehicle?.description || booking.vehicleDescription || data.vehicleDescription || data.vehicle?.description;
             
-            // Lấy thông tin booking
-            normalized.branchName = booking.branch?.branchName || booking.branchName || data.branchName || data.branch?.branchName;
+            // Lấy thông tin booking - thử nhiều cách để lấy branchName
+            normalized.branchName = 
+              booking.branch?.branchName || 
+              booking.branch?.name ||
+              booking.branchName || 
+              booking.branch?.branch?.branchName ||
+              data.branchName || 
+              data.branch?.branchName ||
+              branchNameFromCookie ||
+              undefined;
             normalized.bookingStartDate = booking.startDatetime || booking.startDate || booking.bookingStartDate || data.bookingStartDate || data.booking?.startDatetime;
             normalized.bookingEndDate = booking.endDatetime || booking.endDate || booking.bookingEndDate || data.bookingEndDate || data.booking?.endDatetime;
           }
@@ -105,7 +129,7 @@ export default function TicketDetailPage() {
           normalized.vehicleModelName = data.vehicleModelName || data.vehicleModel?.modelName;
           normalized.licensePlate = data.licensePlate || data.vehicle?.licensePlate;
           normalized.vehicleDescription = data.vehicleDescription || data.vehicle?.description;
-          normalized.branchName = data.branchName || data.branch?.branchName;
+          normalized.branchName = data.branchName || data.branch?.branchName || branchNameFromCookie || undefined;
           normalized.bookingStartDate = data.bookingStartDate || data.booking?.startDatetime;
           normalized.bookingEndDate = data.bookingEndDate || data.booking?.endDatetime;
         }
@@ -117,17 +141,21 @@ export default function TicketDetailPage() {
         normalized.vehicleModelName = data.vehicleModelName || data.vehicleModel?.modelName;
         normalized.licensePlate = data.licensePlate || data.vehicle?.licensePlate;
         normalized.vehicleDescription = data.vehicleDescription || data.vehicle?.description;
-        normalized.branchName = data.branchName || data.branch?.branchName;
+        normalized.branchName = data.branchName || data.branch?.branchName || branchNameFromCookie || undefined;
         normalized.bookingStartDate = data.bookingStartDate || data.booking?.startDatetime;
         normalized.bookingEndDate = data.bookingEndDate || data.booking?.endDatetime;
       }
       
-      // Fetch staff info nếu có staffId
+      // Fetch staff info nếu có staffId - và lấy branchName từ staff nếu chưa có
       if (normalized.staffId) {
         try {
           const staff = await getStaffById(normalized.staffId);
           if (staff) {
             normalized.assignedStaffName = staff.fullname || staff.fullName || staff.username;
+            // Nếu chưa có branchName, thử lấy từ staff
+            if (!normalized.branchName && staff.staff?.branch?.branchName) {
+              normalized.branchName = staff.staff.branch.branchName;
+            }
           } else {
             normalized.assignedStaffName = data.assignedStaffName || data.staffName || data.staff?.fullName || "Đã phân công";
           }
@@ -137,6 +165,11 @@ export default function TicketDetailPage() {
         }
       } else {
         normalized.assignedStaffName = undefined;
+      }
+      
+      // Nếu vẫn chưa có branchName, dùng từ cookie
+      if (!normalized.branchName && branchNameFromCookie) {
+        normalized.branchName = branchNameFromCookie;
       }
       
       setTicket(normalized);
@@ -413,10 +446,19 @@ export default function TicketDetailPage() {
         <Card title="Thông tin booking" className="mb-6">
           <Descriptions column={1} bordered>
             <Descriptions.Item label="Mã booking">
-              <span className="font-mono">{ticket.bookingId}</span>
+              {ticket.bookingId ? (
+                <Link
+                  href={`/dashboard/manager/bookings/${ticket.bookingId}`}
+                  className="text-blue-600 hover:underline font-mono"
+                >
+                  {ticket.bookingId}
+                </Link>
+              ) : (
+                <span className="text-gray-400">Chưa có</span>
+              )}
             </Descriptions.Item>
             <Descriptions.Item label="Chi nhánh">
-              {ticket.branchName}
+              {ticket.branchName || <span className="text-gray-400">Chưa có</span>}
             </Descriptions.Item>
             {ticket.bookingStartDate && (
               <Descriptions.Item label="Ngày bắt đầu">

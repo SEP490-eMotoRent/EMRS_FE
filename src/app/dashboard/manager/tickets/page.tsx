@@ -195,26 +195,28 @@ export default function TicketsPage() {
       title: "Mã Ticket",
       dataIndex: "id",
       key: "id",
-      width: 120,
+      width: 100,
+      align: "left",
       render: (id: string) => <span className="font-mono text-xs">{id ? id.substring(0, 8) : "N/A"}...</span>,
     },
     {
       title: "Khách hàng",
       key: "renter",
-      width: 180,
+      width: 140,
+      align: "left",
       render: (_: any, record: TicketItem) => {
         // Luôn hiển thị thông tin nếu có, nếu không có thì hiển thị "Đang tải..." hoặc link
         if (record.renterName) {
           return (
-            <div>
-              <div className="flex items-center gap-2">
-                <UserOutlined className="text-gray-400" />
-                <span className="font-medium">{record.renterName}</span>
+            <div className="text-sm">
+              <div className="flex items-center gap-1">
+                <UserOutlined className="text-gray-400 text-xs" />
+                <span className="font-medium text-xs">{record.renterName}</span>
               </div>
               {record.renterPhone && (
-                <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                  <PhoneOutlined className="text-gray-400" />
-                  <a href={`tel:${record.renterPhone}`} className="text-blue-600">
+                <div className="flex items-center gap-1 mt-0.5">
+                  <PhoneOutlined className="text-gray-400 text-xs" />
+                  <a href={`tel:${record.renterPhone}`} className="text-blue-600 text-xs">
                     {record.renterPhone}
                   </a>
                 </div>
@@ -226,10 +228,10 @@ export default function TicketsPage() {
         // Nếu không có thông tin, hiển thị link đến booking
         if (record.bookingId) {
           return (
-            <span className="text-gray-400 text-sm">
+            <span className="text-gray-400 text-xs">
               <a
                 href={`/dashboard/manager/bookings/${record.bookingId}`}
-                className="text-blue-600 hover:underline"
+                className="text-blue-600 hover:underline text-xs"
                 onClick={(e) => {
                   e.preventDefault();
                   router.push(`/dashboard/manager/bookings/${record.bookingId}`);
@@ -247,37 +249,28 @@ export default function TicketsPage() {
     {
       title: "Tiêu đề",
       key: "title",
-      width: 200,
+      width: 160,
+      align: "left",
       render: (_: any, record: TicketItem) => (
         <div>
-          <div className="font-medium">{record.title || "N/A"}</div>
-          <Tag color="blue" className="mt-1">
+          <div className="font-medium text-sm">{record.title || "N/A"}</div>
+          <Tag color="blue" className="mt-0.5 text-xs">
             {getIssueTypeText(record.ticketType)}
           </Tag>
         </div>
       ),
     },
     {
-      title: "Mô tả",
-      dataIndex: "description",
-      key: "description",
-      ellipsis: true,
-      render: (text: string) => (
-        <span className="text-sm" title={text}>
-          {text || "N/A"}
-        </span>
-      ),
-    },
-    {
       title: "Xe",
       key: "vehicle",
-      width: 150,
+      width: 130,
+      align: "left",
       render: (_: any, record: TicketItem) => {
         // Hiển thị thông tin xe nếu có
         if (record.vehicleModelName || record.licensePlate) {
           return (
-            <div>
-              <div className="font-medium">{record.vehicleModelName || "N/A"}</div>
+            <div className="text-sm">
+              <div className="font-medium text-xs">{record.vehicleModelName || "N/A"}</div>
               {record.licensePlate && (
                 <div className="text-xs text-gray-500">{record.licensePlate}</div>
               )}
@@ -291,7 +284,7 @@ export default function TicketsPage() {
             <span className="text-gray-400 text-xs">
               <a
                 href={`/dashboard/manager/bookings/${record.bookingId}`}
-                className="text-blue-600 hover:underline"
+                className="text-blue-600 hover:underline text-xs"
                 onClick={(e) => {
                   e.preventDefault();
                   router.push(`/dashboard/manager/bookings/${record.bookingId}`);
@@ -307,37 +300,14 @@ export default function TicketsPage() {
       },
     },
     {
-      title: "Booking",
-      dataIndex: "bookingId",
-      key: "bookingId",
-      width: 120,
-      render: (id: string) => <span className="font-mono text-xs">{id ? id.substring(0, 8) : "N/A"}...</span>,
-    },
-    {
-      title: "Vị trí",
-      key: "location",
-      width: 150,
-      render: (_: any, record: TicketItem) => (
-        record.currentLocation ? (
-          <div className="flex items-center gap-1">
-            <EnvironmentOutlined className="text-gray-400" />
-            <span className="text-xs text-gray-600 truncate" title={record.currentLocation}>
-              {record.currentLocation}
-            </span>
-          </div>
-        ) : (
-          <span className="text-gray-400 text-xs">Chưa có</span>
-        )
-      ),
-    },
-    {
       title: "Nhân viên",
       dataIndex: "assignedStaffName",
       key: "assignedStaffName",
       width: 120,
+      align: "left",
       render: (name: string, record: TicketItem) => {
         if (name) {
-          return <Tag color="cyan">{name}</Tag>;
+          return <Tag color="cyan" className="text-xs">{name}</Tag>;
         }
         if (record.staffId) {
           // Có staffId nhưng chưa load được tên
@@ -350,11 +320,12 @@ export default function TicketsPage() {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
-      width: 130,
+      width: 110,
+      align: "left",
       render: (status: TicketStatus, record: TicketItem) => {
         const displayStatus = status === "Pending" && record.staffId ? "Assigned" : status;
         return (
-          <Tag color={getStatusColor(status, record.staffId)}>
+          <Tag color={getStatusColor(status, record.staffId)} className="text-xs">
             {getStatusText(status, record.staffId)}
           </Tag>
         );
@@ -377,20 +348,22 @@ export default function TicketsPage() {
       title: "Ngày tạo",
       dataIndex: "createdAt",
       key: "createdAt",
-      width: 150,
-      render: (d: string) => dayjs(d).format("DD/MM/YYYY HH:mm"),
+      width: 130,
+      align: "left",
+      render: (d: string) => <span className="text-xs">{dayjs(d).format("DD/MM/YYYY HH:mm")}</span>,
       sorter: (a, b) =>
         dayjs(a.createdAt).unix() - dayjs(b.createdAt).unix(),
     },
     {
       title: "Thao tác",
       key: "action",
-      width: 120,
+      width: 100,
+      align: "center",
       fixed: "right",
       render: (_: any, record: TicketItem) => (
         <Link
           href={`/dashboard/manager/tickets/${record.id}`}
-          className="text-blue-600 hover:underline"
+          className="text-blue-600 hover:underline text-xs"
         >
           Xem chi tiết
         </Link>
@@ -432,7 +405,8 @@ export default function TicketsPage() {
           columns={columns}
           dataSource={filteredTickets}
           locale={{ emptyText: "Không có ticket nào" }}
-          scroll={{ x: 1600 }}
+          scroll={{ x: 1000 }}
+          size="small"
           pagination={{
             current: pagination.currentPage,
             pageSize: pagination.pageSize,

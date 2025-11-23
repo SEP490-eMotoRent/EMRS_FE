@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
-import FormDataNode from "form-data";
 import axios from "axios";
 
 // GET /api/ticket - Lấy danh sách tickets với pagination
@@ -71,53 +70,52 @@ export async function PUT(req: Request) {
       );
     }
 
-    const incomingFormData = await req.formData();
+    // Đọc JSON body từ request
+    const body = await req.json();
 
-    const Id = incomingFormData.get("Id") as string;
-    const Status = incomingFormData.get("Status") as string;
-    const StaffId = incomingFormData.get("StaffId") as string;
+    const id = body.id || body.Id;
+    const status = body.status || body.Status;
+    const staffId = body.staffId || body.StaffId;
 
-    console.log("🔵 [BFF] Incoming FormData:", { 
-      Id, 
-      Status, 
-      StaffId,
-      "Id type": typeof Id,
-      "Status type": typeof Status,
-      "StaffId type": typeof StaffId,
-      "Id length": Id?.length,
-      "StaffId length": StaffId?.length
+    console.log("🔵 [BFF] Incoming JSON body:", { 
+      id, 
+      status, 
+      staffId,
+      "id type": typeof id,
+      "status type": typeof status,
+      "staffId type": typeof staffId,
     });
 
     // Validation với message rõ ràng
-    if (!Id || !Id.trim()) {
-      console.error("❌ [BFF] Validation failed: Id is missing or empty");
-      return NextResponse.json({ success: false, message: "Id is required" }, { status: 400 });
+    if (!id || !String(id).trim()) {
+      console.error("❌ [BFF] Validation failed: id is missing or empty");
+      return NextResponse.json({ success: false, message: "id is required" }, { status: 400 });
     }
-    if (!Status || !Status.trim()) {
-      console.error("❌ [BFF] Validation failed: Status is missing or empty");
-      return NextResponse.json({ success: false, message: "Status is required" }, { status: 400 });
+    if (!status || !String(status).trim()) {
+      console.error("❌ [BFF] Validation failed: status is missing or empty");
+      return NextResponse.json({ success: false, message: "status is required" }, { status: 400 });
     }
-    if (!StaffId || !StaffId.trim()) {
-      console.error("❌ [BFF] Validation failed: StaffId is missing or empty");
-      return NextResponse.json({ success: false, message: "StaffId is required" }, { status: 400 });
+    if (!staffId || !String(staffId).trim()) {
+      console.error("❌ [BFF] Validation failed: staffId is missing or empty");
+      return NextResponse.json({ success: false, message: "staffId is required" }, { status: 400 });
     }
 
     // Validate Status values
     const validStatuses = ["Pending", "InProgress", "Resolved"];
-    if (!validStatuses.includes(Status)) {
-      console.error(`❌ [BFF] Validation failed: Invalid Status '${Status}'. Valid values: ${validStatuses.join(", ")}`);
+    if (!validStatuses.includes(String(status))) {
+      console.error(`❌ [BFF] Validation failed: Invalid status '${status}'. Valid values: ${validStatuses.join(", ")}`);
       return NextResponse.json({ 
         success: false, 
-        message: `Invalid Status. Must be one of: ${validStatuses.join(", ")}` 
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}` 
       }, { status: 400 });
     }
 
-    // ⭐⭐ Backend route: PUT /Ticket - Id, Status, StaffId đều trong FormData
-    const formData = new FormDataNode();
-    // Đảm bảo trim và format đúng
-    formData.append("Id", String(Id).trim());
-    formData.append("Status", String(Status).trim());
-    formData.append("StaffId", String(StaffId).trim());
+    // ⭐⭐ Backend route: PUT /Ticket - Request body là JSON với { id, status, staffId }
+    const requestBody = {
+      id: String(id).trim(),
+      status: String(status).trim(),
+      staffId: String(staffId).trim(),
+    };
 
     const base =
       process.env.EMRS_API_URL ||
@@ -128,12 +126,12 @@ export async function PUT(req: Request) {
     const url = `${base}/Ticket`;
 
     console.log("🔵 [BFF] PUT URL:", url);
-    console.log("🔵 [BFF] FormData fields:", { Id, Status, StaffId });
+    console.log("🔵 [BFF] Request body:", requestBody);
 
-    const axiosRes = await axios.put(url, formData, {
+    const axiosRes = await axios.put(url, requestBody, {
       headers: {
         Authorization: `Bearer ${token}`,
-        ...formData.getHeaders(),
+        "Content-Type": "application/json",
       }
     });
 

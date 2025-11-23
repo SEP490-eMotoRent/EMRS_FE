@@ -5,10 +5,16 @@ import { emrsFetch } from "@/utils/emrsApi";
 // PUT /api/vehicle-transfer-request/[id]/cancel
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const token = cookies().get("token")?.value;
+    // ⭐ Fix 1: await params
+    const { id } = await context.params;
+
+    // ⭐ Fix 2: await cookies()
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+
     if (!token) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
@@ -16,13 +22,10 @@ export async function PUT(
       );
     }
 
-    const beRes = await emrsFetch(
-      `/VehicleTransferRequest/${params.id}/cancel`,
-      {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const beRes = await emrsFetch(`/VehicleTransferRequest/${id}/cancel`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     const text = await beRes.text();
     return new NextResponse(text, { status: beRes.status });
@@ -34,5 +37,3 @@ export async function PUT(
     );
   }
 }
-
-
