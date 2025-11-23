@@ -142,6 +142,20 @@ export async function getVehicles(filters?: VehicleFilters): Promise<VehicleList
 
 // Normalize vehicle data từ API response
 function normalizeVehicle(vehicle: any) {
+  // Xử lý ảnh từ nhiều nguồn: fileUrl, imageFiles, mediaResponses
+  let imageUrls: string[] = [];
+  
+  if (vehicle.fileUrl && Array.isArray(vehicle.fileUrl)) {
+    imageUrls = vehicle.fileUrl;
+  } else if (vehicle.imageFiles && Array.isArray(vehicle.imageFiles)) {
+    imageUrls = vehicle.imageFiles;
+  } else if (vehicle.mediaResponses && Array.isArray(vehicle.mediaResponses)) {
+    // Extract URLs từ mediaResponses array
+    imageUrls = vehicle.mediaResponses
+      .filter((media: any) => media.fileUrl || media.url)
+      .map((media: any) => media.fileUrl || media.url);
+  }
+  
   return {
     ...vehicle,
     // Map id -> vehicleId để tương thích
@@ -150,8 +164,9 @@ function normalizeVehicle(vehicle: any) {
     vehicleModelName: vehicle.vehicleModel?.modelName || vehicle.vehicleModelName,
     // Map vehicleModel.id -> vehicleModelId
     vehicleModelId: vehicle.vehicleModel?.id || vehicle.vehicleModelId,
-    // Map fileUrl -> imageFiles
-    imageFiles: vehicle.fileUrl || vehicle.imageFiles || [],
+    // Map fileUrl -> imageFiles (ưu tiên fileUrl, sau đó imageFiles, cuối cùng mediaResponses)
+    fileUrl: imageUrls,
+    imageFiles: imageUrls,
     // Giữ nguyên branch object nếu có
     branch: vehicle.branch || undefined,
     branchName: vehicle.branch?.branchName || vehicle.branchName,

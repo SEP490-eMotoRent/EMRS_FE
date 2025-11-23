@@ -1,415 +1,637 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  getStaffs,
-  createStaff,
-  updateStaff,
-  deleteStaff,
-} from "@/app/dashboard/admin/staffs/staff_service";
-import { Pencil, Trash2, Lock, Unlock, Plus, X, NotebookPen } from "lucide-react";
+import { Table, Button, Input, Select, Space, Tag, Modal, Form, message, Descriptions, DatePicker } from "antd";
+import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined } from "@ant-design/icons";
+import { getStaffs, getAccountById, updateAccountRole, deleteAccount, createAccount, Account } from "./staff_service";
+import type { ColumnsType } from "antd/es/table";
+import dayjs from "dayjs";
+
+const { Search } = Input;
+const { Option } = Select;
+
+interface Branch {
+  id: string;
+  branchId: string;
+  branchName: string;
+}
 
 export default function StaffPage() {
-  const [staffs, setStaffs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [showModal, setShowModal] = useState(false);
-
-  // 🔹 Bộ lọc + tìm kiếm
-  const [roleFilter, setRoleFilter] = useState("Tất cả");
-  const [deptFilter, setDeptFilter] = useState("Tất cả");
-  const [branchFilter, setBranchFilter] = useState("Tất cả");
-  const [search, setSearch] = useState("");
+  const [staffs, setStaffs] = useState<Account[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [form] = Form.useForm();
+  const [createForm] = Form.useForm();
+  const [searchText, setSearchText] = useState("");
+  const [selectedRole, setSelectedRole] = useState<string>("all");
 
   useEffect(() => {
-    loadData();
+    loadBranches();
+    loadStaffs();
   }, []);
 
-  async function loadData() {
-    const data = await getStaffs();
-    setStaffs(data);
-    setLoading(false);
-  }
-
-  // ============================
-  // 🔹 CRUD Actions
-  // ============================
-  const handleAdd = () => {
-    setEditing(null);
-    setShowModal(true);
-  };
-
-  const handleEdit = (staff: any) => {
-    setEditing(staff);
-    setShowModal(true);
-  };
-
-  const handleToggleStatus = async (id: number) => {
-    const target = staffs.find((s) => s.id === id);
-    if (!target) return;
-    const newStatus = target.status === "Active" ? "Inactive" : "Active";
-    await updateStaff(id, { status: newStatus });
-    setStaffs((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s))
-    );
-  };
-
-  const handleDelete = async (id: number) => {
-    if (confirm("Bạn có chắc muốn xóa nhân sự này?")) {
-      await deleteStaff(id);
-      setStaffs((prev) => prev.filter((s) => s.id !== id));
+  const loadBranches = async () => {
+    setLoadingBranches(true);
+    try {
+      const INTERNAL_BASE = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const res = await fetch(`${INTERNAL_BASE}/api/branch/list`, {
+        cache: "no-store",
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Failed to fetch branches:", res.status, errorText);
+        throw new Error(`Failed to fetch branches: ${res.statusText}`);
+      }
+      
+      const text = await res.text();
+      console.log("Branch API raw response:", text);
+      
+      let json: any = {};
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch (parseError) {
+        console.error("Failed to parse branch response as JSON:", text);
+        throw new Error("Invalid JSON response from branch API");
+      }
+      
+      console.log("Branch API parsed JSON:", json);
+      
+      // Handle different response structures
+      let branchesData: any[] = [];
+      
+      // Case 1: { success: true, data: [...] }
+      if (json.success && json.data) {
+        if (Array.isArray(json.data)) {
+          branchesData = json.data;
+        } else if (json.data.items && Array.isArray(json.data.items)) {
+          branchesData = json.data.items;
+        } else if (json.data.data && Array.isArray(json.data.data)) {
+          branchesData = json.data.data;
+        }
+      }
+      // Case 2: Direct array
+      else if (Array.isArray(json)) {
+        branchesData = json;
+      }
+      // Case 3: { data: [...] }
+      else if (json.data && Array.isArray(json.data)) {
+        branchesData = json.data;
+      }
+      // Case 4: { data: { items: [...] } }
+      else if (json.data && json.data.items && Array.isArray(json.data.items)) {
+        branchesData = json.data.items;
+      }
+      
+      console.log("Extracted branchesData:", branchesData);
+      
+      // Normalize branch data: API trả về { id, branchName }
+      const normalizedBranches = branchesData
+        .map((branch: any) => {
+          // API trả về 'id' chứ không phải 'branchId'
+          const branchId = branch.id || branch.branchId;
+          const branchName = branch.branchName || branch.name || "";
+          
+          if (!branchId) {
+            console.warn("Branch missing ID:", branch);
+            return null;
+          }
+          
+          return {
+            id: branchId,
+            branchId: branchId, // Dùng id làm branchId để tương thích
+            branchName: branchName,
+          };
+        })
+        .filter((b: Branch | null): b is Branch => b !== null);
+      
+      console.log("Normalized branches:", normalizedBranches);
+      
+      if (normalizedBranches.length === 0) {
+        console.warn("No branches found after normalization");
+        message.warning("Không tìm thấy chi nhánh nào");
+      }
+      
+      setBranches(normalizedBranches);
+    } catch (error: any) {
+      console.error("Error loading branches:", error);
+      message.error(error.message || "Không thể tải danh sách chi nhánh");
+    } finally {
+      setLoadingBranches(false);
     }
   };
 
-  const handleSave = async (form: any) => {
-    if (editing) {
-      const updated = await updateStaff(editing.id, form);
-      setStaffs((prev) =>
-        prev.map((s) => (s.id === editing.id ? updated : s))
-      );
-    } else {
-      const created = await createStaff(form);
-      setStaffs((prev) => [...prev, created]);
+  const loadStaffs = async () => {
+    setLoading(true);
+    try {
+      const data = await getStaffs();
+      setStaffs(data);
+    } catch (error) {
+      console.error("Error loading staffs:", error);
+      message.error("Không thể tải danh sách nhân sự");
+    } finally {
+      setLoading(false);
     }
-    setShowModal(false);
   };
 
-  // ============================
-  // 🔹 Lọc + tìm kiếm
-  // ============================
-  const filtered = staffs.filter((s) => {
-    return (
-      (roleFilter === "Tất cả" || s.role === roleFilter) &&
-      (deptFilter === "Tất cả" || s.department === deptFilter) &&
-      (branchFilter === "Tất cả" || s.branch === branchFilter) &&
-      (s.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-        s.username?.toLowerCase().includes(search.toLowerCase()) ||
-        s.email?.toLowerCase().includes(search.toLowerCase()) ||
-        s.phone?.includes(search))
-    );
+  // Filter staffs
+  const filteredStaffs = staffs.filter((staff) => {
+    const matchesSearch =
+      !searchText ||
+      staff.fullname?.toLowerCase().includes(searchText.toLowerCase()) ||
+      staff.username?.toLowerCase().includes(searchText.toLowerCase()) ||
+      staff.staff?.branch?.branchName?.toLowerCase().includes(searchText.toLowerCase());
+    
+    const matchesRole = selectedRole === "all" || staff.role?.toUpperCase() === selectedRole.toUpperCase();
+    
+    return matchesSearch && matchesRole;
   });
 
-  if (loading) return <div>Đang tải dữ liệu...</div>;
-
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Quản lí nhân sự</h1>
-
-      {/* Bộ lọc */}
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="border rounded-md px-3 py-2 text-sm"
-          >
-            <option>Tất cả</option>
-            <option>Manager</option>
-            <option>Staff</option>
-            <option>Technician</option>
-          </select>
-
-          <select
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            className="border rounded-md px-3 py-2 text-sm"
-          >
-            <option>Tất cả</option>
-            <option>Lễ tân</option>
-            <option>Vận hành</option>
-            <option>Kỹ thuật</option>
-          </select>
-
-          <select
-            value={branchFilter}
-            onChange={(e) => setBranchFilter(e.target.value)}
-            className="border rounded-md px-3 py-2 text-sm"
-          >
-            <option>Tất cả</option>
-            <option>CN1</option>
-            <option>CN2</option>
-            <option>CN3</option>
-          </select>
-
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm tên / username / SDT / email"
-            className="border rounded-md px-3 py-2 text-sm w-64"
-          />
-        </div>
-
-        <button
-          onClick={handleAdd}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md text-sm"
-        >
-          <Plus size={16} /> Thêm nhân sự
-        </button>
-      </div>
-
-      {/* Bảng dữ liệu */}
-      <div className="bg-white border rounded-2xl p-4">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="p-2 text-left">Tên</th>
-              <th className="p-2 text-left">Username</th>
-              <th className="p-2 text-left">SĐT</th>
-              <th className="p-2 text-left">Email</th>
-              <th className="p-2 text-left">Role</th>
-              <th className="p-2 text-left">Phòng ban</th>
-              <th className="p-2 text-left">Chi nhánh</th>
-              <th className="p-2 text-left">Trạng thái</th>
-              <th className="p-2 text-left">Bắt đầu</th>
-              <th className="p-2 text-left">Ngày tạo</th>
-              <th className="p-2 text-center">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={11} className="p-3 text-center text-gray-500 italic">
-                  Không có nhân sự phù hợp
-                </td>
-              </tr>
-            ) : (
-              filtered.map((s) => (
-                <tr key={s.id} className="odd:bg-white even:bg-gray-50">
-                  <td className="p-2">{s.fullName}</td>
-                  <td className="p-2">{s.username}</td>
-                  <td className="p-2">{s.phone}</td>
-                  <td className="p-2">{s.email}</td>
-                  <td className="p-2">{s.role}</td>
-                  <td className="p-2">{s.department}</td>
-                  <td className="p-2">{s.branch}</td>
-                  <td className="p-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        s.status === "Active"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {s.status === "Active"
-                        ? "Đang hoạt động"
-                        : "Không hoạt động"}
-                    </span>
-                  </td>
-                  <td className="p-2">{s.startDate}</td>
-                  <td className="p-2">
-                    {new Date(s.createdAt).toLocaleDateString("vi-VN")}
-                  </td>
-                  <td className="p-2 text-center">
-                    <div className="flex justify-center gap-2">
-                      <ActionButton
-                        icon={<Pencil size={14} />}
-                        label="Sửa"
-                        color="blue"
-                        onClick={() => handleEdit(s)}
-                      />
-                      <ActionButton
-                        icon={<NotebookPen size={14} />}
-                        label="Nhật ký"
-                        color="amber"
-                        onClick={() =>
-                          alert(`📝 Nhật ký hoạt động của ${s.fullName}`)
-                        }
-                      />
-                      <button
-                        onClick={() => handleToggleStatus(s.id)}
-                        className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${
-                          s.status === "Active"
-                            ? "text-gray-600 hover:bg-gray-100"
-                            : "text-green-600 hover:bg-green-50"
-                        }`}
-                      >
-                        {s.status === "Active" ? (
-                          <>
-                            <Lock size={14} /> Khóa
-                          </>
-                        ) : (
-                          <>
-                            <Unlock size={14} /> Mở
-                          </>
-                        )}
-                      </button>
-                      <ActionButton
-                        icon={<Trash2 size={14} />}
-                        label="Xóa"
-                        color="red"
-                        onClick={() => handleDelete(s.id)}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal thêm/sửa */}
-      {showModal && (
-        <StaffModal
-          initialData={editing}
-          onClose={() => setShowModal(false)}
-          onSave={handleSave}
-        />
-      )}
-    </div>
-  );
-}
-
-// Nút hành động
-function ActionButton({
-  icon,
-  label,
-  color,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  color: "blue" | "red" | "amber";
-  onClick?: () => void;
-}) {
-  const colors = {
-    blue: "text-blue-600 hover:bg-blue-50",
-    red: "text-red-600 hover:bg-red-50",
-    amber: "text-amber-600 hover:bg-amber-50",
-  };
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md transition ${colors[color]}`}
-    >
-      {icon} {label}
-    </button>
-  );
-}
-
-// Modal thêm/sửa nhân sự
-function StaffModal({
-  initialData,
-  onClose,
-  onSave,
-}: {
-  initialData?: any;
-  onClose: () => void;
-  onSave: (form: any) => void;
-}) {
-  const [form, setForm] = useState(
-    initialData || {
-      fullName: "",
-      username: "",
-      phone: "",
-      email: "",
-      role: "Staff",
-      department: "Lễ tân",
-      branch: "CN1",
-      startDate: new Date().toISOString().split("T")[0],
-      status: "Active",
-      createdAt: new Date().toISOString(),
+  const handleViewDetail = async (account: Account) => {
+    try {
+      const detail = await getAccountById(account.id);
+      setSelectedAccount(detail);
+      setIsDetailModalVisible(true);
+    } catch (error) {
+      console.error("Error loading account detail:", error);
+      message.error("Không thể tải chi tiết tài khoản");
     }
-  );
+  };
+
+  const handleCreate = () => {
+    // Reset form completely before opening modal
+    createForm.resetFields();
+    createForm.setFieldsValue({});
+    setIsCreateModalVisible(true);
+  };
+
+  const handleCreateAccount = async () => {
+    try {
+      const values = await createForm.validateFields();
+      
+      // Format dateOfBirth if provided
+      const accountData: any = {
+        username: values.username,
+        password: values.password,
+        role: values.role,
+        fullname: values.fullname || undefined,
+        email: values.email || undefined,
+        phone: values.phone || undefined,
+        address: values.address || undefined,
+        branchId: values.branchId || undefined,
+      };
+
+      if (values.dateOfBirth) {
+        accountData.dateOfBirth = dayjs(values.dateOfBirth).format("YYYY-MM-DD");
+      }
+
+      await createAccount(accountData);
+      message.success("Tạo tài khoản thành công");
+      setIsCreateModalVisible(false);
+      // Reset form after successful creation
+      setTimeout(() => {
+        createForm.resetFields();
+        createForm.setFieldsValue({});
+      }, 100);
+      loadStaffs();
+    } catch (error: any) {
+      console.error("Error creating account:", error);
+      if (error.errorFields) {
+        return;
+      }
+      message.error(error.message || "Không thể tạo tài khoản");
+    }
+  };
+
+  const handleEdit = (account: Account) => {
+    setEditingAccount(account);
+    form.setFieldsValue({
+      role: account.role,
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleUpdateRole = async () => {
+    try {
+      const values = await form.validateFields();
+      if (!editingAccount) return;
+
+      await updateAccountRole(editingAccount.id, values.role);
+      message.success("Cập nhật role thành công");
+      setIsModalVisible(false);
+      setEditingAccount(null);
+      form.resetFields();
+      loadStaffs();
+    } catch (error: any) {
+      console.error("Error updating role:", error);
+      if (error.errorFields) {
+        return;
+      }
+      message.error(error.message || "Không thể cập nhật role");
+    }
+  };
+
+  const handleDelete = async (account: Account) => {
+    Modal.confirm({
+      title: "Xác nhận xóa",
+      content: `Bạn có chắc muốn xóa tài khoản "${account.fullname}" (${account.username})?`,
+      okText: "Xóa",
+      okType: "danger",
+      cancelText: "Hủy",
+      onOk: async () => {
+        try {
+          await deleteAccount(account.id);
+          message.success("Xóa tài khoản thành công");
+          loadStaffs();
+        } catch (error: any) {
+          console.error("Error deleting account:", error);
+          message.error(error.message || "Không thể xóa tài khoản");
+        }
+      },
+    });
+  };
+
+  const getRoleTag = (role?: string) => {
+    const roleMap: Record<string, { color: string; text: string }> = {
+      ADMIN: { color: "red", text: "Admin" },
+      MANAGER: { color: "blue", text: "Manager" },
+      STAFF: { color: "green", text: "Nhân viên" },
+      TECHNICIAN: { color: "orange", text: "Kỹ thuật viên" },
+      RENTER: { color: "default", text: "Khách thuê" },
+    };
+    const roleInfo = roleMap[role?.toUpperCase() || ""] || { color: "default", text: role || "N/A" };
+    return <Tag color={roleInfo.color}>{roleInfo.text}</Tag>;
+  };
+
+  const columns: ColumnsType<Account> = [
+    {
+      title: "Họ tên",
+      dataIndex: "fullname",
+      key: "fullname",
+      width: 200,
+    },
+    {
+      title: "Username",
+      dataIndex: "username",
+      key: "username",
+      width: 150,
+    },
+    {
+      title: "Role",
+      dataIndex: "role",
+      key: "role",
+      width: 120,
+      render: (role) => getRoleTag(role),
+    },
+    {
+      title: "Chi nhánh",
+      key: "branch",
+      width: 200,
+      render: (_, record) => {
+        return record.staff?.branch?.branchName || "-";
+      },
+    },
+    {
+      title: "Email",
+      key: "email",
+      width: 200,
+      render: (_, record) => {
+        return record.staff?.branch?.email || record.renter?.email || "-";
+      },
+    },
+    {
+      title: "Số điện thoại",
+      key: "phone",
+      width: 150,
+      render: (_, record) => {
+        return record.staff?.branch?.phone || record.renter?.phone || "-";
+      },
+    },
+    {
+      title: "Hành động",
+      key: "action",
+      width: 200,
+      fixed: "right",
+      render: (_, record) => {
+        return (
+          <Space>
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewDetail(record)}
+            >
+              Xem
+            </Button>
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+            >
+              Sửa
+            </Button>
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record)}
+            >
+              Xóa
+            </Button>
+          </Space>
+        );
+      },
+    },
+  ];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-2xl w-[450px] shadow-lg relative">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-semibold">Quản lý nhân sự</h2>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={handleCreate}
         >
-          <X size={20} />
-        </button>
-
-        <h2 className="text-lg font-semibold mb-4">
-          {initialData ? "Sửa nhân sự" : "Thêm nhân sự"}
-        </h2>
-
-        <div className="space-y-3">
-          <input
-            type="text"
-            placeholder="Họ tên"
-            value={form.fullName}
-            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
-          />
-          <input
-            type="text"
-            placeholder="Username"
-            value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
-          />
-          <input
-            type="text"
-            placeholder="Số điện thoại"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
-          />
-
-          <div className="flex gap-2">
-            <select
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-              className="border rounded-md px-3 py-2 text-sm w-1/2"
-            >
-              <option>Manager</option>
-              <option>Staff</option>
-              <option>Technician</option>
-            </select>
-            <select
-              value={form.department}
-              onChange={(e) =>
-                setForm({ ...form, department: e.target.value })
-              }
-              className="border rounded-md px-3 py-2 text-sm w-1/2"
-            >
-              <option>Lễ tân</option>
-              <option>Vận hành</option>
-              <option>Kỹ thuật</option>
-            </select>
-          </div>
-
-          <div className="flex gap-2">
-            <select
-              value={form.branch}
-              onChange={(e) => setForm({ ...form, branch: e.target.value })}
-              className="border rounded-md px-3 py-2 text-sm w-1/2"
-            >
-              <option>CN1</option>
-              <option>CN2</option>
-              <option>CN3</option>
-            </select>
-            <input
-              type="date"
-              value={form.startDate}
-              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-              className="border rounded-md px-3 py-2 text-sm w-1/2"
-            />
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm border rounded-md">
-            Hủy
-          </button>
-          <button
-            onClick={() => onSave(form)}
-            className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-md"
-          >
-            Lưu
-          </button>
-        </div>
+          Tạo tài khoản
+        </Button>
       </div>
+
+      {/* Filters */}
+      <div className="mb-4 flex gap-4 flex-wrap">
+        <Search
+          placeholder="Tìm theo tên, username hoặc chi nhánh"
+          allowClear
+          style={{ width: 300 }}
+          onSearch={(value) => setSearchText(value)}
+          onChange={(e) => !e.target.value && setSearchText("")}
+        />
+        <Select
+          placeholder="Role"
+          style={{ width: 150 }}
+          value={selectedRole}
+          onChange={setSelectedRole}
+        >
+          <Option value="all">Tất cả</Option>
+          <Option value="ADMIN">Admin</Option>
+          <Option value="MANAGER">Manager</Option>
+          <Option value="STAFF">Nhân viên</Option>
+          <Option value="TECHNICIAN">Kỹ thuật viên</Option>
+        </Select>
+      </div>
+
+      {/* Table */}
+      <Table
+        columns={columns}
+        dataSource={filteredStaffs}
+        rowKey="id"
+        loading={loading}
+        scroll={{ x: 1200 }}
+        pagination={{
+          pageSize: 12,
+          showSizeChanger: true,
+          showTotal: (total) => `Tổng: ${total} nhân sự`,
+          pageSizeOptions: ["12", "24", "48", "96"],
+        }}
+      />
+
+      {/* Create Account Modal */}
+      <Modal
+        title="Tạo tài khoản mới"
+        open={isCreateModalVisible}
+        onCancel={() => {
+          setIsCreateModalVisible(false);
+          // Reset form completely
+          setTimeout(() => {
+            createForm.resetFields();
+            createForm.setFieldsValue({});
+          }, 100);
+        }}
+        onOk={handleCreateAccount}
+        okText="Tạo"
+        cancelText="Hủy"
+        width={600}
+        destroyOnHidden={true}
+        afterClose={() => {
+          // Ensure form is completely cleared after modal closes
+          createForm.resetFields();
+          createForm.setFieldsValue({});
+        }}
+      >
+        <Form form={createForm} layout="vertical" autoComplete="off">
+          <Form.Item
+            name="username"
+            label="Username"
+            rules={[
+              { required: true, message: "Vui lòng nhập username" },
+              { min: 3, message: "Username phải có ít nhất 3 ký tự" },
+            ]}
+          >
+            <Input 
+              placeholder="Nhập username" 
+              autoComplete="off"
+              autoFocus={false}
+            />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            label="Password"
+            rules={[
+              { required: true, message: "Vui lòng nhập password" },
+              { min: 6, message: "Password phải có ít nhất 6 ký tự" },
+            ]}
+          >
+            <Input.Password 
+              placeholder="Nhập password" 
+              autoComplete="new-password"
+            />
+          </Form.Item>
+          <Form.Item
+            name="role"
+            label="Role"
+            rules={[{ required: true, message: "Vui lòng chọn role" }]}
+          >
+            <Select placeholder="Chọn role">
+              <Option value="MANAGER">Manager</Option>
+              <Option value="STAFF">Nhân viên</Option>
+              <Option value="TECHNICIAN">Kỹ thuật viên</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="fullname"
+            label="Họ tên"
+          >
+            <Input placeholder="Nhập họ tên" autoComplete="off" />
+          </Form.Item>
+          <Form.Item
+            name="email"
+            label="Email"
+          >
+            <Input type="email" placeholder="Nhập email" autoComplete="off" />
+          </Form.Item>
+          <Form.Item
+            name="phone"
+            label="Số điện thoại"
+          >
+            <Input placeholder="Nhập số điện thoại" autoComplete="off" />
+          </Form.Item>
+          <Form.Item
+            name="address"
+            label="Địa chỉ"
+          >
+            <Input placeholder="Nhập địa chỉ" autoComplete="off" />
+          </Form.Item>
+          <Form.Item
+            name="dateOfBirth"
+            label="Ngày sinh"
+          >
+            <DatePicker
+              style={{ width: "100%" }}
+              format="DD/MM/YYYY"
+              placeholder="Chọn ngày sinh"
+            />
+          </Form.Item>
+          <Form.Item
+            name="branchId"
+            label="Chi nhánh"
+          >
+            <Select
+              placeholder="Chọn chi nhánh"
+              loading={loadingBranches}
+              showSearch
+              allowClear
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+              options={branches.map((branch) => ({
+                value: branch.branchId,
+                label: branch.branchName,
+              }))}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Edit Role Modal */}
+      <Modal
+        title="Cập nhật Role"
+        open={isModalVisible}
+        onCancel={() => {
+          setIsModalVisible(false);
+          setEditingAccount(null);
+          form.resetFields();
+        }}
+        onOk={handleUpdateRole}
+        okText="Cập nhật"
+        cancelText="Hủy"
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item
+            name="role"
+            label="Role"
+            rules={[{ required: true, message: "Vui lòng chọn role" }]}
+          >
+            <Select placeholder="Chọn role">
+              <Option value="MANAGER">Manager</Option>
+              <Option value="STAFF">Nhân viên</Option>
+              <Option value="TECHNICIAN">Kỹ thuật viên</Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Detail Modal */}
+      <Modal
+        title="Chi tiết tài khoản"
+        open={isDetailModalVisible}
+        onCancel={() => setIsDetailModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setIsDetailModalVisible(false)}>
+            Đóng
+          </Button>,
+        ]}
+        width={800}
+      >
+        {selectedAccount && (
+          <div>
+            <Descriptions title="Thông tin tài khoản" column={2} bordered className="mb-4">
+              <Descriptions.Item label="ID">
+                {selectedAccount.id}
+              </Descriptions.Item>
+              <Descriptions.Item label="Username">
+                {selectedAccount.username}
+              </Descriptions.Item>
+              <Descriptions.Item label="Họ tên">
+                {selectedAccount.fullname}
+              </Descriptions.Item>
+              <Descriptions.Item label="Role">
+                {getRoleTag(selectedAccount.role)}
+              </Descriptions.Item>
+            </Descriptions>
+
+            {/* Thông tin Staff */}
+            {selectedAccount.staff && (
+              <Descriptions title="Thông tin nhân sự" column={2} bordered className="mb-4">
+                <Descriptions.Item label="Staff ID">
+                  {selectedAccount.staff.id}
+                </Descriptions.Item>
+                {selectedAccount.staff.branch && (
+                  <>
+                    <Descriptions.Item label="Chi nhánh">
+                      {selectedAccount.staff.branch.branchName}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Thành phố">
+                      {selectedAccount.staff.branch.city || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Địa chỉ" span={2}>
+                      {selectedAccount.staff.branch.address || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Số điện thoại">
+                      {selectedAccount.staff.branch.phone || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Email">
+                      {selectedAccount.staff.branch.email || "-"}
+                    </Descriptions.Item>
+                  </>
+                )}
+              </Descriptions>
+            )}
+
+            {/* Thông tin Renter (nếu có) */}
+            {selectedAccount.renter && (
+              <Descriptions title="Thông tin khách thuê" column={2} bordered className="mb-4">
+                <Descriptions.Item label="Renter ID">
+                  {selectedAccount.renter.id}
+                </Descriptions.Item>
+                <Descriptions.Item label="Email">
+                  {selectedAccount.renter.email || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Số điện thoại">
+                  {selectedAccount.renter.phone || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Địa chỉ">
+                  {selectedAccount.renter.address || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Ngày sinh">
+                  {selectedAccount.renter.dateOfBirth || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Đã xác thực">
+                  {selectedAccount.renter.isVerified ? (
+                    <Tag color="green">Đã xác thực</Tag>
+                  ) : (
+                    <Tag color="red">Chưa xác thực</Tag>
+                  )}
+                </Descriptions.Item>
+              </Descriptions>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
-// PUT /api/vehicle-transfer-request/[id]/approve
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+// GET /api/rental/pricing
+// Lấy danh sách tất cả rental pricing
+export async function GET(request: Request) {
   try {
-    const token = cookies().get("token")?.value;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+
     if (!token) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
@@ -16,23 +16,18 @@ export async function PUT(
       );
     }
 
-    const beRes = await emrsFetch(
-      `/VehicleTransferRequest/${params.id}/approve`,
-      {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const beRes = await emrsFetch("/rental/pricing", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     const text = await beRes.text();
     return new NextResponse(text, { status: beRes.status });
   } catch (err) {
-    console.error("VehicleTransferRequest approve error:", err);
+    console.error("Rental pricing list error:", err);
     return NextResponse.json(
       { success: false, message: "Internal BFF Error" },
       { status: 500 }
     );
   }
 }
-
 

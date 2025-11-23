@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
-// POST /api/vehicle-transfer-request/create - tạo transfer request (Manager only)
+// POST /api/branch/create - tạo branch mới
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    const beRes = await emrsFetch("/vehicletransferrequest/create", {
+    const beRes = await emrsFetch("/Branch/create", {
       method: "POST",
       headers: { 
         Authorization: `Bearer ${token}`,
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     try {
       data = text ? JSON.parse(text) : {};
     } catch (parseErr) {
-      console.error("Failed to parse transfer request response as JSON:", text);
+      console.error("Failed to parse branch response as JSON:", text);
       return NextResponse.json(
         { 
           success: false, 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(data, { status: beRes.status });
   } catch (err) {
-    console.error("Transfer request create error:", err);
+    console.error("Branch create error:", err);
     return NextResponse.json(
       { 
         success: false, 
@@ -56,3 +56,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

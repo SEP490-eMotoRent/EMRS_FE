@@ -2,16 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
-// PUT /api/vehicle-transfer-request/[id]/cancel
-export async function PUT(
-  req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+// POST /api/vehicle-model/create
+// Tạo vehicle model mới
+export async function POST(request: Request) {
   try {
-    // ⭐ Fix 1: await params
-    const { id } = await context.params;
-
-    // ⭐ Fix 2: await cookies()
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -22,18 +16,29 @@ export async function PUT(
       );
     }
 
-    const beRes = await emrsFetch(`/VehicleTransferRequest/${id}/cancel`, {
-      method: "PUT",
+    const formData = await request.formData();
+
+    const beRes = await emrsFetch("/Vehicle/model/create", {
+      method: "POST",
       headers: { Authorization: `Bearer ${token}` },
+      body: formData,
     });
 
     const text = await beRes.text();
-    return new NextResponse(text, { status: beRes.status });
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return new NextResponse(text, { status: beRes.status });
+    }
+
+    return NextResponse.json(json, { status: beRes.status });
   } catch (err) {
-    console.error("VehicleTransferRequest cancel error:", err);
+    console.error("Vehicle model create error:", err);
     return NextResponse.json(
       { success: false, message: "Internal BFF Error" },
       { status: 500 }
     );
   }
 }
+

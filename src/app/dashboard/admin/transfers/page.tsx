@@ -1,465 +1,1064 @@
 "use client";
+
 import { useEffect, useState } from "react";
+import { Table, Button, Input, Select, Space, Tag, Modal, Form, message, Descriptions, Card, Tabs } from "antd";
+import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, CheckOutlined, CloseOutlined } from "@ant-design/icons";
+import { 
+  getTransferOrders, 
+  getTransferOrderById, 
+  createTransferOrder, 
+  cancelTransferOrder,
+  getInTransitOrders,
+  VehicleTransferOrder 
+} from "./transfer_order_service";
 import {
-  getTransfers,
-  createTransfer,
-  updateTransfer,
-  deleteTransfer,
-  getBranches,
-} from "./transfer_service";
-import {
-  Plus,
-  Save,
-  Trash2,
-  Check,
-  X,
-  FileText,
-  Ban,
-  ArrowLeftRight,
-} from "lucide-react";
+  getTransferRequests,
+  getPendingRequests,
+  getTransferRequestById,
+  approveTransferRequest,
+  cancelTransferRequest,
+  VehicleTransferRequest
+} from "./transfer_request_service";
+import { getVehicles, Vehicle } from "../vehicles/vehicle_service";
+import { getBranches, Branch } from "../branches/branch_service";
+import type { ColumnsType } from "antd/es/table";
 
-// ================= INTERFACES =================
-interface Transfer {
-  id: string | number;
-  code: string;
-  status: "pending" | "approved" | "in_transit" | "completed" | "rejected" | "cancelled";
-  targetBranchId: string;
-  reason: string;
-  requestedBy: string;
-  requestedAt: string;
-  sourceBranchId?: string | null;
-  vehicleCount?: number;
-  note?: string | null;
-  scheduleAt?: string | null;
-  pickedAt?: string | null;
-  deliveredAt?: string | null;
-}
+const { Search } = Input;
+const { Option } = Select;
+const { TabPane } = Tabs;
 
-const statusMap: Record<string, { label: string; color: string }> = {
-  pending: { label: "Đang chờ duyệt", color: "bg-amber-100 text-amber-700" },
-  approved: { label: "Đã duyệt", color: "bg-blue-100 text-blue-700" },
-  in_transit: { label: "Đang vận chuyển", color: "bg-violet-100 text-violet-700" },
-  completed: { label: "Hoàn tất", color: "bg-emerald-100 text-emerald-700" },
-  rejected: { label: "Đã từ chối", color: "bg-rose-100 text-rose-700" },
-  cancelled: { label: "Đã hủy", color: "bg-gray-100 text-gray-600" },
-};
+export default function TransferOrdersPage() {
+  // Orders state
+  const [orders, setOrders] = useState<VehicleTransferOrder[]>([]);
+  const [inTransitOrders, setInTransitOrders] = useState<VehicleTransferOrder[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [isOrderModalVisible, setIsOrderModalVisible] = useState(false);
+  const [isOrderDetailModalVisible, setIsOrderDetailModalVisible] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<VehicleTransferOrder | null>(null);
+  const [orderForm] = Form.useForm();
+  const [orderSearchText, setOrderSearchText] = useState("");
+  const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>("all");
+  const [selectedFromBranch, setSelectedFromBranch] = useState<string>("all");
 
-// ================= PAGE COMPONENT =================
-export default function TransferPage() {
-  const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState<Partial<Transfer>>({});
-  const [selected, setSelected] = useState<Transfer | null>(null);
+  // Requests state
+  const [requests, setRequests] = useState<VehicleTransferRequest[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<VehicleTransferRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [isRequestDetailModalVisible, setIsRequestDetailModalVisible] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<VehicleTransferRequest | null>(null);
+  const [requestSearchText, setRequestSearchText] = useState("");
+  const [selectedRequestStatus, setSelectedRequestStatus] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("requests");
 
-  // ================= LOAD DATA =================
   useEffect(() => {
-    loadAll();
-  }, []);
+    loadBranches();
+    if (activeTab === "requests") {
+      loadRequests();
+      loadPendingRequests();
+    } else {
+      loadOrders();
+      loadInTransitOrders();
+    }
+  }, [activeTab]);
 
-  const loadAll = async () => {
-    const [trs, brs] = await Promise.all([getTransfers(), getBranches()]);
-    setTransfers(trs);
-    setBranches(brs);
+  useEffect(() => {
+    if (selectedFromBranch && selectedFromBranch !== "all") {
+      loadVehicles(selectedFromBranch);
+    } else {
+      setVehicles([]);
+    }
+  }, [selectedFromBranch]);
+
+  const loadBranches = async () => {
+    try {
+      const data = await getBranches();
+      setBranches(data);
+    } catch (error) {
+      console.error("Error loading branches:", error);
+    }
   };
 
-  // ================= ACTIONS =================
-  const handleCreate = async () => {
-    if (!formData.targetBranchId || !formData.reason || !formData.vehicleCount) {
-      alert("Vui lòng nhập đầy đủ thông tin (chi nhánh nhận, lý do, số lượng xe)!");
+  const loadVehicles = async (branchId: string) => {
+    setLoadingVehicles(true);
+    try {
+      const data = await getVehicles({ BranchId: branchId, Status: "Available", PageSize: 1000 });
+      setVehicles(data.items);
+    } catch (error) {
+      console.error("Error loading vehicles:", error);
+      message.error("Không thể tải danh sách xe");
+    } finally {
+      setLoadingVehicles(false);
+    }
+  };
+
+  const loadOrders = async () => {
+    setLoading(true);
+    try {
+      const data = await getTransferOrders();
+      setOrders(data);
+    } catch (error) {
+      console.error("Error loading transfer orders:", error);
+      message.error("Không thể tải danh sách lệnh điều chuyển");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadInTransitOrders = async () => {
+    try {
+      const data = await getInTransitOrders();
+      setInTransitOrders(data);
+    } catch (error) {
+      console.error("Error loading in-transit orders:", error);
+    }
+  };
+
+  const loadRequests = async () => {
+    setLoadingRequests(true);
+    try {
+      console.log("Loading all requests...");
+      const data = await getTransferRequests();
+      console.log("Loaded requests:", data.length, "items");
+      setRequests(data);
+      console.log("Requests state updated");
+    } catch (error) {
+      console.error("Error loading transfer requests:", error);
+      message.error("Không thể tải danh sách yêu cầu điều chuyển");
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const loadPendingRequests = async () => {
+    try {
+      console.log("Loading pending requests...");
+      const data = await getPendingRequests();
+      console.log("Loaded pending requests:", data.length, "items");
+      setPendingRequests(data);
+      console.log("Pending requests state updated");
+    } catch (error) {
+      console.error("Error loading pending requests:", error);
+    }
+  };
+
+  // Filter orders
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch =
+      !orderSearchText ||
+      order.vehicleLicensePlate?.toLowerCase().includes(orderSearchText.toLowerCase()) ||
+      order.fromBranchName?.toLowerCase().includes(orderSearchText.toLowerCase()) ||
+      order.toBranchName?.toLowerCase().includes(orderSearchText.toLowerCase());
+    
+    const matchesStatus = selectedOrderStatus === "all" || order.status?.toUpperCase() === selectedOrderStatus.toUpperCase();
+    const matchesFromBranch = selectedFromBranch === "all" || order.fromBranchId === selectedFromBranch;
+    
+    return matchesSearch && matchesStatus && matchesFromBranch;
+  });
+
+  // Filter requests
+  const filteredRequests = requests.filter((request) => {
+    const matchesSearch =
+      !requestSearchText ||
+      request.vehicleModelName?.toLowerCase().includes(requestSearchText.toLowerCase()) ||
+      request.branchName?.toLowerCase().includes(requestSearchText.toLowerCase()) ||
+      request.staffName?.toLowerCase().includes(requestSearchText.toLowerCase());
+    
+    const matchesStatus = selectedRequestStatus === "all" || request.status?.toUpperCase() === selectedRequestStatus.toUpperCase();
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  // Order handlers
+  const handleViewOrderDetail = async (order: VehicleTransferOrder) => {
+    try {
+      const detail = await getTransferOrderById(order.id);
+      setSelectedOrder(detail);
+      setIsOrderDetailModalVisible(true);
+    } catch (error) {
+      console.error("Error loading order detail:", error);
+      message.error("Không thể tải chi tiết lệnh điều chuyển");
+    }
+  };
+
+  const handleCreateOrder = () => {
+    orderForm.resetFields();
+    orderForm.setFieldsValue({
+      fromBranchId: undefined,
+      toBranchId: undefined,
+      vehicleId: undefined,
+      notes: undefined,
+    });
+    setSelectedFromBranch("all");
+    setVehicles([]);
+    setIsOrderModalVisible(true);
+  };
+
+  const handleSubmitOrder = async () => {
+    try {
+      const values = await orderForm.validateFields();
+      console.log("[UI] Submitting order with values:", values);
+      
+      // Hiển thị loading message
+      const hideLoading = message.loading("Đang tạo lệnh điều chuyển...", 0);
+      
+      const result = await createTransferOrder({
+        vehicleId: values.vehicleId,
+        fromBranchId: values.fromBranchId,
+        toBranchId: values.toBranchId,
+        notes: values.notes || undefined,
+      });
+      
+      // Đóng loading message
+      hideLoading();
+      
+      console.log("[UI] Order created successfully:", result);
+      
+      message.success("Tạo lệnh điều chuyển thành công");
+      setIsOrderModalVisible(false);
+      orderForm.resetFields();
+      setSelectedFromBranch("all");
+      setVehicles([]);
+      
+      // Reload data
+      await Promise.all([
+        loadOrders(),
+        loadInTransitOrders()
+      ]);
+      
+    } catch (error: any) {
+      console.error("[UI] Error creating transfer order:", error);
+      
+      // Kiểm tra nếu là validation error từ form
+      if (error.errorFields) {
+        return;
+      }
+      
+      // Hiển thị error message từ backend
+      const errorMessage = error.message || "Không thể tạo lệnh điều chuyển";
+      message.error(errorMessage);
+    }
+  };
+
+  const handleCancelOrder = async (order: VehicleTransferOrder) => {
+    if (order.status !== "Pending") {
+      message.warning("Chỉ có thể hủy lệnh điều chuyển ở trạng thái Pending");
       return;
     }
 
-    const payload = {
-      ...formData,
-      code: `TR-${new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 10)}`,
-      status: "pending",
-      requestedBy: "admin@emotorent.vn",
-      requestedAt: new Date().toISOString(),
+    Modal.confirm({
+      title: "Xác nhận hủy",
+      content: `Bạn có chắc muốn hủy lệnh điều chuyển xe "${order.vehicleLicensePlate}"?`,
+      okText: "Hủy lệnh",
+      okType: "danger",
+      cancelText: "Không",
+      onOk: async () => {
+        try {
+          await cancelTransferOrder(order.id);
+          message.success("Hủy lệnh điều chuyển thành công");
+          loadOrders();
+          loadInTransitOrders();
+        } catch (error: any) {
+          console.error("Error cancelling order:", error);
+          message.error(error.message || "Không thể hủy lệnh điều chuyển");
+        }
+      },
+    });
+  };
+
+  // Request handlers
+  const handleViewRequestDetail = async (request: VehicleTransferRequest) => {
+    try {
+      const detail = await getTransferRequestById(request.id);
+      setSelectedRequest(detail);
+      setIsRequestDetailModalVisible(true);
+    } catch (error: any) {
+      console.error("Error loading request detail:", error);
+      // Hiển thị message lỗi chi tiết từ backend nếu có
+      const errorMessage = error?.message || "Không thể tải chi tiết yêu cầu điều chuyển";
+      message.error(errorMessage);
+    }
+  };
+
+  const handleApproveRequest = async (request: VehicleTransferRequest) => {
+    console.log("[UI] ===== APPROVE BUTTON CLICKED =====");
+    console.log("[UI] Request ID:", request.id);
+    console.log("[UI] Request status:", request.status);
+    
+    // Normalize status để so sánh
+    const normalizedStatus = (request.status || "").toUpperCase();
+    
+    if (normalizedStatus !== "PENDING") {
+      message.warning("Chỉ có thể duyệt yêu cầu ở trạng thái Pending");
+      return;
+    }
+
+    // Hiển thị loading message
+    const hideLoading = message.loading("Đang duyệt yêu cầu...", 0);
+    
+    try {
+      // Gọi API approve với ID của request
+      console.log("[UI] Calling approveTransferRequest with ID:", request.id);
+      const result = await approveTransferRequest(request.id);
+      console.log("[UI] Approve result received:", result);
+      
+      // Đóng loading message
+      hideLoading();
+      
+      // Kiểm tra result có hợp lệ không
+      if (!result || !result.id) {
+        console.error("[UI] Invalid result:", result);
+        throw new Error("Không nhận được dữ liệu hợp lệ từ server");
+      }
+      
+      console.log("[UI] Result is valid! Status:", result.status);
+      
+      // Cập nhật state trực tiếp
+      setRequests(prevRequests => {
+        const updated = prevRequests.map(req => 
+          req.id === request.id 
+            ? { ...req, status: result.status || "Approved", reviewedAt: result.reviewedAt || new Date().toISOString() }
+            : req
+        );
+        return updated;
+      });
+      
+      setPendingRequests(prevPending => {
+        return prevPending.filter(req => req.id !== request.id);
+      });
+      
+      // Hiển thị thông báo thành công
+      message.success("Duyệt yêu cầu thành công. Bạn có thể tạo lệnh điều chuyển ngay bây giờ.");
+      
+      // Reload data từ server sau 500ms để đồng bộ
+      setTimeout(async () => {
+        try {
+          await Promise.all([
+            loadRequests(),
+            loadPendingRequests()
+          ]);
+          console.log("[UI] Data reloaded successfully");
+        } catch (reloadError) {
+          console.error("[UI] Error reloading data:", reloadError);
+        }
+      }, 500);
+      
+      console.log("[UI] ===== APPROVE COMPLETED SUCCESSFULLY =====");
+      
+    } catch (error: any) {
+      // Đóng loading message
+      hideLoading();
+      
+      console.error("[UI] ===== ERROR IN APPROVE =====");
+      console.error("[UI] Error:", error);
+      
+      // Parse error message
+      let errorMessage = "Không thể duyệt yêu cầu";
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      }
+      
+      message.error(errorMessage);
+    }
+  };
+
+  const handleCancelRequest = async (request: VehicleTransferRequest) => {
+    console.log("[UI] ===== CANCEL BUTTON CLICKED =====");
+    console.log("[UI] Request ID:", request.id);
+    console.log("[UI] Request status:", request.status);
+    
+    // Hiển thị loading message
+    const hideLoading = message.loading("Đang hủy yêu cầu...", 0);
+    
+    try {
+      // Gọi API cancel với ID của request
+      console.log("[UI] Calling cancelTransferRequest with ID:", request.id);
+      const result = await cancelTransferRequest(request.id);
+      console.log("[UI] Cancel result received:", result);
+      
+      // Đóng loading message
+      hideLoading();
+      
+      // Kiểm tra result có hợp lệ không
+      if (!result || !result.id) {
+        console.error("[UI] Invalid result:", result);
+        throw new Error("Không nhận được dữ liệu hợp lệ từ server");
+      }
+      
+      console.log("[UI] Result is valid! Status:", result.status);
+      
+      // Cập nhật state trực tiếp
+      setRequests(prevRequests => {
+        const updated = prevRequests.map(req => 
+          req.id === request.id 
+            ? { ...req, status: result.status || "Cancelled" }
+            : req
+        );
+        return updated;
+      });
+      
+      setPendingRequests(prevPending => {
+        return prevPending.filter(req => req.id !== request.id);
+      });
+      
+      // Hiển thị thông báo thành công
+      message.success("Hủy yêu cầu thành công");
+      
+      // Reload data từ server sau 500ms để đồng bộ
+      setTimeout(async () => {
+        try {
+          await Promise.all([
+            loadRequests(),
+            loadPendingRequests()
+          ]);
+          console.log("[UI] Data reloaded successfully");
+        } catch (reloadError) {
+          console.error("[UI] Error reloading data:", reloadError);
+        }
+      }, 500);
+      
+      console.log("[UI] ===== CANCEL COMPLETED SUCCESSFULLY =====");
+      
+    } catch (error: any) {
+      // Đóng loading message
+      hideLoading();
+      
+      console.error("[UI] ===== ERROR IN CANCEL =====");
+      console.error("[UI] Error:", error);
+      
+      // Parse error message
+      let errorMessage = "Không thể hủy yêu cầu";
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      }
+      
+      message.error(errorMessage);
+    }
+  };
+
+  const getStatusTag = (status?: string) => {
+    const statusMap: Record<string, { color: string; text: string }> = {
+      PENDING: { color: "orange", text: "Chờ duyệt" },
+      APPROVED: { color: "green", text: "Đã duyệt" },
+      CANCELLED: { color: "default", text: "Đã hủy" },
+      INTRANSIT: { color: "blue", text: "Đang vận chuyển" },
+      COMPLETED: { color: "green", text: "Hoàn tất" },
     };
-
-    await createTransfer(payload);
-    setShowForm(false);
-    setFormData({});
-    loadAll();
+    const statusInfo = statusMap[status?.toUpperCase() || ""] || { color: "default", text: status || "N/A" };
+    return <Tag color={statusInfo.color}>{statusInfo.text}</Tag>;
   };
 
-  const handleUpdateStatus = async (id: string | number, status: string, note?: string) => {
-    await updateTransfer(id, { status, note });
-    loadAll();
-  };
-
-  const handleUpdateSourceBranch = async (id: string | number, sourceBranchId: string) => {
-    await updateTransfer(id, { sourceBranchId });
-    loadAll();
-  };
-
-  // ================= RENDER =================
-  return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-800">
-          <ArrowLeftRight className="text-indigo-600" /> Quản lý điều chuyển xe giữa chi nhánh
-        </h2>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition"
-        >
-          <Plus size={16} /> Tạo điều phối mới
-        </button>
-      </div>
-
-      {/* ==================== TABLE ==================== */}
-      <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-        <div className="flex justify-between items-center px-4 py-3 border-b bg-gray-50">
-          <h3 className="font-semibold text-gray-700">Danh sách yêu cầu điều chuyển</h3>
-          <span className="text-sm text-gray-500">
-            Tổng cộng: {transfers.length} yêu cầu
-          </span>
-        </div>
-
-        <table className="w-full text-sm text-gray-700 border border-gray-300 rounded-md">
-          <thead className="bg-gray-100 text-gray-700 uppercase text-xs border-b border-gray-200">
-            <tr>
-              <th className="py-3 px-4 text-left">Mã điều phối</th>
-              <th className="py-3 px-4 text-left">Chi nhánh nhận</th>
-              <th className="py-3 px-4 text-left">Chi nhánh nguồn</th>
-              <th className="py-3 px-4 text-center">Trạng thái</th>
-              <th className="py-3 px-4 text-center">Số lượng xe</th>
-              <th className="py-3 px-4 text-left">Lý do</th>
-              <th className="py-3 px-4 text-center">Ngày yêu cầu</th>
-              <th className="py-3 px-4 text-center w-[230px]">Hành động</th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y divide-gray-100">
-            {transfers.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50 transition-all duration-100">
-                <td className="py-3 px-4 font-medium text-blue-600">{t.code}</td>
-                <td className="py-3 px-4">{t.targetBranchId}</td>
-
-                {/* Chi nhánh nguồn (có thể chỉnh nếu đã duyệt) */}
-                <td className="py-3 px-4">
-                  {t.status === "approved" ? (
-                    <select
-                      className="border rounded p-1 text-sm"
-                      value={t.sourceBranchId || ""}
-                      onChange={(e) =>
-                        handleUpdateSourceBranch(t.id, e.target.value)
-                      }
-                    >
-                      <option value="">Chọn chi nhánh nguồn</option>
-                      {branches
-                        .filter((b) => b.branchCode !== t.targetBranchId)
-                        .map((b) => (
-                          <option key={b.branchCode} value={b.branchCode}>
-                            {b.branchCode} - {b.branchName}
-                          </option>
-                        ))}
-                    </select>
-                  ) : (
-                    t.sourceBranchId || "-"
-                  )}
-                </td>
-
-                <td className="py-3 px-4 text-center">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${statusMap[t.status]?.color}`}
-                  >
-                    {statusMap[t.status]?.label}
-                  </span>
-                </td>
-
-                <td className="py-3 px-4 text-center">
-                  {typeof t.vehicleCount === "number" ? `${t.vehicleCount} xe` : "-"}
-                </td>
-
-                <td className="py-3 px-4">{t.reason}</td>
-                <td className="py-3 px-4 text-center">
-                  {new Date(t.requestedAt).toLocaleDateString("vi-VN")}
-                </td>
-
-                <td className="py-3 px-4 text-center">
-                  <div className="flex justify-center gap-2 flex-wrap">
-                    {t.status === "pending" && (
-                      <>
-                        <button
-                          onClick={() => handleUpdateStatus(t.id, "approved")}
-                          className="flex items-center gap-1 bg-blue-100 text-blue-600 px-3 py-1 rounded-full hover:bg-blue-200 transition"
-                        >
-                          <Check size={14} /> Duyệt
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleUpdateStatus(
-                              t.id,
-                              "rejected",
-                              prompt("Nhập lý do từ chối:") || "Không xác định"
-                            )
-                          }
-                          className="flex items-center gap-1 bg-gray-100 text-gray-600 px-3 py-1 rounded-full hover:bg-gray-200 transition"
-                        >
-                          <Ban size={14} /> Từ chối
-                        </button>
-                      </>
-                    )}
-
-                    {["approved", "in_transit", "completed"].includes(t.status) && (
-                      <button
-                        onClick={() => setSelected(t)}
-                        className="flex items-center gap-1 bg-purple-100 text-purple-600 px-3 py-1 rounded-full hover:bg-purple-200 transition"
-                      >
-                        <FileText size={14} /> Xem chi tiết
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => deleteTransfer(t.id).then(loadAll)}
-                      className="flex items-center gap-1 bg-red-100 text-red-600 px-3 py-1 rounded-full hover:bg-red-200 transition"
-                    >
-                      <Trash2 size={14} /> Xóa
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ==================== MODAL CHI TIẾT ==================== */}
-      {selected && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-[600px] p-6 relative">
-            <div className="flex justify-between items-center mb-4 border-b pb-2">
-              <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-700">
-                <FileText className="text-purple-600" /> Chi tiết điều phối xe
-              </h3>
-              <button onClick={() => setSelected(null)}>
-                <X className="text-gray-500 hover:text-gray-700" />
-              </button>
-            </div>
-
-            {/* --- Theo dõi trạng thái --- */}
-            {["approved", "in_transit", "completed"].includes(selected.status) && (
-              <div className="mb-4 border-b pb-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  🚗 Theo dõi tình trạng xe
-                </h4>
-                <div className="flex items-center justify-between relative px-2 mb-3">
-                  {[
-                    { id: "approved", label: "Chờ xuất xe" },
-                    { id: "in_transit", label: "Đang vận chuyển" },
-                    { id: "completed", label: "Đã đến nơi" },
-                  ].map((step, index, arr) => {
-                    const isActive =
-                      arr.findIndex((s) => s.id === selected.status) >= index;
-                    return (
-                      <div key={step.id} className="flex flex-col items-center w-1/3">
-                        {index > 0 && (
-                          <div
-                            className={`absolute top-3 left-0 right-0 h-[3px] ${
-                              isActive ? "bg-green-400" : "bg-gray-200"
-                            }`}
-                            style={{
-                              width: `${(index / (arr.length - 1)) * 100}%`,
-                              zIndex: 0,
-                            }}
-                          ></div>
-                        )}
-                        <div
-                          className={`z-10 w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
-                            isActive ? "bg-green-500" : "bg-gray-300"
-                          }`}
-                        >
-                          {index + 1}
-                        </div>
-                        <span
-                          className={`text-xs mt-1 ${
-                            isActive ? "text-green-600 font-semibold" : "text-gray-500"
-                          }`}
-                        >
-                          {step.label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="bg-gray-50 border rounded-lg p-3 text-gray-700 text-sm">
-                  {selected.status === "approved" && "Xe đang chờ điều phối từ chi nhánh nguồn..."}
-                  {selected.status === "in_transit" && "Xe đang di chuyển tới chi nhánh nhận..."}
-                  {selected.status === "completed" && "Xe đã đến chi nhánh nhận và hoàn tất điều phối."}
-                </div>
-              </div>
-            )}
-
-            {/* --- Bảng thông tin --- */}
-            <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
-              <tbody className="divide-y divide-gray-200">
-                <tr>
-                  <td className="bg-gray-50 font-medium text-gray-700 px-3 py-2 w-[40%]">Mã điều phối</td>
-                  <td className="px-3 py-2">{selected.code}</td>
-                </tr>
-                <tr>
-                  <td className="bg-gray-50 font-medium text-gray-700 px-3 py-2">Trạng thái</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${statusMap[selected.status]?.color}`}
-                    >
-                      {statusMap[selected.status]?.label}
-                    </span>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="bg-gray-50 font-medium text-gray-700 px-3 py-2">Chi nhánh nguồn</td>
-                  <td className="px-3 py-2">{selected.sourceBranchId || "-"}</td>
-                </tr>
-                <tr>
-                  <td className="bg-gray-50 font-medium text-gray-700 px-3 py-2">Chi nhánh nhận</td>
-                  <td className="px-3 py-2">{selected.targetBranchId}</td>
-                </tr>
-                <tr>
-                  <td className="bg-gray-50 font-medium text-gray-700 px-3 py-2">Số lượng xe</td>
-                  <td className="px-3 py-2">
-                    {selected.vehicleCount ? `${selected.vehicleCount} xe` : "Chưa có"}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="bg-gray-50 font-medium text-gray-700 px-3 py-2">Lý do</td>
-                  <td className="px-3 py-2">{selected.reason}</td>
-                </tr>
-                <tr>
-                  <td className="bg-gray-50 font-medium text-gray-700 px-3 py-2">Ghi chú</td>
-                  <td className="px-3 py-2">{selected.note || "Không có"}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setSelected(null)}
-                className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== MODAL TẠO MỚI ==================== */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-[460px]">
-            <div className="flex justify-between items-center mb-4 border-b pb-2">
-              <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-700">
-                <Plus className="text-green-600" /> Tạo điều phối mới
-              </h3>
-              <button onClick={() => setShowForm(false)}>
-                <X className="text-gray-500 hover:text-gray-700" />
-              </button>
-            </div>
-
-            {/* --- Form content --- */}
-            <div className="space-y-3">
-              {/* Chi nhánh nguồn */}
-              <div>
-                <label className="text-sm text-gray-600 font-medium mb-1 block">
-                  Chi nhánh nguồn
-                </label>
-                <select
-                  className="border rounded-md w-full p-2 focus:ring focus:ring-green-200"
-                  value={formData.sourceBranchId ?? ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sourceBranchId: e.target.value })
-                  }
-                >
-                  <option value="">Chọn chi nhánh nguồn</option>
-                  {branches.map((b) => (
-                    <option key={b.branchCode} value={b.branchCode}>
-                      {b.branchCode} - {b.branchName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Chi nhánh nhận */}
-              <div>
-                <label className="text-sm text-gray-600 font-medium mb-1 block">
-                  Chi nhánh nhận
-                </label>
-                <select
-                  className="border rounded-md w-full p-2 focus:ring focus:ring-green-200"
-                  value={formData.targetBranchId ?? ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, targetBranchId: e.target.value })
-                  }
-                >
-                  <option value="">Chọn chi nhánh nhận</option>
-                  {branches
-                    .filter((b) => b.branchCode !== formData.sourceBranchId)
-                    .map((b) => (
-                      <option key={b.branchCode} value={b.branchCode}>
-                        {b.branchCode} - {b.branchName}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Số lượng xe */}
-              <div>
-                <label className="text-sm text-gray-600 font-medium mb-1 block">
-                  Số lượng xe
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  className="border rounded-md w-full p-2 focus:ring focus:ring-green-200"
-                  placeholder="Nhập số lượng xe cần điều phối"
-                  value={formData.vehicleCount ?? ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, vehicleCount: parseInt(e.target.value) })
-                  }
-                />
-              </div>
-
-              {/* Lý do */}
-              <div>
-                <label className="text-sm text-gray-600 font-medium mb-1 block">
-                  Lý do điều phối
-                </label>
-                <textarea
-                  rows={3}
-                  className="border rounded-md w-full p-2 focus:ring focus:ring-green-200"
-                  placeholder="Nhập lý do điều phối..."
-                  value={formData.reason ?? ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, reason: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex justify-end gap-2 mt-5">
-              <button
-                onClick={() => setShowForm(false)}
-                className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700"
+  // Order columns
+  const orderColumns: ColumnsType<VehicleTransferOrder> = [
+    {
+      title: "Biển số xe",
+      dataIndex: "vehicleLicensePlate",
+      key: "vehicleLicensePlate",
+      width: 120,
+    },
+    {
+      title: "Từ chi nhánh",
+      dataIndex: "fromBranchName",
+      key: "fromBranchName",
+      width: 180,
+    },
+    {
+      title: "Đến chi nhánh",
+      dataIndex: "toBranchName",
+      key: "toBranchName",
+      width: 180,
+    },
+    {
+      title: "Trạng thái",
+      dataIndex: "status",
+      key: "status",
+      width: 150,
+      render: (status) => getStatusTag(status),
+    },
+    {
+      title: "Ngày tạo",
+      key: "createdAt",
+      width: 150,
+      render: (_, record) => {
+        if (!record.createdAt) return "-";
+        return new Date(record.createdAt).toLocaleDateString("vi-VN");
+      },
+    },
+    {
+      title: "Ngày nhận",
+      key: "receivedDate",
+      width: 150,
+      render: (_, record) => {
+        if (!record.receivedDate) return "-";
+        return new Date(record.receivedDate).toLocaleDateString("vi-VN");
+      },
+    },
+    {
+      title: "Ghi chú",
+      dataIndex: "notes",
+      key: "notes",
+      width: 200,
+      ellipsis: true,
+    },
+    {
+      title: "Hành động",
+      key: "action",
+      width: 200,
+      fixed: "right",
+      render: (_, record) => {
+        return (
+          <Space>
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewOrderDetail(record)}
+            >
+              Xem
+            </Button>
+            {record.status === "Pending" && (
+              <Button
+                type="link"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleCancelOrder(record)}
               >
                 Hủy
-              </button>
-              <button
-                onClick={handleCreate}
-                className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
+              </Button>
+            )}
+          </Space>
+        );
+      },
+    },
+  ];
+
+  // Request columns
+  const requestColumns: ColumnsType<VehicleTransferRequest> = [
+    {
+      title: "Model xe",
+      dataIndex: "vehicleModelName",
+      key: "vehicleModelName",
+      width: 180,
+    },
+    {
+      title: "Số lượng yêu cầu",
+      dataIndex: "quantityRequested",
+      key: "quantityRequested",
+      width: 120,
+      render: (quantity) => quantity || "-",
+    },
+    {
+      title: "Chi nhánh",
+      dataIndex: "branchName",
+      key: "branchName",
+      width: 180,
+    },
+    {
+      title: "Người yêu cầu",
+      dataIndex: "staffName",
+      key: "staffName",
+      width: 150,
+    },
+    {
+      title: "Trạng thái",
+      dataIndex: "status",
+      key: "status",
+      width: 120,
+      render: (status) => getStatusTag(status),
+    },
+    {
+      title: "Ngày yêu cầu",
+      key: "requestedAt",
+      width: 150,
+      render: (_, record) => {
+        if (!record.requestedAt && !record.createdAt) return "-";
+        return new Date(record.requestedAt || record.createdAt || "").toLocaleDateString("vi-VN");
+      },
+    },
+    {
+      title: "Mô tả",
+      dataIndex: "description",
+      key: "description",
+      width: 250,
+      ellipsis: true,
+    },
+    {
+      title: "Hành động",
+      key: "action",
+      width: 250,
+      fixed: "right",
+      render: (_, record) => {
+        return (
+          <Space>
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewRequestDetail(record)}
+            >
+              Xem
+            </Button>
+            {((record.status || "").toUpperCase() === "PENDING") && (
+              <>
+                <Button
+                  type="link"
+                  icon={<CheckOutlined />}
+                  onClick={() => {
+                    console.log("Approve button clicked for request:", record);
+                    handleApproveRequest(record);
+                  }}
+                >
+                  Duyệt
+                </Button>
+                <Button
+                  type="link"
+                  danger
+                  icon={<CloseOutlined />}
+                  onClick={() => handleCancelRequest(record)}
+                >
+                  Hủy
+                </Button>
+              </>
+            )}
+            {((record.status || "").toUpperCase() === "APPROVED") && (
+              <Button
+                type="link"
+                danger
+                icon={<CloseOutlined />}
+                onClick={() => handleCancelRequest(record)}
               >
-                <Save size={16} /> Tạo
-              </button>
-            </div>
+                Hủy
+              </Button>
+            )}
+          </Space>
+        );
+      },
+    },
+  ];
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-semibold">Quản lý điều chuyển xe</h2>
+        {activeTab === "orders" && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleCreateOrder}
+          >
+            Tạo lệnh điều chuyển
+          </Button>
+        )}
+      </div>
+
+      <Tabs activeKey={activeTab} onChange={setActiveTab}>
+        {/* Tab: Yêu cầu điều chuyển */}
+        <TabPane tab={`Yêu cầu điều chuyển (${pendingRequests.length} chờ duyệt)`} key="requests">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <Card>
+              <div className="text-sm text-gray-500">Tổng yêu cầu</div>
+              <div className="text-2xl font-semibold mt-1">{requests.length}</div>
+            </Card>
+            <Card>
+              <div className="text-sm text-gray-500">Chờ duyệt</div>
+              <div className="text-2xl font-semibold mt-1 text-orange-600">{pendingRequests.length}</div>
+            </Card>
+            <Card>
+              <div className="text-sm text-gray-500">Đã duyệt</div>
+              <div className="text-2xl font-semibold mt-1 text-green-600">
+                {requests.filter(r => r.status === "Approved").length}
+              </div>
+            </Card>
           </div>
-        </div>
-      )}
+
+          {/* Filters */}
+          <div className="mb-4 flex gap-4 flex-wrap">
+            <Search
+              placeholder="Tìm theo model, chi nhánh, người yêu cầu"
+              allowClear
+              style={{ width: 300 }}
+              onSearch={(value) => setRequestSearchText(value)}
+              onChange={(e) => !e.target.value && setRequestSearchText("")}
+            />
+            <Select
+              placeholder="Trạng thái"
+              style={{ width: 150 }}
+              value={selectedRequestStatus}
+              onChange={setSelectedRequestStatus}
+            >
+              <Option value="all">Tất cả</Option>
+              <Option value="Pending">Chờ duyệt</Option>
+              <Option value="Approved">Đã duyệt</Option>
+              <Option value="Cancelled">Đã hủy</Option>
+            </Select>
+          </div>
+
+          {/* Table */}
+          <Table
+            columns={requestColumns}
+            dataSource={filteredRequests}
+            rowKey="id"
+            loading={loadingRequests}
+            scroll={{ x: 1200 }}
+            pagination={{
+              pageSize: 12,
+              showSizeChanger: true,
+              showTotal: (total) => `Tổng: ${total} yêu cầu`,
+              pageSizeOptions: ["12", "24", "48", "96"],
+            }}
+          />
+        </TabPane>
+
+        {/* Tab: Lệnh điều chuyển */}
+        <TabPane tab={`Lệnh điều chuyển (${inTransitOrders.length} đang vận chuyển)`} key="orders">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <Card>
+              <div className="text-sm text-gray-500">Tổng lệnh điều chuyển</div>
+              <div className="text-2xl font-semibold mt-1">{orders.length}</div>
+            </Card>
+            <Card>
+              <div className="text-sm text-gray-500">Đang vận chuyển</div>
+              <div className="text-2xl font-semibold mt-1 text-blue-600">{inTransitOrders.length}</div>
+            </Card>
+            <Card>
+              <div className="text-sm text-gray-500">Chờ xuất xe</div>
+              <div className="text-2xl font-semibold mt-1 text-orange-600">
+                {orders.filter(o => o.status === "Pending").length}
+              </div>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <div className="mb-4 flex gap-4 flex-wrap">
+            <Search
+              placeholder="Tìm theo biển số, chi nhánh"
+              allowClear
+              style={{ width: 300 }}
+              onSearch={(value) => setOrderSearchText(value)}
+              onChange={(e) => !e.target.value && setOrderSearchText("")}
+            />
+            <Select
+              placeholder="Trạng thái"
+              style={{ width: 150 }}
+              value={selectedOrderStatus}
+              onChange={setSelectedOrderStatus}
+            >
+              <Option value="all">Tất cả</Option>
+              <Option value="Pending">Chờ xuất xe</Option>
+              <Option value="InTransit">Đang vận chuyển</Option>
+              <Option value="Completed">Hoàn tất</Option>
+              <Option value="Cancelled">Đã hủy</Option>
+            </Select>
+            <Select
+              placeholder="Chi nhánh nguồn"
+              style={{ width: 200 }}
+              value={selectedFromBranch}
+              onChange={setSelectedFromBranch}
+            >
+              <Option value="all">Tất cả</Option>
+              {branches.map((branch) => (
+                <Option key={branch.id} value={branch.id}>
+                  {branch.branchName}
+                </Option>
+              ))}
+            </Select>
+          </div>
+
+          {/* Table */}
+          <Table
+            columns={orderColumns}
+            dataSource={filteredOrders}
+            rowKey="id"
+            loading={loading}
+            scroll={{ x: 1200 }}
+            pagination={{
+              pageSize: 12,
+              showSizeChanger: true,
+              showTotal: (total) => `Tổng: ${total} lệnh điều chuyển`,
+              pageSizeOptions: ["12", "24", "48", "96"],
+            }}
+          />
+        </TabPane>
+      </Tabs>
+
+      {/* Create Order Modal */}
+      <Modal
+        title="Tạo lệnh điều chuyển xe"
+        open={isOrderModalVisible}
+        onCancel={() => {
+          setIsOrderModalVisible(false);
+          orderForm.resetFields();
+          setSelectedFromBranch("all");
+          setVehicles([]);
+        }}
+        onOk={handleSubmitOrder}
+        okText="Tạo"
+        cancelText="Hủy"
+        width={600}
+        destroyOnHidden={true}
+      >
+        <Form form={orderForm} layout="vertical">
+          <Form.Item
+            name="fromBranchId"
+            label="Chi nhánh nguồn"
+            rules={[{ required: true, message: "Vui lòng chọn chi nhánh nguồn" }]}
+          >
+            <Select
+              placeholder="Chọn chi nhánh nguồn"
+              onChange={(value) => {
+                setSelectedFromBranch(value);
+                orderForm.setFieldsValue({ vehicleId: undefined });
+              }}
+            >
+              {branches.map((branch) => (
+                <Option key={branch.id} value={branch.id}>
+                  {branch.branchName}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="vehicleId"
+            label="Xe"
+            rules={[{ required: true, message: "Vui lòng chọn xe" }]}
+          >
+            <Select
+              placeholder="Chọn xe"
+              loading={loadingVehicles}
+              disabled={!selectedFromBranch || selectedFromBranch === "all"}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+              options={vehicles.map((vehicle) => ({
+                value: vehicle.id || vehicle.vehicleId,
+                label: `${vehicle.licensePlate} - ${vehicle.vehicleModelName || ""}`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item
+            name="toBranchId"
+            label="Chi nhánh đích"
+            rules={[
+              { required: true, message: "Vui lòng chọn chi nhánh đích" },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue("fromBranchId") !== value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error("Chi nhánh đích phải khác chi nhánh nguồn"));
+                },
+              }),
+            ]}
+          >
+            <Select placeholder="Chọn chi nhánh đích">
+              {branches.map((branch) => (
+                <Option key={branch.id} value={branch.id}>
+                  {branch.branchName}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="notes"
+            label="Ghi chú"
+          >
+            <Input.TextArea rows={3} placeholder="Nhập ghi chú (tùy chọn)" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Order Detail Modal */}
+      <Modal
+        title="Chi tiết lệnh điều chuyển"
+        open={isOrderDetailModalVisible}
+        onCancel={() => setIsOrderDetailModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setIsOrderDetailModalVisible(false)}>
+            Đóng
+          </Button>,
+        ]}
+        width={800}
+      >
+        {selectedOrder && (
+          <div>
+            <Descriptions title="Thông tin lệnh điều chuyển" column={2} bordered className="mb-4">
+              <Descriptions.Item label="ID">
+                {selectedOrder.id}
+              </Descriptions.Item>
+              <Descriptions.Item label="Trạng thái">
+                {getStatusTag(selectedOrder.status)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Biển số xe">
+                {selectedOrder.vehicleLicensePlate || selectedOrder.vehicle?.licensePlate || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Ngày tạo">
+                {selectedOrder.createdAt 
+                  ? new Date(selectedOrder.createdAt).toLocaleString("vi-VN")
+                  : "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Ngày nhận">
+                {selectedOrder.receivedDate 
+                  ? new Date(selectedOrder.receivedDate).toLocaleString("vi-VN")
+                  : "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Ghi chú" span={2}>
+                {selectedOrder.notes || "-"}
+              </Descriptions.Item>
+            </Descriptions>
+
+            {selectedOrder.vehicle && (
+              <Descriptions title="Thông tin xe" column={2} bordered className="mb-4">
+                <Descriptions.Item label="Biển số">
+                  {selectedOrder.vehicle.licensePlate}
+                </Descriptions.Item>
+                <Descriptions.Item label="Màu sắc">
+                  {selectedOrder.vehicle.color || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Trạng thái">
+                  {selectedOrder.vehicle.status || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Model">
+                  {selectedOrder.vehicle.vehicleModel?.modelName || "-"}
+                </Descriptions.Item>
+              </Descriptions>
+            )}
+
+            {selectedOrder.fromBranch && (
+              <Descriptions title="Chi nhánh nguồn" column={2} bordered className="mb-4">
+                <Descriptions.Item label="Tên">
+                  {selectedOrder.fromBranch.branchName}
+                </Descriptions.Item>
+                <Descriptions.Item label="Địa chỉ" span={2}>
+                  {selectedOrder.fromBranch.address || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Số điện thoại">
+                  {selectedOrder.fromBranch.phone || "-"}
+                </Descriptions.Item>
+              </Descriptions>
+            )}
+
+            {selectedOrder.toBranch && (
+              <Descriptions title="Chi nhánh đích" column={2} bordered>
+                <Descriptions.Item label="Tên">
+                  {selectedOrder.toBranch.branchName}
+                </Descriptions.Item>
+                <Descriptions.Item label="Địa chỉ" span={2}>
+                  {selectedOrder.toBranch.address || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Số điện thoại">
+                  {selectedOrder.toBranch.phone || "-"}
+                </Descriptions.Item>
+              </Descriptions>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Request Detail Modal */}
+      <Modal
+        title="Chi tiết yêu cầu điều chuyển"
+        open={isRequestDetailModalVisible}
+        onCancel={() => setIsRequestDetailModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setIsRequestDetailModalVisible(false)}>
+            Đóng
+          </Button>,
+        ]}
+        width={800}
+      >
+        {selectedRequest && (
+          <div>
+            <Descriptions title="Thông tin yêu cầu" column={2} bordered className="mb-4">
+              <Descriptions.Item label="ID">
+                {selectedRequest.id}
+              </Descriptions.Item>
+              <Descriptions.Item label="Trạng thái">
+                {getStatusTag(selectedRequest.status)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Model xe">
+                {selectedRequest.vehicleModelName || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Số lượng yêu cầu">
+                {selectedRequest.quantityRequested || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Chi nhánh">
+                {selectedRequest.branchName || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Người yêu cầu">
+                {selectedRequest.staffName || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Ngày yêu cầu">
+                {selectedRequest.requestedAt || selectedRequest.createdAt
+                  ? new Date(selectedRequest.requestedAt || selectedRequest.createdAt || "").toLocaleString("vi-VN")
+                  : "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Ngày duyệt">
+                {selectedRequest.reviewedAt
+                  ? new Date(selectedRequest.reviewedAt).toLocaleString("vi-VN")
+                  : "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Mô tả" span={2}>
+                {selectedRequest.description || "-"}
+              </Descriptions.Item>
+            </Descriptions>
+
+            {selectedRequest.vehicleModel && (
+              <Descriptions title="Thông tin model xe" column={2} bordered className="mb-4">
+                <Descriptions.Item label="Tên model">
+                  {selectedRequest.vehicleModel.modelName || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Loại">
+                  {selectedRequest.vehicleModel.category || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Tầm hoạt động">
+                  {selectedRequest.vehicleModel.maxRangeKm ? `${selectedRequest.vehicleModel.maxRangeKm} km` : "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Tốc độ tối đa">
+                  {selectedRequest.vehicleModel.maxSpeedKmh ? `${selectedRequest.vehicleModel.maxSpeedKmh} km/h` : "-"}
+                </Descriptions.Item>
+              </Descriptions>
+            )}
+
+            {selectedRequest.staff && (
+              <Descriptions title="Thông tin người yêu cầu" column={2} bordered className="mb-4">
+                <Descriptions.Item label="Họ tên">
+                  {selectedRequest.staff.fullname || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Email">
+                  {selectedRequest.staff.email || "-"}
+                </Descriptions.Item>
+              </Descriptions>
+            )}
+
+            {selectedRequest.vehicleTransferOrder && (
+              <Descriptions title="Lệnh điều chuyển liên quan" column={2} bordered>
+                <Descriptions.Item label="ID">
+                  {selectedRequest.vehicleTransferOrder.id}
+                </Descriptions.Item>
+                <Descriptions.Item label="Trạng thái">
+                  {getStatusTag(selectedRequest.vehicleTransferOrder.status)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Biển số xe">
+                  {selectedRequest.vehicleTransferOrder.vehicleLicensePlate || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Từ chi nhánh">
+                  {selectedRequest.vehicleTransferOrder.fromBranchName || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Đến chi nhánh">
+                  {selectedRequest.vehicleTransferOrder.toBranchName || "-"}
+                </Descriptions.Item>
+              </Descriptions>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

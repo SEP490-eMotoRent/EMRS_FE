@@ -1,0 +1,366 @@
+const INTERNAL_BASE =
+  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const API_PREFIX = "/api/vehicle-transfer-order";
+
+function buildUrl(path: string) {
+  return `${INTERNAL_BASE}${API_PREFIX}${path}`;
+}
+
+export interface VehicleTransferOrder {
+  id: string;
+  status: "Pending" | "InTransit" | "Completed" | "Cancelled";
+  receivedDate?: string | null;
+  notes?: string;
+  vehicleId: string;
+  vehicleLicensePlate?: string;
+  fromBranchId: string;
+  fromBranchName?: string;
+  toBranchId: string;
+  toBranchName?: string;
+  createdAt?: string;
+  vehicle?: {
+    id: string;
+    licensePlate: string;
+    color?: string;
+    status?: string;
+    vehicleModel?: {
+      modelName?: string;
+      category?: string;
+    };
+  };
+  fromBranch?: {
+    id: string;
+    branchName: string;
+    address?: string;
+    phone?: string;
+  };
+  toBranch?: {
+    id: string;
+    branchName: string;
+    address?: string;
+    phone?: string;
+  };
+}
+
+// Lấy tất cả transfer orders
+export async function getTransferOrders(): Promise<VehicleTransferOrder[]> {
+  const url = buildUrl("");
+
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to fetch transfer orders:", res.status, errorText);
+    throw new Error(`Failed to fetch transfer orders: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  let orders: any[] = [];
+  if (json.success && json.data && Array.isArray(json.data)) {
+    orders = json.data;
+  } else if (Array.isArray(json)) {
+    orders = json;
+  } else if (Array.isArray(json.data)) {
+    orders = json.data;
+  }
+
+  return orders;
+}
+
+// Lấy chi tiết order
+export async function getTransferOrderById(orderId: string): Promise<VehicleTransferOrder> {
+  const url = buildUrl(`/${orderId}`);
+
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to fetch transfer order:", res.status, errorText);
+    throw new Error(`Failed to fetch transfer order: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
+// Lấy orders đang vận chuyển
+export async function getInTransitOrders(): Promise<VehicleTransferOrder[]> {
+  const url = buildUrl("/intransit");
+
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to fetch in-transit orders:", res.status, errorText);
+    throw new Error(`Failed to fetch in-transit orders: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  let orders: any[] = [];
+  if (json.success && json.data && Array.isArray(json.data)) {
+    orders = json.data;
+  } else if (Array.isArray(json)) {
+    orders = json;
+  } else if (Array.isArray(json.data)) {
+    orders = json.data;
+  }
+
+  return orders;
+}
+
+// Tạo transfer order
+export async function createTransferOrder(data: {
+  vehicleId: string;
+  fromBranchId: string;
+  toBranchId: string;
+  notes?: string;
+}): Promise<VehicleTransferOrder> {
+  const url = buildUrl("/create");
+  console.log("[Create Order Service] Calling URL:", url);
+  console.log("[Create Order Service] Request data:", JSON.stringify(data, null, 2));
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
+
+  console.log("[Create Order Service] Response status:", res.status, res.statusText);
+
+  const text = await res.text();
+  console.log("[Create Order Service] Response text:", text);
+  
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+    console.log("[Create Order Service] Parsed JSON:", JSON.stringify(json, null, 2));
+  } catch (e) {
+    console.error("[Create Order Service] Failed to parse JSON:", text, e);
+    throw new Error("Invalid JSON response");
+  }
+
+  // Kiểm tra nếu backend trả về lỗi (success: false hoặc status không ok)
+  if (!res.ok) {
+    // Parse error message từ backend
+    const errorMessage = json.message || json.error || `Failed to create transfer order: ${res.statusText}`;
+    console.error("[Create Order Service] Request failed:", res.status, errorMessage, json);
+    throw new Error(errorMessage);
+  }
+
+  // Kiểm tra success flag trong response
+  if (json.success === false) {
+    const errorMessage = json.message || "Failed to create transfer order";
+    console.error("[Create Order Service] Backend returned success: false:", json);
+    throw new Error(errorMessage);
+  }
+
+  // Trả về data từ response (theo format: { success: true, message: "...", data: {...} })
+  if (json.data && typeof json.data === 'object') {
+    console.log("[Create Order Service] Returning data from json.data:", json.data);
+    return json.data as VehicleTransferOrder;
+  }
+
+  // Fallback: trả về toàn bộ json nếu không có data field
+  console.log("[Create Order Service] No data field, returning full json");
+  return json as VehicleTransferOrder;
+}
+
+// Hủy transfer order
+export async function cancelTransferOrder(orderId: string): Promise<VehicleTransferOrder> {
+  const url = buildUrl(`/${orderId}/cancel`);
+
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to cancel transfer order:", res.status, errorText);
+    throw new Error(`Failed to cancel transfer order: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
+// Manager xác nhận xuất xe (from branch)
+export async function dispatchTransferOrder(orderId: string): Promise<VehicleTransferOrder> {
+  const url = buildUrl(`/${orderId}/dispatch`);
+
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to dispatch transfer order:", res.status, errorText);
+    throw new Error(`Failed to dispatch transfer order: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
+// Manager xác nhận nhận xe (to branch)
+export async function receiveTransferOrder(orderId: string): Promise<VehicleTransferOrder> {
+  const url = buildUrl(`/${orderId}/receive`);
+
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to receive transfer order:", res.status, errorText);
+    throw new Error(`Failed to receive transfer order: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
+// Lấy orders theo branch (Manager)
+export async function getTransferOrdersByBranch(branchId: string): Promise<VehicleTransferOrder[]> {
+  const url = buildUrl(`/branch/${branchId}`);
+
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to fetch branch transfer orders:", res.status, errorText);
+    throw new Error(`Failed to fetch branch transfer orders: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  let orders: any[] = [];
+  if (json.success && json.data && Array.isArray(json.data)) {
+    orders = json.data;
+  } else if (Array.isArray(json)) {
+    orders = json;
+  } else if (Array.isArray(json.data)) {
+    orders = json.data;
+  }
+
+  return orders;
+}
+
+// Lấy pending orders theo branch (Manager)
+export async function getPendingTransferOrdersByBranch(branchId: string): Promise<VehicleTransferOrder[]> {
+  const url = buildUrl(`/branch/${branchId}/pending`);
+
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to fetch pending branch transfer orders:", res.status, errorText);
+    throw new Error(`Failed to fetch pending branch transfer orders: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  let orders: any[] = [];
+  if (json.success && json.data && Array.isArray(json.data)) {
+    orders = json.data;
+  } else if (Array.isArray(json)) {
+    orders = json;
+  } else if (Array.isArray(json.data)) {
+    orders = json.data;
+  }
+
+  return orders;
+}
+

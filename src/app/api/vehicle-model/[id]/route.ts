@@ -4,12 +4,15 @@ import { emrsFetch } from "@/utils/emrsApi";
 
 // GET /api/vehicle-model/[id]
 // Lấy chi tiết vehicle model theo ID (không phải "list")
+// PUT /api/vehicle-model/[id]
+// Cập nhật vehicle model
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = params.id;
+    // ⛔ BẮT BUỘC: context.params phải await theo chuẩn Next.js 15
+    const { id } = await context.params;
 
     // Nếu id là "list", không xử lý ở đây (để route /list xử lý)
     if (id === "list") {
@@ -54,6 +57,55 @@ export async function GET(
     console.error("Vehicle model detail error:", err);
     return NextResponse.json(
       { success: false, message: "Internal BFF Error", error: String(err) },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/vehicle-model/[id]
+// Cập nhật vehicle model
+export async function PUT(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // ⛔ BẮT BUỘC: context.params phải await theo chuẩn Next.js 15
+    const { id } = await context.params;
+
+    const body = await request.json();
+
+    const beRes = await emrsFetch("/Vehicle/model", {
+      method: "PUT",
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const text = await beRes.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return new NextResponse(text, { status: beRes.status });
+    }
+
+    return NextResponse.json(json, { status: beRes.status });
+  } catch (err) {
+    console.error("Vehicle model update error:", err);
+    return NextResponse.json(
+      { success: false, message: "Internal BFF Error" },
       { status: 500 }
     );
   }

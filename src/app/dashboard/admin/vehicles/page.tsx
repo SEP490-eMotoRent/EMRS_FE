@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Table, Button, Input, Select, Space, Tag, Modal, Form, DatePicker, Upload, message, Image, Card, Descriptions } from "antd";
-import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, UploadOutlined } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
+import { Table, Button, Input, Select, Space, Tag, Modal, Form, DatePicker, Upload, message, Image, Card, Descriptions, Tooltip } from "antd";
+import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, UploadOutlined, RadarChartOutlined } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
 import { getVehicles, getVehicleById, createVehicle, updateVehicle, VehicleFilters, VehicleListResponse } from "./vehicle_service";
 import type { ColumnsType } from "antd/es/table";
@@ -11,6 +12,9 @@ const { Search } = Input;
 const { Option } = Select;
 
 const INTERNAL_BASE = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+// ID của xe có tracking (tạm thời hardcode, có thể lấy từ API sau)
+const TRACKING_VEHICLE_ID = "072ea2b3-c69b-4607-85ff-ff5825ff8e2a";
 
 interface Branch {
   branchId: string;
@@ -71,6 +75,7 @@ interface Vehicle {
 }
 
 export default function VehiclesPage() {
+  const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -85,6 +90,7 @@ export default function VehiclesPage() {
   const [searchText, setSearchText] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const [selectedModel, setSelectedModel] = useState<string>("all");
   
   // Modal states
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -120,18 +126,27 @@ export default function VehiclesPage() {
         LicensePlate: searchText || undefined,
         Status: selectedStatus !== "all" ? selectedStatus : undefined,
         BranchId: selectedBranch !== "all" ? selectedBranch : undefined,
+        VehicleModelId: selectedModel !== "all" ? selectedModel : undefined,
       };
       
       const response: VehicleListResponse = await getVehicles(apiFilters);
       
       // Map branchName từ branches list nếu vehicle có branchId nhưng không có branch object
       const vehiclesWithBranch = response.items.map((vehicle) => {
-        // Nếu đã có branch object hoặc branchName, giữ nguyên
-        if (vehicle.branch?.branchName || vehicle.branchName) {
+        // Nếu đã có branch object với branchName, giữ nguyên
+        if (vehicle.branch?.branchName) {
+          return {
+            ...vehicle,
+            branchName: vehicle.branch.branchName,
+          };
+        }
+        
+        // Nếu đã có branchName trực tiếp, giữ nguyên
+        if (vehicle.branchName) {
           return vehicle;
         }
         
-        // Nếu có branchId, tìm trong branches list
+        // Nếu có branchId, tìm trong branches list để lấy branchName
         if (vehicle.branchId && branches.length > 0) {
           const branch = branches.find((b) => b.branchId === vehicle.branchId);
           if (branch) {
@@ -142,9 +157,11 @@ export default function VehiclesPage() {
           }
         }
         
-        // List API không trả về branch info, sẽ hiển thị "-" trong bảng
-        // Khi click "Xem" chi tiết, modal sẽ hiển thị đầy đủ từ API chi tiết
-        return vehicle;
+        // Nếu không tìm thấy branch name, hiển thị "-" trong bảng
+        return {
+          ...vehicle,
+          branchName: "-",
+        };
       });
       
       setVehicles(vehiclesWithBranch);
@@ -168,10 +185,10 @@ export default function VehiclesPage() {
         ...prev,
         PageNum: 1, // Reset về trang 1 khi search/filter
       }));
-    }, searchText ? 500 : 0); // Debounce 500ms cho search, không debounce cho status/branch
+    }, searchText ? 500 : 0); // Debounce 500ms cho search, không debounce cho status/branch/model
 
     return () => clearTimeout(timer);
-  }, [searchText, selectedStatus, selectedBranch]);
+  }, [searchText, selectedStatus, selectedBranch, selectedModel]);
 
   // Handle pagination change
   const handleTableChange = (page: number, pageSize: number) => {
@@ -191,11 +208,32 @@ export default function VehiclesPage() {
       if (!res.ok) throw new Error("Failed to fetch branches");
       const text = await res.text();
       const json = text ? JSON.parse(text) : {};
-      const branchesData = json.data || json || [];
-      setBranches(Array.isArray(branchesData) ? branchesData : []);
+      
+      // Handle different response structures
+      let branchesData = [];
+      if (json.success && json.data) {
+        if (Array.isArray(json.data)) {
+          branchesData = json.data;
+        } else if (json.data.items && Array.isArray(json.data.items)) {
+          branchesData = json.data.items;
+        }
+      } else if (Array.isArray(json)) {
+        branchesData = json;
+      } else if (Array.isArray(json.data)) {
+        branchesData = json.data;
+      }
+      
+      // Normalize branch data: handle both 'id' and 'branchId', 'branchName' and 'name'
+      const normalizedBranches = branchesData.map((branch: any) => ({
+        branchId: branch.branchId || branch.id,
+        branchName: branch.branchName || branch.name || branch.branchName || "-",
+      })).filter((branch: Branch) => branch.branchId); // Filter out invalid branches
+      
+      console.log("Loaded branches:", normalizedBranches);
+      setBranches(normalizedBranches);
     } catch (error) {
       console.error("Error loading branches:", error);
-      // Không hiển thị error vì có thể API chưa có
+      message.error("Không thể tải danh sách chi nhánh");
     } finally {
       setLoadingBranches(false);
     }
@@ -384,15 +422,38 @@ export default function VehiclesPage() {
     }
   };
 
+  // Handle tracking vehicle - navigate to tracking page
+  const handleTrackVehicle = (vehicle: Vehicle) => {
+    const vehicleId = vehicle.id || vehicle.vehicleId;
+    if (!vehicleId) {
+      message.error("Không tìm thấy ID xe");
+      return;
+    }
+    // Navigate to tracking page
+    router.push(`/dashboard/admin/vehicles/${vehicleId}/tracking`);
+  };
+
   // Status tag color
   const getStatusTag = (status?: string) => {
+    if (!status) return <Tag color="default">N/A</Tag>;
+    
+    // Normalize status to uppercase để xử lý cả "Available" và "AVAILABLE"
+    const normalizedStatus = status.toUpperCase();
+    
     const statusMap: Record<string, { color: string; text: string }> = {
       AVAILABLE: { color: "green", text: "Sẵn sàng" },
       RENTED: { color: "blue", text: "Đang thuê" },
       MAINTENANCE: { color: "orange", text: "Bảo trì" },
       UNAVAILABLE: { color: "red", text: "Không khả dụng" },
+      BOOKED: { color: "purple", text: "Đã đặt" },
+      INACTIVE: { color: "default", text: "Không hoạt động" },
     };
-    const statusInfo = statusMap[status || ""] || { color: "default", text: status || "N/A" };
+    
+    const statusInfo = statusMap[normalizedStatus] || { 
+      color: "default", 
+      text: status // Giữ nguyên nếu không tìm thấy trong map
+    };
+    
     return <Tag color={statusInfo.color}>{statusInfo.text}</Tag>;
   };
 
@@ -443,6 +504,25 @@ export default function VehiclesPage() {
       render: (_, record) => {
         // Ưu tiên lấy từ branch object, sau đó từ branchName
         return record.branch?.branchName || record.branchName || "-";
+      },
+    },
+    {
+      title: "Tracking",
+      key: "tracking",
+      width: 100,
+      render: (_, record) => {
+        const vehicleId = record.id || record.vehicleId;
+        // Kiểm tra xe có tracking hay không:
+        // 1. Kiểm tra ID xe có trong danh sách tracking
+        // 2. Hoặc kiểm tra có gpsDeviceIdent hoặc flespiDeviceId
+        const hasTracking = 
+          (vehicleId && vehicleId.toLowerCase() === TRACKING_VEHICLE_ID.toLowerCase()) ||
+          !!(record.gpsDeviceIdent || record.flespiDeviceId);
+        return (
+          <Tag color={hasTracking ? "green" : "default"}>
+            {hasTracking ? "Có" : "Không"}
+          </Tag>
+        );
       },
     },
     {
@@ -521,6 +601,24 @@ export default function VehiclesPage() {
           {branches.map((branch) => (
             <Option key={branch.branchId} value={branch.branchId}>
               {branch.branchName}
+            </Option>
+          ))}
+        </Select>
+        <Select
+          placeholder="Model xe"
+          style={{ width: 200 }}
+          value={selectedModel}
+          onChange={setSelectedModel}
+          loading={loadingModels}
+          showSearch
+          filterOption={(input, option) =>
+            (option?.children as string)?.toLowerCase().includes(input.toLowerCase())
+          }
+        >
+          <Option value="all">Tất cả</Option>
+          {vehicleModels.map((model) => (
+            <Option key={model.vehicleModelId} value={model.vehicleModelId}>
+              {model.modelName}
             </Option>
           ))}
         </Select>
@@ -673,6 +771,33 @@ export default function VehiclesPage() {
         open={isDetailModalVisible}
         onCancel={() => setIsDetailModalVisible(false)}
         footer={[
+          (() => {
+            const vehicleId = selectedVehicle?.id || selectedVehicle?.vehicleId;
+            const hasTracking = selectedVehicle && (
+              (vehicleId && vehicleId.toLowerCase() === TRACKING_VEHICLE_ID.toLowerCase()) ||
+              !!(selectedVehicle.gpsDeviceIdent || selectedVehicle.flespiDeviceId)
+            );
+            const trackButton = (
+              <Button 
+                key="track" 
+                type="primary"
+                icon={<RadarChartOutlined />}
+                onClick={() => selectedVehicle && handleTrackVehicle(selectedVehicle)}
+                disabled={!hasTracking}
+              >
+                Theo dõi vị trí
+              </Button>
+            );
+            
+            return hasTracking ? trackButton : (
+              <Tooltip 
+                key="track" 
+                title="Xe này chưa được cấu hình tracking. Vui lòng cấu hình GPS Device ID hoặc Flespi Device ID để sử dụng tính năng tracking."
+              >
+                {trackButton}
+              </Tooltip>
+            );
+          })(),
           <Button key="close" onClick={() => setIsDetailModalVisible(false)}>
             Đóng
           </Button>,
@@ -803,25 +928,33 @@ export default function VehiclesPage() {
             )}
 
             {/* Hình ảnh */}
-            {(selectedVehicle.imageFiles?.length > 0 || selectedVehicle.fileUrl?.length > 0) && (
-              <div className="mt-4">
-                <h4 className="mb-2">Hình ảnh:</h4>
+            <div className="mt-4">
+              <h4 className="mb-3 font-semibold">Hình ảnh xe:</h4>
+              {(selectedVehicle.imageFiles?.length > 0 || selectedVehicle.fileUrl?.length > 0) ? (
                 <Image.PreviewGroup>
                   <Space wrap>
                     {(selectedVehicle.fileUrl || selectedVehicle.imageFiles || []).map((url, index) => (
                       <Image
                         key={index}
                         src={url}
-                        alt={`Image ${index + 1}`}
-                        width={100}
-                        height={100}
-                        style={{ objectFit: "cover" }}
+                        alt={`Ảnh xe ${index + 1}`}
+                        width={150}
+                        height={150}
+                        style={{ objectFit: "cover", borderRadius: "8px" }}
+                        className="border border-gray-200"
                       />
                     ))}
                   </Space>
                 </Image.PreviewGroup>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-gray-500">Chưa có hình ảnh</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Modal>

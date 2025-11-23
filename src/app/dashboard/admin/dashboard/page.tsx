@@ -32,11 +32,13 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [branches, vehicles, bookings, payments] = await Promise.all([
+        const [branches, vehiclesResponse] = await Promise.all([
           getBranches(),
           getVehicles(),
         ]);
-        setData({ branches, vehicles, bookings, payments });
+        // getVehicles() trả về VehicleListResponse với items array
+        const vehicles = vehiclesResponse?.items || [];
+        setData({ branches, vehicles, bookings: [], payments: [] });
       } catch (err) {
         console.error("Fetch error:", err);
       } finally {
@@ -48,11 +50,14 @@ export default function Dashboard() {
 
   if (loading) return <div>Đang tải dữ liệu...</div>;
 
+  // Đảm bảo vehicles là array trước khi filter
+  const vehiclesArray = Array.isArray(data.vehicles) ? data.vehicles : [];
+  
   const activeVehicles =
-    data.vehicles?.filter((v: any) => v.status === "rented")?.length ?? 0;
+    vehiclesArray.filter((v: any) => v.status === "rented")?.length ?? 0;
 
   const maintenanceVehicles =
-    data.vehicles?.filter((v: any) => v.status === "maintenance")?.length ?? 0;
+    vehiclesArray.filter((v: any) => v.status === "maintenance")?.length ?? 0;
 
   const totalRevenue =
     data.payments?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) ?? 0;
@@ -68,7 +73,7 @@ export default function Dashboard() {
   const branchStats: any[] = [];
 
   const activeRatio = Math.round(
-    (activeVehicles / (data.vehicles?.length || 1)) * 100
+    (activeVehicles / (vehiclesArray.length || 1)) * 100
   );
 
   return (
@@ -149,7 +154,7 @@ export default function Dashboard() {
           </ResponsiveContainer>
           <p className="text-2xl font-bold text-yellow-500">{activeRatio}%</p>
           <p className="text-sm text-gray-500 mt-1">
-            Đang hoạt động ({activeVehicles}/{data.vehicles?.length})
+            Đang hoạt động ({activeVehicles}/{vehiclesArray.length})
           </p>
         </div>
       </div>

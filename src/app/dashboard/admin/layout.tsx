@@ -28,6 +28,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { label: "Quản lí tài khoản", href: "/dashboard/admin/accounts", icon: <Users size={18} /> },
     { label: "Quản lí nhân sự", href: "/dashboard/admin/staffs", icon: <UserCog size={18} /> },
     { label: "Quản lí xe", href: "/dashboard/admin/vehicles", icon: <Car size={18} /> },
+    { label: "Quản lí Model xe", href: "/dashboard/admin/vehicle-models", icon: <Car size={18} /> },
     { label: "Quản lí chi nhánh", href: "/dashboard/admin/branches", icon: <Building2 size={18} /> },
     { label: "Điều phối xe", href: "/dashboard/admin/transfers", icon: <Route size={18} /> },
     { label: "Sự cố & bảo hiểm", href: "/dashboard/admin/insurance", icon: <ShieldAlert size={18} /> },

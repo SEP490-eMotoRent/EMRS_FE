@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
-// GET /api/account - lấy tất cả accounts từ BE
-// PUT /api/account - cập nhật role của account
-// DELETE /api/account - xóa account (soft delete)
-export async function GET() {
+// GET /api/branch/[id] - lấy chi tiết branch
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
-    // ⛔ cookies() phải await theo chuẩn Next.js 15
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -18,19 +18,19 @@ export async function GET() {
       );
     }
 
-    const beRes = await emrsFetch("/account", {
+    const { id } = await context.params;
+
+    const beRes = await emrsFetch(`/Branch/find/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    // Xử lý response linh hoạt: có thể là JSON hoặc text
     const text = await beRes.text();
     let data: any;
 
     try {
       data = text ? JSON.parse(text) : {};
     } catch (parseErr) {
-      console.error("Failed to parse account response as JSON:", text);
-      // Nếu không parse được JSON, trả về lỗi
+      console.error("Failed to parse branch response as JSON:", text);
       return NextResponse.json(
         { 
           success: false, 
@@ -41,7 +41,6 @@ export async function GET() {
       );
     }
 
-    // Nếu BE trả về lỗi, forward status code
     if (!beRes.ok) {
       return NextResponse.json(
         data || { success: false, message: "Backend error" },
@@ -51,7 +50,7 @@ export async function GET() {
 
     return NextResponse.json(data, { status: beRes.status });
   } catch (err) {
-    console.error("Account API error:", err);
+    console.error("Branch get error:", err);
     return NextResponse.json(
       { 
         success: false, 
@@ -63,8 +62,11 @@ export async function GET() {
   }
 }
 
-// PUT /api/account - cập nhật role của account
-export async function PUT(request: Request) {
+// PUT /api/branch/[id] - cập nhật branch
+export async function PUT(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
@@ -76,9 +78,10 @@ export async function PUT(request: Request) {
       );
     }
 
+    const { id } = await context.params;
     const body = await request.json();
 
-    const beRes = await emrsFetch("/account", {
+    const beRes = await emrsFetch(`/Branch/${id}`, {
       method: "PUT",
       headers: { 
         Authorization: `Bearer ${token}`,
@@ -93,7 +96,7 @@ export async function PUT(request: Request) {
     try {
       data = text ? JSON.parse(text) : {};
     } catch (parseErr) {
-      console.error("Failed to parse account response as JSON:", text);
+      console.error("Failed to parse branch response as JSON:", text);
       return NextResponse.json(
         { 
           success: false, 
@@ -106,7 +109,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(data, { status: beRes.status });
   } catch (err) {
-    console.error("Account update error:", err);
+    console.error("Branch update error:", err);
     return NextResponse.json(
       { 
         success: false, 
@@ -118,8 +121,11 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE /api/account - xóa account (soft delete)
-export async function DELETE(request: Request) {
+// DELETE /api/branch/[id] - xóa branch
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
@@ -131,15 +137,11 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const body = await request.json();
+    const { id } = await context.params;
 
-    const beRes = await emrsFetch("/account", {
+    const beRes = await emrsFetch(`/Branch/${id}`, {
       method: "DELETE",
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     const text = await beRes.text();
@@ -148,7 +150,7 @@ export async function DELETE(request: Request) {
     try {
       data = text ? JSON.parse(text) : {};
     } catch (parseErr) {
-      console.error("Failed to parse account response as JSON:", text);
+      console.error("Failed to parse branch response as JSON:", text);
       return NextResponse.json(
         { 
           success: false, 
@@ -161,7 +163,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json(data, { status: beRes.status });
   } catch (err) {
-    console.error("Account delete error:", err);
+    console.error("Branch delete error:", err);
     return NextResponse.json(
       { 
         success: false, 
@@ -172,3 +174,4 @@ export async function DELETE(request: Request) {
     );
   }
 }
+

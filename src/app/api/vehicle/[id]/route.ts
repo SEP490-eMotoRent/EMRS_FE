@@ -6,7 +6,7 @@ import { emrsFetch } from "@/utils/emrsApi";
 // Lấy chi tiết vehicle theo ID
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -19,7 +19,10 @@ export async function GET(
       );
     }
 
-    const beRes = await emrsFetch(`/Vehicle/${params.id}`, {
+    // ⛔ BẮT BUỘC: context.params phải await theo chuẩn Next.js 15
+    const { id } = await context.params;
+
+    const beRes = await emrsFetch(`/Vehicle/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 

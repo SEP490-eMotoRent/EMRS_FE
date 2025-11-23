@@ -1,7 +1,312 @@
-import { API_BASE_URL } from "../index";
+const INTERNAL_BASE =
+  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const API_PREFIX = "/api/branch";
 
-export async function getBranches() {
-  const res = await fetch(`${API_BASE_URL}/branches`);
-  if (!res.ok) throw new Error("Failed to fetch branches");
-  return res.json();
+function buildUrl(path: string) {
+  return `${INTERNAL_BASE}${API_PREFIX}${path}`;
+}
+
+export interface Branch {
+  id: string;
+  branchId: string;
+  branchName: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  latitude?: number;
+  longitude?: number;
+  openingTime?: string;
+  closingTime?: string;
+  vehicleCount?: number;
+}
+
+// Đếm số xe trong branch từ API Vehicle/model/{branchId}
+async function getVehicleCountForBranch(branchId: string): Promise<number> {
+  try {
+    const INTERNAL_BASE = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const url = `${INTERNAL_BASE}/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`;
+
+    const res = await fetch(url, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      console.warn(`Failed to fetch vehicles for branch ${branchId}:`, res.status);
+      return 0;
+    }
+
+    const text = await res.text();
+    let json: any;
+
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch (e) {
+      console.warn(`Failed to parse vehicle count response for branch ${branchId}`);
+      return 0;
+    }
+
+    // Extract items from response
+    let items: any[] = [];
+    if (json.success && json.data && json.data.items && Array.isArray(json.data.items)) {
+      items = json.data.items;
+    } else if (json.data && Array.isArray(json.data)) {
+      items = json.data;
+    } else if (Array.isArray(json)) {
+      items = json;
+    }
+
+    // Sum up countTotal from all vehicle models
+    const totalCount = items.reduce((sum: number, model: any) => {
+      return sum + (model.countTotal || 0);
+    }, 0);
+
+    return totalCount;
+  } catch (error) {
+    console.warn(`Error counting vehicles for branch ${branchId}:`, error);
+    return 0;
+  }
+}
+
+// Lấy danh sách tất cả branches
+export async function getBranches(): Promise<Branch[]> {
+  const url = buildUrl("/list");
+
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to fetch branches:", res.status, errorText);
+    throw new Error(`Failed to fetch branches: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  // Handle response structure: { success: true, data: [...] }
+  let branchesData: any[] = [];
+  if (json.success && json.data && Array.isArray(json.data)) {
+    branchesData = json.data;
+  } else if (Array.isArray(json)) {
+    branchesData = json;
+  } else if (Array.isArray(json.data)) {
+    branchesData = json.data;
+  }
+
+  // Normalize branch data và đếm số xe cho mỗi branch
+  const normalizedBranches = await Promise.all(
+    branchesData.map(async (branch: any) => {
+      const branchId = branch.id || branch.branchId;
+      // Đếm số xe từ API Vehicle/model/{branchId}
+      const vehicleCount = await getVehicleCountForBranch(branchId);
+      
+      return {
+        id: branchId,
+        branchId: branchId,
+        branchName: branch.branchName || branch.name || "",
+        address: branch.address,
+        city: branch.city,
+        phone: branch.phone,
+        email: branch.email,
+        latitude: branch.latitude,
+        longitude: branch.longitude,
+        openingTime: branch.openingTime,
+        closingTime: branch.closingTime,
+        vehicleCount: vehicleCount || branch.vehicleCount || 0, // Ưu tiên số đếm từ API
+      };
+    })
+  );
+
+  return normalizedBranches;
+}
+
+// Lấy chi tiết branch theo ID
+export async function getBranchById(branchId: string): Promise<Branch> {
+  const url = buildUrl(`/${branchId}`);
+
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to fetch branch:", res.status, errorText);
+    throw new Error(`Failed to fetch branch: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  const branch = json.data || json;
+  return {
+    id: branch.id || branch.branchId,
+    branchId: branch.id || branch.branchId,
+    branchName: branch.branchName || branch.name || "",
+    address: branch.address,
+    city: branch.city,
+    phone: branch.phone,
+    email: branch.email,
+    latitude: branch.latitude,
+    longitude: branch.longitude,
+    openingTime: branch.openingTime,
+    closingTime: branch.closingTime,
+    vehicleCount: branch.vehicleCount,
+  };
+}
+
+// Tạo branch mới
+export async function createBranch(data: {
+  branchName: string;
+  address: string;
+  city: string;
+  phone: string;
+  email: string;
+  latitude: number;
+  longitude: number;
+  openingTime: string;
+  closingTime: string;
+}): Promise<Branch> {
+  const url = buildUrl("/create");
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to create branch:", res.status, errorText);
+    throw new Error(`Failed to create branch: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  const branch = json.data || json;
+  return {
+    id: branch.id || branch.branchId,
+    branchId: branch.id || branch.branchId,
+    branchName: branch.branchName || branch.name || "",
+    address: branch.address,
+    city: branch.city,
+    phone: branch.phone,
+    email: branch.email,
+    latitude: branch.latitude,
+    longitude: branch.longitude,
+    openingTime: branch.openingTime,
+    closingTime: branch.closingTime,
+  };
+}
+
+// Cập nhật branch
+export async function updateBranch(
+  branchId: string,
+  data: {
+    branchName: string;
+    address: string;
+    city: string;
+    phone: string;
+    email: string;
+    latitude: number;
+    longitude: number;
+    openingTime: string;
+    closingTime: string;
+  }
+): Promise<Branch> {
+  const url = buildUrl(`/${branchId}`);
+
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to update branch:", res.status, errorText);
+    throw new Error(`Failed to update branch: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  const branch = json.data || json;
+  return {
+    id: branch.id || branch.branchId,
+    branchId: branch.id || branch.branchId,
+    branchName: branch.branchName || branch.name || "",
+    address: branch.address,
+    city: branch.city,
+    phone: branch.phone,
+    email: branch.email,
+    latitude: branch.latitude,
+    longitude: branch.longitude,
+    openingTime: branch.openingTime,
+    closingTime: branch.closingTime,
+  };
+}
+
+// Xóa branch
+export async function deleteBranch(branchId: string): Promise<any> {
+  const url = buildUrl(`/${branchId}`);
+
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to delete branch:", res.status, errorText);
+    throw new Error(`Failed to delete branch: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
 }
