@@ -7,7 +7,7 @@ export async function getAdmins() {
   return res.json();
 }
 
-// 🔵 Đăng nhập admin (mock login)
+// 🔵 Đăng nhập admin
 export async function loginAdmin(username: string, password: string) {
   const res = await fetch(
     `${API_BASE_URL}/admins?username=${username}&password=${password}`
