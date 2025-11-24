@@ -17,7 +17,8 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    const beRes = await emrsFetch("/vehicletransferrequest/create", {
+    // Endpoint theo API documentation: POST /api/VehicleTransferRequest/create
+    const beRes = await emrsFetch("/VehicleTransferRequest/create", {
       method: "POST",
       headers: { 
         Authorization: `Bearer ${token}`,

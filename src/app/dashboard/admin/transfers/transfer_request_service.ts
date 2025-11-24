@@ -281,6 +281,8 @@ export async function createTransferRequest(data: {
   description: string;
 }): Promise<VehicleTransferRequest> {
   const url = buildUrl("/create");
+  console.log("[Create Request Service] Calling URL:", url);
+  console.log("[Create Request Service] Request data:", JSON.stringify(data, null, 2));
 
   const res = await fetch(url, {
     method: "POST",
@@ -290,12 +292,6 @@ export async function createTransferRequest(data: {
     body: JSON.stringify(data),
   });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Failed to create transfer request:", res.status, errorText);
-    throw new Error(`Failed to create transfer request: ${res.statusText}`);
-  }
-
   const text = await res.text();
   let json: any;
 
@@ -303,10 +299,32 @@ export async function createTransferRequest(data: {
     json = text ? JSON.parse(text) : {};
   } catch (e) {
     console.error("Failed to parse JSON:", text);
-    throw new Error("Invalid JSON response");
+    throw new Error("Invalid JSON response from server");
   }
 
-  return json.data || json;
+  // Handle error responses
+  if (!res.ok) {
+    const errorMessage = json.message || json.error || `Failed to create transfer request: ${res.statusText}`;
+    console.error("Failed to create transfer request:", res.status, errorMessage, json);
+    throw new Error(errorMessage);
+  }
+
+  // Check if backend returned error in response body
+  if (json.success === false) {
+    const errorMessage = json.message || "Failed to create transfer request";
+    console.error("Backend returned error:", json);
+    throw new Error(errorMessage);
+  }
+
+  // Return data from response (theo format: { success: true, message: "...", data: {...} })
+  if (json.data && typeof json.data === 'object') {
+    console.log("[Create Request Service] Request created successfully:", json.data);
+    return json.data as VehicleTransferRequest;
+  }
+
+  // Fallback: trả về toàn bộ json nếu không có data field
+  console.log("[Create Request Service] No data field, returning full json");
+  return json as VehicleTransferRequest;
 }
 
 // Lấy requests theo branch (Manager)
@@ -317,12 +335,6 @@ export async function getTransferRequestsByBranch(branchId: string): Promise<Veh
     cache: "no-store",
   });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Failed to fetch branch transfer requests:", res.status, errorText);
-    throw new Error(`Failed to fetch branch transfer requests: ${res.statusText}`);
-  }
-
   const text = await res.text();
   let json: any;
 
@@ -330,9 +342,24 @@ export async function getTransferRequestsByBranch(branchId: string): Promise<Veh
     json = text ? JSON.parse(text) : {};
   } catch (e) {
     console.error("Failed to parse JSON:", text);
-    throw new Error("Invalid JSON response");
+    throw new Error("Invalid JSON response from server");
   }
 
+  // Handle error responses
+  if (!res.ok) {
+    const errorMessage = json.message || json.error || `Failed to fetch branch transfer requests: ${res.statusText}`;
+    console.error("Failed to fetch branch transfer requests:", res.status, errorMessage, json);
+    throw new Error(errorMessage);
+  }
+
+  // Check if backend returned error in response body
+  if (json.success === false) {
+    const errorMessage = json.message || "Failed to fetch branch transfer requests";
+    console.error("Backend returned error:", json);
+    throw new Error(errorMessage);
+  }
+
+  // Extract requests from response
   let requests: any[] = [];
   if (json.success && json.data && Array.isArray(json.data)) {
     requests = json.data;

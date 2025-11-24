@@ -49,7 +49,7 @@ export default function ManagerTransferPage() {
   const [selectedOrder, setSelectedOrder] = useState<VehicleTransferOrder | null>(null);
   const [orderSearchText, setOrderSearchText] = useState("");
   const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<string>("orders");
+  const [activeTab, setActiveTab] = useState<string>("requests");
 
   useEffect(() => {
     // Lấy branchId từ cookie
@@ -64,7 +64,10 @@ export default function ManagerTransferPage() {
       });
       
       if (cookies.branchId) {
+        console.log(`[Manager Transfers] BranchId from cookie: ${cookies.branchId}`);
         setBranchId(cookies.branchId);
+      } else {
+        console.warn("[Manager Transfers] No branchId found in cookies");
       }
       if (cookies.branchName) {
         setBranchName(cookies.branchName);
@@ -81,6 +84,8 @@ export default function ManagerTransferPage() {
         loadOrders();
         loadPendingOrders();
       }
+    } else {
+      console.warn("No branchId available, cannot load data");
     }
   }, [branchId, activeTab]);
 
@@ -98,14 +103,37 @@ export default function ManagerTransferPage() {
   };
 
   const loadRequests = async () => {
-    if (!branchId) return;
+    if (!branchId) {
+      console.warn("No branchId, cannot load requests");
+      return;
+    }
     setLoadingRequests(true);
     try {
+      console.log(`[Load Requests] Loading requests for branch: ${branchId}, branchName: ${branchName}`);
       const data = await getTransferRequestsByBranch(branchId);
-      setRequests(data);
-    } catch (error) {
+      console.log(`[Load Requests] Loaded ${data?.length || 0} requests from API`);
+      
+      // Filter lại theo branchName để đảm bảo chỉ hiển thị requests của branch này
+      // (trong trường hợp backend trả về tất cả requests)
+      let filteredData = data || [];
+      if (branchName) {
+        filteredData = filteredData.filter((req: VehicleTransferRequest) => {
+          // So sánh theo branchName để đảm bảo chỉ hiển thị requests của branch này
+          return req.branchName === branchName;
+        });
+        console.log(`[Load Requests] Filtered to ${filteredData.length} requests for branch "${branchName}"`);
+      }
+      
+      setRequests(filteredData);
+    } catch (error: any) {
       console.error("Error loading transfer requests:", error);
-      message.error("Không thể tải danh sách yêu cầu điều chuyển");
+      // Chỉ hiển thị error message nếu không phải lỗi mapping types
+      if (!error?.message?.includes("mapping types") && 
+          !error?.message?.includes("AutoMapper")) {
+        message.error(error?.message || "Không thể tải danh sách yêu cầu điều chuyển");
+      }
+      // Set empty array để UI không crash
+      setRequests([]);
     } finally {
       setLoadingRequests(false);
     }
@@ -116,10 +144,22 @@ export default function ManagerTransferPage() {
     setLoadingOrders(true);
     try {
       const data = await getTransferOrdersByBranch(branchId);
-      setOrders(data);
-    } catch (error) {
+      setOrders(data || []);
+    } catch (error: any) {
       console.error("Error loading transfer orders:", error);
-      message.error("Không thể tải danh sách lệnh điều chuyển");
+      // Nếu API lỗi mapping types, không hiển thị error message vì đây là lỗi backend
+      // Chỉ log và set empty array để UI vẫn hoạt động
+      if (error?.message?.includes("mapping types") || 
+          error?.message?.includes("AutoMapper") ||
+          error?.message?.includes("Lỗi xử lý dữ liệu từ server")) {
+        console.warn("Backend AutoMapper error - cannot load orders. This is a backend configuration issue.");
+        setOrders([]);
+      } else {
+        // Chỉ hiển thị error message cho các lỗi khác (network, auth, etc.)
+        const errorMessage = error?.message || "Không thể tải danh sách lệnh điều chuyển";
+        message.error(errorMessage);
+        setOrders([]);
+      }
     } finally {
       setLoadingOrders(false);
     }
@@ -127,11 +167,36 @@ export default function ManagerTransferPage() {
 
   const loadPendingOrders = async () => {
     if (!branchId) return;
+    
+    // Lấy pending orders từ /VehicleTransferOrder/branch/{branchId}/pending
+    // Đây là các orders đang chờ Manager dispatch hoặc receive
     try {
-      const data = await getPendingTransferOrdersByBranch(branchId);
-      setPendingOrders(data);
-    } catch (error) {
-      console.error("Error loading pending orders:", error);
+      const pendingOrdersData = await getPendingTransferOrdersByBranch(branchId);
+      setPendingOrders(pendingOrdersData || []);
+    } catch (error: any) {
+      console.warn("Could not load pending orders from VehicleTransferOrder API:", error);
+      
+      // Nếu API pending lỗi mapping types, thử lấy từ orders chính và filter pending
+      if (error?.message?.includes("mapping types") || 
+          error?.message?.includes("AutoMapper") ||
+          error?.message?.includes("Lỗi xử lý dữ liệu từ server")) {
+        try {
+          // Fallback: Lấy tất cả orders và filter pending
+          const allOrders = await getTransferOrdersByBranch(branchId);
+          if (allOrders && Array.isArray(allOrders)) {
+            const pending = allOrders.filter(order => order.status === "Pending");
+            setPendingOrders(pending);
+          } else {
+            setPendingOrders([]);
+          }
+        } catch (fallbackError) {
+          console.warn("Could not load orders as fallback:", fallbackError);
+          setPendingOrders([]);
+        }
+      } else {
+        // Nếu lỗi khác, chỉ set empty array
+        setPendingOrders([]);
+      }
     }
   };
 
@@ -169,23 +234,36 @@ export default function ManagerTransferPage() {
   const handleSubmitRequest = async () => {
     try {
       const values = await requestForm.validateFields();
+      console.log("[Create Request] Submitting request with values:", values);
       
-      await createTransferRequest({
+      // Hiển thị loading message
+      const hideLoading = message.loading("Đang tạo yêu cầu điều chuyển...", 0);
+      
+      const result = await createTransferRequest({
         vehicleModelId: values.vehicleModelId,
         quantityRequested: values.quantityRequested,
         description: values.description,
       });
       
+      // Đóng loading message
+      hideLoading();
+      
+      console.log("[Create Request] Request created successfully:", result);
+      
       message.success("Tạo yêu cầu điều chuyển thành công");
       setIsRequestModalVisible(false);
       requestForm.resetFields();
-      loadRequests();
+      
+      // Reload danh sách requests để hiển thị request mới
+      await loadRequests();
     } catch (error: any) {
       console.error("Error creating transfer request:", error);
       if (error.errorFields) {
         return;
       }
-      message.error(error.message || "Không thể tạo yêu cầu điều chuyển");
+      // Hiển thị error message chi tiết từ backend
+      const errorMessage = error?.message || "Không thể tạo yêu cầu điều chuyển";
+      message.error(errorMessage);
     }
   };
 
@@ -203,7 +281,9 @@ export default function ManagerTransferPage() {
   };
 
   const handleCancelRequest = async (request: VehicleTransferRequest) => {
-    if (request.status !== "Pending") {
+    // Validate status - only Pending requests can be cancelled
+    const normalizedStatus = (request.status || "").toUpperCase();
+    if (normalizedStatus !== "PENDING") {
       message.warning("Chỉ có thể hủy yêu cầu ở trạng thái Pending");
       return;
     }
@@ -218,10 +298,13 @@ export default function ManagerTransferPage() {
         try {
           await cancelTransferRequest(request.id);
           message.success("Hủy yêu cầu thành công");
-          loadRequests();
+          // Reload requests to update UI
+          await loadRequests();
         } catch (error: any) {
           console.error("Error cancelling request:", error);
-          message.error(error.message || "Không thể hủy yêu cầu");
+          // Show detailed error message from backend
+          const errorMessage = error?.message || "Không thể hủy yêu cầu";
+          message.error(errorMessage);
         }
       },
     });
@@ -240,12 +323,16 @@ export default function ManagerTransferPage() {
   };
 
   const handleDispatch = async (order: VehicleTransferOrder) => {
-    if (order.status !== "Pending") {
+    const currentStatus = (order.status || "").toUpperCase();
+    const currentBranch = (branchId || "").toLowerCase();
+    const fromBranch = (order.fromBranchId || "").toLowerCase();
+
+    if (currentStatus !== "PENDING") {
       message.warning("Chỉ có thể xác nhận xuất xe khi lệnh ở trạng thái Pending");
       return;
     }
 
-    if (order.fromBranchId !== branchId) {
+    if (!currentBranch || currentBranch !== fromBranch) {
       message.warning("Chỉ Manager chi nhánh nguồn mới được xác nhận xuất xe");
       return;
     }
@@ -260,11 +347,30 @@ export default function ManagerTransferPage() {
         try {
           await dispatchTransferOrder(order.id);
           message.success("Xác nhận xuất xe thành công. Xe đang được vận chuyển.");
-          loadOrders();
-          loadPendingOrders();
+
+          // Update UI optimistically
+          setOrders((prev) =>
+            prev.map((item) =>
+              item.id === order.id
+                ? { ...item, status: "InTransit" }
+                : item
+            )
+          );
+          setPendingOrders((prev) =>
+            prev.filter((item) => item.id !== order.id)
+          );
+
+          // Reload orders to update UI
+          try {
+            await Promise.all([loadOrders(), loadPendingOrders()]);
+          } catch (reloadError) {
+            console.warn("Reload after dispatch failed:", reloadError);
+          }
         } catch (error: any) {
           console.error("Error dispatching order:", error);
-          message.error(error.message || "Không thể xác nhận xuất xe");
+          // Show detailed error message from backend
+          const errorMessage = error?.message || "Không thể xác nhận xuất xe";
+          message.error(errorMessage);
         }
       },
     });
@@ -291,11 +397,30 @@ export default function ManagerTransferPage() {
         try {
           await receiveTransferOrder(order.id);
           message.success("Xác nhận nhận xe thành công. Xe đã sẵn sàng cho thuê tại chi nhánh này.");
-          loadOrders();
-          loadPendingOrders();
+
+          // Optimistic UI update
+          setOrders((prev) =>
+            prev.map((item) =>
+              item.id === order.id
+                ? { ...item, status: "Completed", receivedDate: new Date().toISOString() }
+                : item
+            )
+          );
+          setPendingOrders((prev) =>
+            prev.filter((item) => item.id !== order.id)
+          );
+
+          // Reload orders to update UI
+          try {
+            await Promise.all([loadOrders(), loadPendingOrders()]);
+          } catch (reloadError) {
+            console.warn("Reload after receive failed:", reloadError);
+          }
         } catch (error: any) {
           console.error("Error receiving order:", error);
-          message.error(error.message || "Không thể xác nhận nhận xe");
+          // Show detailed error message from backend
+          const errorMessage = error?.message || "Không thể xác nhận nhận xe";
+          message.error(errorMessage);
         }
       },
     });
@@ -505,65 +630,6 @@ export default function ManagerTransferPage() {
       </div>
 
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
-        {/* Tab: Lệnh điều chuyển */}
-        <TabPane tab={`Lệnh điều chuyển (${pendingOrders.length} chờ xử lý)`} key="orders">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <Card>
-              <div className="text-sm text-gray-500">Tổng lệnh điều chuyển</div>
-              <div className="text-2xl font-semibold mt-1">{orders.length}</div>
-            </Card>
-            <Card>
-              <div className="text-sm text-gray-500">Chờ xử lý</div>
-              <div className="text-2xl font-semibold mt-1 text-orange-600">{pendingOrders.length}</div>
-            </Card>
-            <Card>
-              <div className="text-sm text-gray-500">Đang vận chuyển</div>
-              <div className="text-2xl font-semibold mt-1 text-blue-600">
-                {orders.filter(o => o.status === "InTransit").length}
-              </div>
-            </Card>
-          </div>
-
-          {/* Filters */}
-          <div className="mb-4 flex gap-4 flex-wrap">
-            <Search
-              placeholder="Tìm theo biển số, chi nhánh"
-              allowClear
-              style={{ width: 300 }}
-              onSearch={(value) => setOrderSearchText(value)}
-              onChange={(e) => !e.target.value && setOrderSearchText("")}
-            />
-            <Select
-              placeholder="Trạng thái"
-              style={{ width: 150 }}
-              value={selectedOrderStatus}
-              onChange={setSelectedOrderStatus}
-            >
-              <Option value="all">Tất cả</Option>
-              <Option value="Pending">Chờ xuất xe</Option>
-              <Option value="InTransit">Đang vận chuyển</Option>
-              <Option value="Completed">Hoàn tất</Option>
-              <Option value="Cancelled">Đã hủy</Option>
-            </Select>
-          </div>
-
-          {/* Table */}
-          <Table
-            columns={orderColumns}
-            dataSource={filteredOrders}
-            rowKey="id"
-            loading={loadingOrders}
-            scroll={{ x: 1200 }}
-            pagination={{
-              pageSize: 12,
-              showSizeChanger: true,
-              showTotal: (total) => `Tổng: ${total} lệnh điều chuyển`,
-              pageSizeOptions: ["12", "24", "48", "96"],
-            }}
-          />
-        </TabPane>
-
         {/* Tab: Yêu cầu điều chuyển */}
         <TabPane tab={`Yêu cầu điều chuyển (${requests.filter(r => r.status === "Pending").length} chờ duyệt)`} key="requests">
           {/* Stats Cards */}
@@ -615,10 +681,75 @@ export default function ManagerTransferPage() {
             rowKey="id"
             loading={loadingRequests}
             scroll={{ x: 1200 }}
+            locale={{
+              emptyText: "Không có yêu cầu điều chuyển nào"
+            }}
             pagination={{
               pageSize: 12,
               showSizeChanger: true,
               showTotal: (total) => `Tổng: ${total} yêu cầu`,
+              pageSizeOptions: ["12", "24", "48", "96"],
+            }}
+          />
+        </TabPane>
+
+        {/* Tab: Lệnh điều chuyển */}
+        <TabPane tab={`Lệnh điều chuyển (${pendingOrders.length} chờ xử lý)`} key="orders">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <Card>
+              <div className="text-sm text-gray-500">Tổng lệnh điều chuyển</div>
+              <div className="text-2xl font-semibold mt-1">{orders.length}</div>
+            </Card>
+            <Card>
+              <div className="text-sm text-gray-500">Chờ xử lý</div>
+              <div className="text-2xl font-semibold mt-1 text-orange-600">{pendingOrders.length}</div>
+            </Card>
+            <Card>
+              <div className="text-sm text-gray-500">Đang vận chuyển</div>
+              <div className="text-2xl font-semibold mt-1 text-blue-600">
+                {orders.filter(o => o.status === "InTransit").length}
+              </div>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <div className="mb-4 flex gap-4 flex-wrap">
+            <Search
+              placeholder="Tìm theo biển số, chi nhánh"
+              allowClear
+              style={{ width: 300 }}
+              onSearch={(value) => setOrderSearchText(value)}
+              onChange={(e) => !e.target.value && setOrderSearchText("")}
+            />
+            <Select
+              placeholder="Trạng thái"
+              style={{ width: 150 }}
+              value={selectedOrderStatus}
+              onChange={setSelectedOrderStatus}
+            >
+              <Option value="all">Tất cả</Option>
+              <Option value="Pending">Chờ xuất xe</Option>
+              <Option value="InTransit">Đang vận chuyển</Option>
+              <Option value="Completed">Hoàn tất</Option>
+              <Option value="Cancelled">Đã hủy</Option>
+            </Select>
+          </div>
+
+          {/* Table */}
+          <Table
+            columns={orderColumns}
+            dataSource={filteredOrders}
+            rowKey="id"
+            loading={loadingOrders}
+            scroll={{ x: 1200 }}
+            locale={{
+              emptyText: "Không có lệnh điều chuyển nào"
+            }}
+            pagination={{
+              pageSize: 12,
+              showSizeChanger: true,
+              showTotal: (total) => `Tổng: ${total} lệnh điều chuyển`,
               pageSizeOptions: ["12", "24", "48", "96"],
             }}
           />
@@ -695,7 +826,7 @@ export default function ManagerTransferPage() {
             Đóng
           </Button>,
         ]}
-        width={800}
+        width={900}
       >
         {selectedRequest && (
           <div>
@@ -707,16 +838,19 @@ export default function ManagerTransferPage() {
                 {getStatusTag(selectedRequest.status)}
               </Descriptions.Item>
               <Descriptions.Item label="Model xe">
-                {selectedRequest.vehicleModelName || "-"}
+                {selectedRequest.vehicleModelName || selectedRequest.vehicleModel?.modelName || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Số lượng yêu cầu">
-                {selectedRequest.quantityRequested || "-"}
+                {selectedRequest.quantityRequested ?? "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Chi nhánh">
-                {selectedRequest.branchName || branchName || "-"}
+                {selectedRequest.branchName ||
+                  selectedRequest.staff?.branch?.branchName ||
+                  branchName ||
+                  "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Người yêu cầu">
-                {selectedRequest.staffName || "-"}
+                {selectedRequest.staffName || selectedRequest.staff?.fullname || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Ngày yêu cầu">
                 {selectedRequest.requestedAt || selectedRequest.createdAt
@@ -732,6 +866,82 @@ export default function ManagerTransferPage() {
                 {selectedRequest.description || "-"}
               </Descriptions.Item>
             </Descriptions>
+
+            {selectedRequest.vehicleModel && (
+              <Descriptions title="Thông tin model xe" column={2} bordered className="mb-4">
+                <Descriptions.Item label="Tên model">
+                  {selectedRequest.vehicleModel.modelName || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Phân khúc">
+                  {selectedRequest.vehicleModel.category || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Dung lượng pin">
+                  {selectedRequest.vehicleModel.batteryCapacityKwh
+                    ? `${selectedRequest.vehicleModel.batteryCapacityKwh} kWh`
+                    : "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Tầm hoạt động">
+                  {selectedRequest.vehicleModel.maxRangeKm
+                    ? `${selectedRequest.vehicleModel.maxRangeKm} km`
+                    : "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Tốc độ tối đa">
+                  {selectedRequest.vehicleModel.maxSpeedKmh
+                    ? `${selectedRequest.vehicleModel.maxSpeedKmh} km/h`
+                    : "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Mô tả" span={2}>
+                  {selectedRequest.vehicleModel.description || "-"}
+                </Descriptions.Item>
+              </Descriptions>
+            )}
+
+            {selectedRequest.staff && (
+              <Descriptions title="Thông tin người yêu cầu" column={2} bordered className="mb-4">
+                <Descriptions.Item label="Họ tên">
+                  {selectedRequest.staff.fullname || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Email">
+                  {selectedRequest.staff.email || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Chi nhánh" span={2}>
+                  {selectedRequest.staff.branch?.branchName || "-"}
+                </Descriptions.Item>
+                {selectedRequest.staff.branch && (
+                  <>
+                    <Descriptions.Item label="Địa chỉ" span={2}>
+                      {selectedRequest.staff.branch.address || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Số điện thoại">
+                      {selectedRequest.staff.branch.phone || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Email chi nhánh">
+                      {selectedRequest.staff.branch.email || "-"}
+                    </Descriptions.Item>
+                  </>
+                )}
+              </Descriptions>
+            )}
+
+            {selectedRequest.vehicleTransferOrder && (
+              <Descriptions title="Lệnh điều chuyển liên quan" column={2} bordered>
+                <Descriptions.Item label="ID lệnh">
+                  {selectedRequest.vehicleTransferOrder.id}
+                </Descriptions.Item>
+                <Descriptions.Item label="Trạng thái">
+                  {getStatusTag(selectedRequest.vehicleTransferOrder.status)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Biển số xe">
+                  {selectedRequest.vehicleTransferOrder.vehicleLicensePlate || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Từ chi nhánh">
+                  {selectedRequest.vehicleTransferOrder.fromBranchName || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Đến chi nhánh">
+                  {selectedRequest.vehicleTransferOrder.toBranchName || "-"}
+                </Descriptions.Item>
+              </Descriptions>
+            )}
           </div>
         )}
       </Modal>

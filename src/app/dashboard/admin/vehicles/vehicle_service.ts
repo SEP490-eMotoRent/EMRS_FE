@@ -46,17 +46,23 @@ export async function getVehicles(filters?: VehicleFilters): Promise<VehicleList
   }
   if (filters?.Status && filters.Status !== "all") {
     params.append("Status", filters.Status);
+    params.append("status", filters.Status);
   }
   // Chỉ append BranchId nếu có giá trị và không phải "all" (admin xem tất cả)
   if (filters?.BranchId && filters.BranchId !== "all") {
     params.append("BranchId", filters.BranchId);
+    params.append("branchId", filters.BranchId);
   }
   if (filters?.VehicleModelId) {
     params.append("VehicleModelId", filters.VehicleModelId);
   }
   
-  params.append("PageSize", String(filters?.PageSize || 12));
-  params.append("PageNum", String(filters?.PageNum || 1));
+  const pageSize = String(filters?.PageSize || 12);
+  const pageNum = String(filters?.PageNum || 1);
+  params.append("PageSize", pageSize);
+  params.append("pageSize", pageSize);
+  params.append("PageNum", pageNum);
+  params.append("pageNum", pageNum);
 
   const url = `${buildUrl("")}?${params.toString()}`;
 

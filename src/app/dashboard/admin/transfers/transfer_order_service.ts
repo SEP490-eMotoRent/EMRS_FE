@@ -246,7 +246,16 @@ export async function dispatchTransferOrder(orderId: string): Promise<VehicleTra
   if (!res.ok) {
     const errorText = await res.text();
     console.error("Failed to dispatch transfer order:", res.status, errorText);
-    throw new Error(`Failed to dispatch transfer order: ${res.statusText}`);
+    let errorMessage = `Failed to dispatch transfer order: ${res.statusText}`;
+    try {
+      const errorJson = errorText ? JSON.parse(errorText) : null;
+      if (errorJson?.message) {
+        errorMessage = errorJson.message;
+      }
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(errorMessage);
   }
 
   const text = await res.text();
@@ -276,7 +285,16 @@ export async function receiveTransferOrder(orderId: string): Promise<VehicleTran
   if (!res.ok) {
     const errorText = await res.text();
     console.error("Failed to receive transfer order:", res.status, errorText);
-    throw new Error(`Failed to receive transfer order: ${res.statusText}`);
+    let errorMessage = `Failed to receive transfer order: ${res.statusText}`;
+    try {
+      const errorJson = errorText ? JSON.parse(errorText) : null;
+      if (errorJson?.message) {
+        errorMessage = errorJson.message;
+      }
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(errorMessage);
   }
 
   const text = await res.text();
@@ -287,6 +305,12 @@ export async function receiveTransferOrder(orderId: string): Promise<VehicleTran
   } catch (e) {
     console.error("Failed to parse JSON:", text);
     throw new Error("Invalid JSON response");
+  }
+
+  if (json.success === false) {
+    const errorMessage =
+      json.message || "Không thể xác nhận nhận xe (server trả về success=false)";
+    throw new Error(errorMessage);
   }
 
   return json.data || json;
@@ -300,12 +324,6 @@ export async function getTransferOrdersByBranch(branchId: string): Promise<Vehic
     cache: "no-store",
   });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Failed to fetch branch transfer orders:", res.status, errorText);
-    throw new Error(`Failed to fetch branch transfer orders: ${res.statusText}`);
-  }
-
   const text = await res.text();
   let json: any;
 
@@ -313,9 +331,38 @@ export async function getTransferOrdersByBranch(branchId: string): Promise<Vehic
     json = text ? JSON.parse(text) : {};
   } catch (e) {
     console.error("Failed to parse JSON:", text);
-    throw new Error("Invalid JSON response");
+    throw new Error("Invalid JSON response from server");
   }
 
+  // Handle error responses
+  if (!res.ok) {
+    let errorMessage = json.message || json.error || `Failed to fetch branch transfer orders: ${res.statusText}`;
+    
+    // Provide more user-friendly message for mapping type errors
+    if (errorMessage.includes("Error mapping types") || errorMessage.includes("mapping types")) {
+      errorMessage = "Lỗi xử lý dữ liệu từ server. Vui lòng liên hệ quản trị viên để kiểm tra cấu hình AutoMapper.";
+      console.error("[Mapping Error] Backend AutoMapper configuration issue:", json.message);
+    }
+    
+    console.error("Failed to fetch branch transfer orders:", res.status, errorMessage, json);
+    throw new Error(errorMessage);
+  }
+
+  // Check if backend returned error in response body
+  if (json.success === false) {
+    let errorMessage = json.message || "Failed to fetch branch transfer orders";
+    
+    // Provide more user-friendly message for mapping type errors
+    if (errorMessage.includes("Error mapping types") || errorMessage.includes("mapping types")) {
+      errorMessage = "Lỗi xử lý dữ liệu từ server. Vui lòng liên hệ quản trị viên để kiểm tra cấu hình AutoMapper.";
+      console.error("[Mapping Error] Backend AutoMapper configuration issue:", json.message);
+    }
+    
+    console.error("Backend returned error:", json);
+    throw new Error(errorMessage);
+  }
+
+  // Extract orders from response
   let orders: any[] = [];
   if (json.success && json.data && Array.isArray(json.data)) {
     orders = json.data;
@@ -336,12 +383,6 @@ export async function getPendingTransferOrdersByBranch(branchId: string): Promis
     cache: "no-store",
   });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Failed to fetch pending branch transfer orders:", res.status, errorText);
-    throw new Error(`Failed to fetch pending branch transfer orders: ${res.statusText}`);
-  }
-
   const text = await res.text();
   let json: any;
 
@@ -349,9 +390,38 @@ export async function getPendingTransferOrdersByBranch(branchId: string): Promis
     json = text ? JSON.parse(text) : {};
   } catch (e) {
     console.error("Failed to parse JSON:", text);
-    throw new Error("Invalid JSON response");
+    throw new Error("Invalid JSON response from server");
   }
 
+  // Handle error responses
+  if (!res.ok) {
+    let errorMessage = json.message || json.error || `Failed to fetch pending branch transfer orders: ${res.statusText}`;
+    
+    // Provide more user-friendly message for mapping type errors
+    if (errorMessage.includes("Error mapping types") || errorMessage.includes("mapping types")) {
+      errorMessage = "Lỗi xử lý dữ liệu từ server. Vui lòng liên hệ quản trị viên để kiểm tra cấu hình AutoMapper.";
+      console.error("[Mapping Error] Backend AutoMapper configuration issue:", json.message);
+    }
+    
+    console.error("Failed to fetch pending branch transfer orders:", res.status, errorMessage, json);
+    throw new Error(errorMessage);
+  }
+
+  // Check if backend returned error in response body
+  if (json.success === false) {
+    let errorMessage = json.message || "Failed to fetch pending branch transfer orders";
+    
+    // Provide more user-friendly message for mapping type errors
+    if (errorMessage.includes("Error mapping types") || errorMessage.includes("mapping types")) {
+      errorMessage = "Lỗi xử lý dữ liệu từ server. Vui lòng liên hệ quản trị viên để kiểm tra cấu hình AutoMapper.";
+      console.error("[Mapping Error] Backend AutoMapper configuration issue:", json.message);
+    }
+    
+    console.error("Backend returned error:", json);
+    throw new Error(errorMessage);
+  }
+
+  // Extract orders from response
   let orders: any[] = [];
   if (json.success && json.data && Array.isArray(json.data)) {
     orders = json.data;

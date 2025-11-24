@@ -85,7 +85,18 @@ export default function TransferOrdersPage() {
     setLoadingVehicles(true);
     try {
       const data = await getVehicles({ BranchId: branchId, Status: "Available", PageSize: 1000 });
-      setVehicles(data.items);
+      const availableVehicles =
+        data.items?.filter(
+          (vehicle) => (vehicle.status || "").toUpperCase() === "AVAILABLE"
+        ) || [];
+
+      if (data.items?.length && availableVehicles.length === 0) {
+        console.warn(
+          `[Create Order] Branch ${branchId} has vehicles but none are in Available status`
+        );
+      }
+
+      setVehicles(availableVehicles);
     } catch (error) {
       console.error("Error loading vehicles:", error);
       message.error("Không thể tải danh sách xe");
@@ -971,7 +982,7 @@ export default function TransferOrdersPage() {
             Đóng
           </Button>,
         ]}
-        width={800}
+        width={900}
       >
         {selectedRequest && (
           <div>
@@ -983,16 +994,16 @@ export default function TransferOrdersPage() {
                 {getStatusTag(selectedRequest.status)}
               </Descriptions.Item>
               <Descriptions.Item label="Model xe">
-                {selectedRequest.vehicleModelName || "-"}
+                {selectedRequest.vehicleModelName || selectedRequest.vehicleModel?.modelName || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Số lượng yêu cầu">
-                {selectedRequest.quantityRequested || "-"}
+                {selectedRequest.quantityRequested ?? "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Chi nhánh">
-                {selectedRequest.branchName || "-"}
+                {selectedRequest.branchName || selectedRequest.staff?.branch?.branchName || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Người yêu cầu">
-                {selectedRequest.staffName || "-"}
+                {selectedRequest.staffName || selectedRequest.staff?.fullname || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Ngày yêu cầu">
                 {selectedRequest.requestedAt || selectedRequest.createdAt
@@ -1014,14 +1025,22 @@ export default function TransferOrdersPage() {
                 <Descriptions.Item label="Tên model">
                   {selectedRequest.vehicleModel.modelName || "-"}
                 </Descriptions.Item>
-                <Descriptions.Item label="Loại">
+                <Descriptions.Item label="Phân khúc">
                   {selectedRequest.vehicleModel.category || "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Dung lượng pin">
+                  {selectedRequest.vehicleModel.batteryCapacityKwh
+                    ? `${selectedRequest.vehicleModel.batteryCapacityKwh} kWh`
+                    : "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Tầm hoạt động">
                   {selectedRequest.vehicleModel.maxRangeKm ? `${selectedRequest.vehicleModel.maxRangeKm} km` : "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Tốc độ tối đa">
                   {selectedRequest.vehicleModel.maxSpeedKmh ? `${selectedRequest.vehicleModel.maxSpeedKmh} km/h` : "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Mô tả" span={2}>
+                  {selectedRequest.vehicleModel.description || "-"}
                 </Descriptions.Item>
               </Descriptions>
             )}
@@ -1034,6 +1053,22 @@ export default function TransferOrdersPage() {
                 <Descriptions.Item label="Email">
                   {selectedRequest.staff.email || "-"}
                 </Descriptions.Item>
+                <Descriptions.Item label="Chi nhánh" span={2}>
+                  {selectedRequest.staff.branch?.branchName || "-"}
+                </Descriptions.Item>
+                {selectedRequest.staff.branch && (
+                  <>
+                    <Descriptions.Item label="Địa chỉ" span={2}>
+                      {selectedRequest.staff.branch.address || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Số điện thoại">
+                      {selectedRequest.staff.branch.phone || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Email chi nhánh">
+                      {selectedRequest.staff.branch.email || "-"}
+                    </Descriptions.Item>
+                  </>
+                )}
               </Descriptions>
             )}
 

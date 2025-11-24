@@ -15,7 +15,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const beRes = await emrsFetch("/vehicletransferrequest", {
+    // Endpoint theo API documentation: GET /api/VehicleTransferRequest
+    const beRes = await emrsFetch("/VehicleTransferRequest", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
