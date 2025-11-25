@@ -91,7 +91,7 @@ export async function updateConfiguration(
   id: string,
   payload: Omit<ConfigurationItem, "id" | "createdAt" | "updatedAt">
 ) {
-  const res = await fetch(buildUrl(`/${id}`), {
+  const res = await fetch(buildUrl(""), {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",

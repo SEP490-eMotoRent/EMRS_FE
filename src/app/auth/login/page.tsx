@@ -61,6 +61,7 @@ export default function LoginPage() {
       // Lấy branchId từ nhiều nguồn có thể
       const branchId = user.branchId || user.staff?.branchId || user.staff?.branch?.id || "";
       const branchName = user.branchName || user.staff?.branchName || user.staff?.branch?.branchName || "";
+      const staffId = user.staffId || user.staff?.id || "";
       
       document.cookie = `token=${accessToken}; path=/; expires=${expires.toUTCString()}`;
       document.cookie = `role=${user.role ?? ""}; path=/; expires=${expires.toUTCString()}`;
@@ -75,17 +76,24 @@ export default function LoginPage() {
       document.cookie = `branchName=${encodeURIComponent(
         branchName
       )}; path=/; expires=${expires.toUTCString()}`;
+      document.cookie = `staffId=${staffId}; path=/; expires=${expires.toUTCString()}`;
       
       console.log("Cookies set - branchId:", branchId, "branchName:", branchName);
 
       const role = (user.role ?? "").toUpperCase();
 
-      if (role === "ADMIN") {
-        router.push("/dashboard/admin");
-      } else if (role === "MANAGER") {
-        router.push("/dashboard/manager");
-      } else {
-        setErrorMsg("Tài khoản không có quyền truy cập");
+      switch (role) {
+        case "ADMIN":
+          router.push("/dashboard/admin");
+          break;
+        case "MANAGER":
+          router.push("/dashboard/manager");
+          break;
+        case "TECHNICIAN":
+          router.push("/dashboard/technician");
+          break;
+        default:
+          setErrorMsg("Tài khoản không có quyền truy cập");
       }
     } catch (err) {
       console.error(err);

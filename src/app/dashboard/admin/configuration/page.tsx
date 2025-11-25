@@ -42,6 +42,10 @@ export default function AdminConfigurationPage() {
   const [editingConfig, setEditingConfig] = useState<ConfigurationItem | null>(
     null
   );
+  const [configToDelete, setConfigToDelete] =
+    useState<ConfigurationItem | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -82,23 +86,25 @@ export default function AdminConfigurationPage() {
   };
 
   const handleDelete = (record: ConfigurationItem) => {
-    Modal.confirm({
-      title: "Xác nhận xóa",
-      content: `Bạn chắc chắn muốn xóa cấu hình "${record.title}"?`,
-      okText: "Xóa",
-      okType: "danger",
-      cancelText: "Hủy",
-      onOk: async () => {
-        try {
-          await deleteConfiguration(record.id);
-          message.success("Đã xóa cấu hình");
-          loadConfigs();
-        } catch (error: any) {
-          console.error("Error deleting configuration:", error);
-          message.error(error?.message || "Không thể xóa cấu hình");
-        }
-      },
-    });
+    setConfigToDelete(record);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!configToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteConfiguration(configToDelete.id);
+      message.success("Đã xóa cấu hình");
+      setIsDeleteModalOpen(false);
+      setConfigToDelete(null);
+      loadConfigs();
+    } catch (error: any) {
+      console.error("Error deleting configuration:", error);
+      message.error(error?.message || "Không thể xóa cấu hình");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -316,6 +322,25 @@ export default function AdminConfigurationPage() {
             }}
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="Xác nhận xóa"
+        open={isDeleteModalOpen}
+        okText="Xóa"
+        okButtonProps={{ danger: true, loading: isDeleting }}
+        cancelText="Hủy"
+        onOk={confirmDelete}
+        onCancel={() => {
+          setIsDeleteModalOpen(false);
+          setConfigToDelete(null);
+        }}
+      >
+        <p>
+          Bạn chắc chắn muốn xóa cấu hình{" "}
+          <strong>{configToDelete?.title}</strong>?
+        </p>
+        <p className="text-sm text-gray-500">ID: {configToDelete?.id}</p>
       </Modal>
     </div>
   );

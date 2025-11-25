@@ -65,3 +65,33 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PUT(request: Request) {
+  const { token, response } = await ensureAuth();
+  if (!token) return response!;
+
+  try {
+    const body = await request.json();
+
+    const beRes = await emrsFetch(BASE_PATH, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const text = await beRes.text();
+    return new NextResponse(text, { status: beRes.status });
+  } catch (err) {
+    console.error("Update configuration error:", err);
+    return NextResponse.json(
+      {
+        success: false,
+        message: err instanceof Error ? err.message : "Internal BFF Error",
+      },
+      { status: 500 }
+    );
+  }
+}
+

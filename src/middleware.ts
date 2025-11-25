@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
   const role = req.cookies.get("role")?.value;
+  const normalizedRole = role?.toUpperCase();
 
   const path = req.nextUrl.pathname;
 
@@ -12,11 +13,15 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/auth/login", req.url));
   }
 
-  if (path.startsWith("/dashboard/admin") && role !== "ADMIN") {
+  if (path.startsWith("/dashboard/admin") && normalizedRole !== "ADMIN") {
     return NextResponse.redirect(new URL("/auth/login", req.url));
   }
 
-  if (path.startsWith("/dashboard/manager") && role !== "MANAGER") {
+  if (path.startsWith("/dashboard/manager") && normalizedRole !== "MANAGER") {
+    return NextResponse.redirect(new URL("/auth/login", req.url));
+  }
+
+  if (path.startsWith("/dashboard/technician") && normalizedRole !== "TECHNICIAN") {
     return NextResponse.redirect(new URL("/auth/login", req.url));
   }
 

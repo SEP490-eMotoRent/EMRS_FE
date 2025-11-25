@@ -8,6 +8,7 @@ import { message } from "antd";
 const menuItems = [
   { name: "Tổng quan", path: "/dashboard/manager" },
   { name: "Vận hành (Giao/Trả)", path: "/dashboard/manager/operations" },
+  { name: "Quản lý sửa chữa", path: "/dashboard/manager/repair-requests" },
   { name: "Quản lý Fleet", path: "/dashboard/manager/fleet" },
   { name: "Bookings", path: "/dashboard/manager/bookings" },
   { name: "Điều chuyển xe", path: "/dashboard/manager/transfers" },
@@ -34,6 +35,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
       document.cookie = "fullName=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       document.cookie = "username=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       document.cookie = "userId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "staffId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       
       message.success("Đã đăng xuất thành công");
       // Chuyển về trang login đúng route

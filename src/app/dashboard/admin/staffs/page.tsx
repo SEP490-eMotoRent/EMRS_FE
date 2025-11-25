@@ -26,6 +26,7 @@ export default function StaffPage() {
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
   const [form] = Form.useForm();
   const [createForm] = Form.useForm();
   const [searchText, setSearchText] = useState("");
@@ -33,6 +34,9 @@ export default function StaffPage() {
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
+  const [currentUsername, setCurrentUsername] = useState<string>("");
+  const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const getCookieValue = (name: string) => {
     if (typeof document === "undefined") return "";
@@ -55,12 +59,17 @@ export default function StaffPage() {
   const detectCurrentUserRole = () => {
     const roleValue = getCookieValue("role");
     const userIdValue = getCookieValue("userId");
+    const usernameValue = getCookieValue("username");
+    console.log("[StaffPage] Cookie role:", roleValue, "Cookie userId:", userIdValue, "Cookie username:", usernameValue);
     if (roleValue) {
       setCurrentUserRole(roleValue);
       setIsAdminUser(roleValue.toUpperCase() === "ADMIN");
     }
     if (userIdValue) {
       setCurrentUserId(userIdValue);
+    }
+    if (usernameValue) {
+      setCurrentUsername(usernameValue);
     }
   };
 
@@ -160,13 +169,35 @@ export default function StaffPage() {
     try {
       const data = await getStaffs();
       setStaffs(data);
+      console.log("[StaffPage] Loaded staffs:", data.map((acc) => ({ id: acc.id, username: acc.username, role: acc.role })));
       const resolvedUserId = currentUserId || getCookieValue("userId");
+      const resolvedUsername = currentUsername || getCookieValue("username");
+      console.log(
+        "[StaffPage] Resolved userId for current session:",
+        resolvedUserId,
+        "Resolved username:",
+        resolvedUsername
+      );
+      let matched: Account | undefined;
       if (resolvedUserId) {
-        const matched = data.find((acc) => acc.id === resolvedUserId);
-        if (matched?.role) {
-          setCurrentUserRole(matched.role);
-          setIsAdminUser(matched.role.toUpperCase() === "ADMIN");
+        matched = data.find((acc) => acc.id === resolvedUserId);
+      }
+      // Một số phiên đăng nhập cũ lưu nhầm staffId => fallback tìm theo staff.id
+      if (!matched && resolvedUserId) {
+        matched = data.find((acc) => acc.staff?.id === resolvedUserId);
+        if (matched?.id && typeof document !== "undefined") {
+          // Ghi đè cookie userId bằng accountId để lần sau khớp ngay
+          document.cookie = `userId=${matched.id}; path=/;`;
+          setCurrentUserId(matched.id);
         }
+      }
+      if (!matched && resolvedUsername) {
+        matched = data.find((acc) => acc.username?.toLowerCase() === resolvedUsername.toLowerCase());
+      }
+      console.log("[StaffPage] Matched current account:", matched);
+      if (matched?.role) {
+        setCurrentUserRole(matched.role);
+        setIsAdminUser(matched.role.toUpperCase() === "ADMIN");
       }
     } catch (error) {
       console.error("Error loading staffs:", error);
@@ -276,24 +307,27 @@ export default function StaffPage() {
     }
   };
 
-  const handleDelete = async (account: Account) => {
-    Modal.confirm({
-      title: "Xác nhận xóa",
-      content: `Bạn có chắc muốn xóa tài khoản "${account.fullname}" (${account.username})?`,
-      okText: "Xóa",
-      okType: "danger",
-      cancelText: "Hủy",
-      onOk: async () => {
-        try {
-          await deleteAccount(account.id);
-          message.success("Xóa tài khoản thành công");
-          loadStaffs();
-        } catch (error: any) {
-          console.error("Error deleting account:", error);
-          message.error(error.message || "Không thể xóa tài khoản");
-        }
-      },
-    });
+  const handleDelete = (account: Account) => {
+    console.log("[StaffPage] Attempt delete account:", account.id, account.username);
+    setAccountToDelete(account);
+    setIsDeleteConfirmVisible(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (!accountToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteAccount(accountToDelete.id);
+      message.success("Xóa tài khoản thành công");
+      setIsDeleteConfirmVisible(false);
+      setAccountToDelete(null);
+      loadStaffs();
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      message.error(error.message || "Không thể xóa tài khoản");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const getRoleTag = (role?: string) => {
@@ -316,10 +350,10 @@ export default function StaffPage() {
       width: 200,
     },
     {
-      title: "Username",
-      dataIndex: "username",
-      key: "username",
-      width: 150,
+      title: "Họ và tên",
+      key: "displayName",
+      width: 200,
+      render: (_, record) => record.fullname || record.username || "-",
     },
     {
       title: "Role",
@@ -337,20 +371,14 @@ export default function StaffPage() {
       },
     },
     {
-      title: "Email",
-      key: "email",
-      width: 200,
-      render: (_, record) => {
-        return record.email || "-";
-      },
-    },
-    {
-      title: "Số điện thoại",
-      key: "phone",
-      width: 150,
-      render: (_, record) => {
-        return record.phone || "-";
-      },
+      title: "Staff ID",
+      key: "staffId",
+      width: 260,
+      render: (_, record) => (
+        <span className="font-mono text-xs">
+          {record.staff?.id || "N/A"}
+        </span>
+      ),
     },
     {
       title: "Thành phố",
@@ -705,6 +733,26 @@ export default function StaffPage() {
             )}
           </div>
         )}
+      </Modal>
+
+      {/* Delete confirmation Modal */}
+      <Modal
+        title="Xác nhận xóa"
+        open={isDeleteConfirmVisible}
+        okText="Xóa"
+        okButtonProps={{ danger: true, loading: isDeleting }}
+        cancelText="Hủy"
+        onOk={confirmDeleteAccount}
+        onCancel={() => {
+          setIsDeleteConfirmVisible(false);
+          setAccountToDelete(null);
+        }}
+      >
+        <p>
+          Bạn có chắc muốn xóa tài khoản{" "}
+          <strong>{accountToDelete?.fullname || accountToDelete?.username}</strong>?
+        </p>
+        <p className="text-sm text-gray-500">ID sẽ xóa: {accountToDelete?.id}</p>
       </Modal>
     </div>
   );

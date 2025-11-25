@@ -180,6 +180,7 @@ export async function deleteAccount(accountId: string): Promise<any> {
     body: JSON.stringify({
       id: accountId,
       isDeleted: true,
+      isdeleted: true,
     }),
   });
 
