@@ -11,8 +11,14 @@ export interface Account {
   username: string;
   role: string;
   fullname: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  dateOfBirth?: string;
   staff?: {
     id: string;
+    email?: string;
+    phone?: string;
     branch?: {
       id: string;
       branchName: string;
@@ -71,7 +77,33 @@ export async function getStaffs(): Promise<Account[]> {
     (account) => account.role && ["ADMIN", "MANAGER", "STAFF", "TECHNICIAN"].includes(account.role.toUpperCase())
   );
 
-  return staffAccounts;
+  // Một số bản ghi từ API tổng hợp không chứa đủ thông tin chi nhánh/email/phone.
+  // Với các bản ghi thiếu dữ liệu, gọi thêm API chi tiết để bổ sung.
+  const enrichedAccounts = await Promise.all(
+    staffAccounts.map(async (account) => {
+      const hasBranchInfo = !!account.staff?.branch?.branchName;
+      const hasContactInfo = !!account.email || !!account.phone;
+
+      if (hasBranchInfo && hasContactInfo) {
+        return account;
+      }
+
+      try {
+        const detail = await getAccountById(account.id);
+        return {
+          ...account,
+          ...detail,
+          staff: detail.staff || account.staff,
+          renter: detail.renter || account.renter,
+        };
+      } catch (error) {
+        console.warn("[getStaffs] Could not enrich account detail", account.id, error);
+        return account;
+      }
+    })
+  );
+
+  return enrichedAccounts;
 }
 
 // Lấy chi tiết account theo ID

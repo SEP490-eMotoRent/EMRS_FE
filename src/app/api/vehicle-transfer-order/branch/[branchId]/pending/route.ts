@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
+// Force dynamic rendering to prevent caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // GET /api/vehicle-transfer-order/branch/[branchId]/pending - Manager xem pending orders của branch
 export async function GET(
   request: Request,

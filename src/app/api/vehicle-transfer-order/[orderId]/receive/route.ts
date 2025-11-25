@@ -20,12 +20,21 @@ export async function PUT(
 
     const { orderId } = await context.params;
 
-    const beRes = await emrsFetch(`/VehicleTransferOrder/${orderId}/receive`, {
+    console.log(`[Receive API] Calling backend for orderId: ${orderId}`);
+    const endpoint = `/VehicleTransferOrder/${orderId}/receive`;
+    console.log(`[Receive API] Endpoint: ${endpoint}`);
+
+    const beRes = await emrsFetch(endpoint, {
       method: "PUT",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
     });
 
+    console.log(`[Receive API] Backend response status: ${beRes.status} ${beRes.statusText}`);
     const text = await beRes.text();
+    console.log(`[Receive API] Backend response text: ${text.substring(0, 200)}...`);
     let data: any;
 
     try {

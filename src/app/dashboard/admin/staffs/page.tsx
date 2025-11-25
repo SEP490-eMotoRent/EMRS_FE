@@ -30,11 +30,39 @@ export default function StaffPage() {
   const [createForm] = Form.useForm();
   const [searchText, setSearchText] = useState("");
   const [selectedRole, setSelectedRole] = useState<string>("all");
+  const [currentUserRole, setCurrentUserRole] = useState<string>("");
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
+
+  const getCookieValue = (name: string) => {
+    if (typeof document === "undefined") return "";
+    const cookieStr = document.cookie || "";
+    const target = cookieStr
+      .split(";")
+      .map((c) => c.trim())
+      .find((cookie) => cookie.startsWith(`${name}=`));
+    if (!target) return "";
+    const [, value] = target.split("=");
+    return value ? decodeURIComponent(value) : "";
+  };
 
   useEffect(() => {
     loadBranches();
     loadStaffs();
+    detectCurrentUserRole();
   }, []);
+
+  const detectCurrentUserRole = () => {
+    const roleValue = getCookieValue("role");
+    const userIdValue = getCookieValue("userId");
+    if (roleValue) {
+      setCurrentUserRole(roleValue);
+      setIsAdminUser(roleValue.toUpperCase() === "ADMIN");
+    }
+    if (userIdValue) {
+      setCurrentUserId(userIdValue);
+    }
+  };
 
   const loadBranches = async () => {
     setLoadingBranches(true);
@@ -132,6 +160,14 @@ export default function StaffPage() {
     try {
       const data = await getStaffs();
       setStaffs(data);
+      const resolvedUserId = currentUserId || getCookieValue("userId");
+      if (resolvedUserId) {
+        const matched = data.find((acc) => acc.id === resolvedUserId);
+        if (matched?.role) {
+          setCurrentUserRole(matched.role);
+          setIsAdminUser(matched.role.toUpperCase() === "ADMIN");
+        }
+      }
     } catch (error) {
       console.error("Error loading staffs:", error);
       message.error("Không thể tải danh sách nhân sự");
@@ -146,7 +182,10 @@ export default function StaffPage() {
       !searchText ||
       staff.fullname?.toLowerCase().includes(searchText.toLowerCase()) ||
       staff.username?.toLowerCase().includes(searchText.toLowerCase()) ||
-      staff.staff?.branch?.branchName?.toLowerCase().includes(searchText.toLowerCase());
+      staff.staff?.branch?.branchName?.toLowerCase().includes(searchText.toLowerCase()) ||
+      staff.staff?.branch?.city?.toLowerCase().includes(searchText.toLowerCase()) ||
+      staff.email?.toLowerCase().includes(searchText.toLowerCase()) ||
+      staff.phone?.toLowerCase().includes(searchText.toLowerCase());
     
     const matchesRole = selectedRole === "all" || staff.role?.toUpperCase() === selectedRole.toUpperCase();
     
@@ -302,7 +341,7 @@ export default function StaffPage() {
       key: "email",
       width: 200,
       render: (_, record) => {
-        return record.staff?.branch?.email || record.renter?.email || "-";
+        return record.email || "-";
       },
     },
     {
@@ -310,7 +349,24 @@ export default function StaffPage() {
       key: "phone",
       width: 150,
       render: (_, record) => {
-        return record.staff?.branch?.phone || record.renter?.phone || "-";
+        return record.phone || "-";
+      },
+    },
+    {
+      title: "Thành phố",
+      key: "city",
+      width: 160,
+      render: (_, record) => {
+        return record.staff?.branch?.city || "-";
+      },
+    },
+    {
+      title: "Địa chỉ chi nhánh",
+      key: "branchAddress",
+      width: 250,
+      ellipsis: true,
+      render: (_, record) => {
+        return record.staff?.branch?.address || "-";
       },
     },
     {
@@ -328,21 +384,25 @@ export default function StaffPage() {
             >
               Xem
             </Button>
-            <Button
-              type="link"
-              icon={<EditOutlined />}
-              onClick={() => handleEdit(record)}
-            >
-              Sửa
-            </Button>
-            <Button
-              type="link"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => handleDelete(record)}
-            >
-              Xóa
-            </Button>
+            {isAdminUser && (
+              <Button
+                type="link"
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(record)}
+              >
+                Sửa
+              </Button>
+            )}
+            {isAdminUser && (
+              <Button
+                type="link"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleDelete(record)}
+              >
+                Xóa
+              </Button>
+            )}
           </Space>
         );
       },
@@ -571,6 +631,20 @@ export default function StaffPage() {
               </Descriptions.Item>
               <Descriptions.Item label="Role">
                 {getRoleTag(selectedAccount.role)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Email">
+                {selectedAccount.email || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Số điện thoại">
+                {selectedAccount.phone || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Địa chỉ" span={2}>
+                {selectedAccount.address || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Ngày sinh">
+                {selectedAccount.dateOfBirth
+                  ? dayjs(selectedAccount.dateOfBirth).format("DD/MM/YYYY")
+                  : "-"}
               </Descriptions.Item>
             </Descriptions>
 

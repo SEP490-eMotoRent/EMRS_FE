@@ -50,6 +50,13 @@ export default function ManagerTransferPage() {
   const [orderSearchText, setOrderSearchText] = useState("");
   const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("requests");
+  
+  // Dispatch/Receive confirmation modal state
+  const [isDispatchModalVisible, setIsDispatchModalVisible] = useState(false);
+  const [isReceiveModalVisible, setIsReceiveModalVisible] = useState(false);
+  const [orderToDispatch, setOrderToDispatch] = useState<VehicleTransferOrder | null>(null);
+  const [orderToReceive, setOrderToReceive] = useState<VehicleTransferOrder | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     // Lấy branchId từ cookie
@@ -213,7 +220,7 @@ export default function ManagerTransferPage() {
   });
 
   // Filter orders
-  const filteredOrders = orders.filter((order) => {
+  const filteredOrders = (orders || []).filter((order) => {
     const matchesSearch =
       !orderSearchText ||
       order.vehicleLicensePlate?.toLowerCase().includes(orderSearchText.toLowerCase()) ||
@@ -337,43 +344,8 @@ export default function ManagerTransferPage() {
       return;
     }
 
-    Modal.confirm({
-      title: "Xác nhận xuất xe",
-      content: `Bạn có chắc muốn xác nhận đã xuất xe "${order.vehicleLicensePlate}" cho vận chuyển?`,
-      okText: "Xác nhận xuất",
-      okType: "primary",
-      cancelText: "Hủy",
-      onOk: async () => {
-        try {
-          await dispatchTransferOrder(order.id);
-          message.success("Xác nhận xuất xe thành công. Xe đang được vận chuyển.");
-
-          // Update UI optimistically
-          setOrders((prev) =>
-            prev.map((item) =>
-              item.id === order.id
-                ? { ...item, status: "InTransit" }
-                : item
-            )
-          );
-          setPendingOrders((prev) =>
-            prev.filter((item) => item.id !== order.id)
-          );
-
-          // Reload orders to update UI
-          try {
-            await Promise.all([loadOrders(), loadPendingOrders()]);
-          } catch (reloadError) {
-            console.warn("Reload after dispatch failed:", reloadError);
-          }
-        } catch (error: any) {
-          console.error("Error dispatching order:", error);
-          // Show detailed error message from backend
-          const errorMessage = error?.message || "Không thể xác nhận xuất xe";
-          message.error(errorMessage);
-        }
-      },
-    });
+    setOrderToDispatch(order);
+    setIsDispatchModalVisible(true);
   };
 
   const handleReceive = async (order: VehicleTransferOrder) => {
@@ -387,43 +359,118 @@ export default function ManagerTransferPage() {
       return;
     }
 
-    Modal.confirm({
-      title: "Xác nhận nhận xe",
-      content: `Bạn có chắc muốn xác nhận đã nhận xe "${order.vehicleLicensePlate}"? Xe sẽ được mở khóa và sẵn sàng cho thuê.`,
-      okText: "Xác nhận nhận",
-      okType: "primary",
-      cancelText: "Hủy",
-      onOk: async () => {
-        try {
-          await receiveTransferOrder(order.id);
-          message.success("Xác nhận nhận xe thành công. Xe đã sẵn sàng cho thuê tại chi nhánh này.");
+    setOrderToReceive(order);
+    setIsReceiveModalVisible(true);
+  };
 
-          // Optimistic UI update
-          setOrders((prev) =>
-            prev.map((item) =>
-              item.id === order.id
-                ? { ...item, status: "Completed", receivedDate: new Date().toISOString() }
-                : item
-            )
-          );
-          setPendingOrders((prev) =>
-            prev.filter((item) => item.id !== order.id)
-          );
+  const handleConfirmDispatch = async () => {
+    if (!orderToDispatch) return;
+    
+    setIsProcessing(true);
+    const orderIdToUpdate = orderToDispatch.id; // Save ID before setting to null
+    
+    try {
+      const updatedOrder = await dispatchTransferOrder(orderIdToUpdate);
+      message.success("Xác nhận xuất xe thành công. Xe đang được vận chuyển.");
 
-          // Reload orders to update UI
-          try {
-            await Promise.all([loadOrders(), loadPendingOrders()]);
-          } catch (reloadError) {
-            console.warn("Reload after receive failed:", reloadError);
-          }
-        } catch (error: any) {
-          console.error("Error receiving order:", error);
-          // Show detailed error message from backend
-          const errorMessage = error?.message || "Không thể xác nhận nhận xe";
-          message.error(errorMessage);
-        }
-      },
-    });
+      // Ensure status is correctly set from API response
+      const newStatus = updatedOrder?.status || "InTransit";
+
+      // Update UI with response data from API immediately
+      setOrders((prev) =>
+        prev.map((item) =>
+          item.id === orderIdToUpdate
+            ? { ...item, ...updatedOrder, status: newStatus }
+            : item
+        )
+      );
+      
+      setPendingOrders((prev) =>
+        prev.filter((item) => item.id !== orderIdToUpdate)
+      );
+
+      // Update selectedOrder if modal is open and showing this order
+      if (selectedOrder && selectedOrder.id === orderIdToUpdate) {
+        setSelectedOrder({ ...selectedOrder, ...updatedOrder, status: newStatus });
+      }
+
+      // Close modal
+      setIsDispatchModalVisible(false);
+      setOrderToDispatch(null);
+
+      // Don't reload immediately - the state update from API response is sufficient
+      // Reload will happen naturally when user navigates or refreshes
+      // This prevents reload from overwriting the optimistic update
+    } catch (error: any) {
+      const errorMessage = error?.message || "Không thể xác nhận xuất xe";
+      message.error(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleConfirmReceive = async () => {
+    if (!orderToReceive) return;
+    
+    setIsProcessing(true);
+    try {
+      const updatedOrder = await receiveTransferOrder(orderToReceive.id);
+      console.log("[Receive] API response:", updatedOrder);
+      message.success("Xác nhận nhận xe thành công. Xe đã sẵn sàng cho thuê tại chi nhánh này.");
+
+      // Ensure status is correctly set from API response
+      const newStatus = updatedOrder?.status || "Completed";
+      console.log("[Receive] API response status:", newStatus, "receivedDate:", updatedOrder?.receivedDate);
+
+      // Close modal first
+      setIsReceiveModalVisible(false);
+      const orderIdToUpdate = orderToReceive.id;
+      setOrderToReceive(null);
+
+      // Update UI with response data from API immediately - include all fields from response
+      setOrders((prev) => {
+        const updated = prev.map((item) =>
+          item.id === orderIdToUpdate
+            ? { 
+                ...item, 
+                ...updatedOrder, 
+                status: newStatus,
+                receivedDate: updatedOrder?.receivedDate || item.receivedDate
+              }
+            : item
+        );
+        console.log("[Receive] Updated orders state:", updated.find(o => o.id === orderIdToUpdate));
+        return updated;
+      });
+      
+      setPendingOrders((prev) => {
+        const filtered = prev.filter((item) => item.id !== orderIdToUpdate);
+        console.log("[Receive] Removed from pending orders, remaining:", filtered.length);
+        return filtered;
+      });
+
+      // Update selectedOrder if modal is open and showing this order
+      if (selectedOrder && selectedOrder.id === orderIdToUpdate) {
+        const updatedSelected = { 
+          ...selectedOrder, 
+          ...updatedOrder, 
+          status: newStatus,
+          receivedDate: updatedOrder?.receivedDate || selectedOrder.receivedDate
+        };
+        console.log("[Receive] Updating selectedOrder:", updatedSelected);
+        setSelectedOrder(updatedSelected);
+      }
+
+      // Don't reload immediately - the state update from API response is sufficient
+      // Reload will happen naturally when user navigates or refreshes
+      // This prevents reload from overwriting the optimistic update
+    } catch (error: any) {
+      console.error("[Receive] Error:", error);
+      const errorMessage = error?.message || "Không thể xác nhận nhận xe";
+      message.error(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const getStatusTag = (status?: string) => {
@@ -1030,6 +1077,44 @@ export default function ManagerTransferPage() {
               </Descriptions>
             )}
           </div>
+        )}
+      </Modal>
+
+      {/* Dispatch Confirmation Modal */}
+      <Modal
+        title="Xác nhận xuất xe"
+        open={isDispatchModalVisible}
+        onOk={handleConfirmDispatch}
+        onCancel={() => {
+          setIsDispatchModalVisible(false);
+          setOrderToDispatch(null);
+        }}
+        okText="Xác nhận xuất"
+        cancelText="Hủy"
+        okType="primary"
+        confirmLoading={isProcessing}
+      >
+        {orderToDispatch && (
+          <p>Bạn có chắc muốn xác nhận đã xuất xe <strong>"{orderToDispatch.vehicleLicensePlate}"</strong> cho vận chuyển?</p>
+        )}
+      </Modal>
+
+      {/* Receive Confirmation Modal */}
+      <Modal
+        title="Xác nhận nhận xe"
+        open={isReceiveModalVisible}
+        onOk={handleConfirmReceive}
+        onCancel={() => {
+          setIsReceiveModalVisible(false);
+          setOrderToReceive(null);
+        }}
+        okText="Xác nhận nhận"
+        cancelText="Hủy"
+        okType="primary"
+        confirmLoading={isProcessing}
+      >
+        {orderToReceive && (
+          <p>Bạn có chắc muốn xác nhận đã nhận xe <strong>"{orderToReceive.vehicleLicensePlate}"</strong>? Xe sẽ được mở khóa và sẵn sàng cho thuê.</p>
         )}
       </Modal>
     </div>

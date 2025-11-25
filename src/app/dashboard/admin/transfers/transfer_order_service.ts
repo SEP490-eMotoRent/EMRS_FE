@@ -235,6 +235,7 @@ export async function cancelTransferOrder(orderId: string): Promise<VehicleTrans
 // Manager xác nhận xuất xe (from branch)
 export async function dispatchTransferOrder(orderId: string): Promise<VehicleTransferOrder> {
   const url = buildUrl(`/${orderId}/dispatch`);
+  console.log("[Dispatch Service] Calling URL:", url);
 
   const res = await fetch(url, {
     method: "PUT",
@@ -263,12 +264,16 @@ export async function dispatchTransferOrder(orderId: string): Promise<VehicleTra
 
   try {
     json = text ? JSON.parse(text) : {};
+    console.log("[Dispatch Service] Parsed response:", json);
   } catch (e) {
     console.error("Failed to parse JSON:", text);
     throw new Error("Invalid JSON response");
   }
 
-  return json.data || json;
+  const result = json.data || json;
+  console.log("[Dispatch Service] Returning order data:", result);
+  console.log("[Dispatch Service] Order status:", result?.status);
+  return result;
 }
 
 // Manager xác nhận nhận xe (to branch)
@@ -313,15 +318,25 @@ export async function receiveTransferOrder(orderId: string): Promise<VehicleTran
     throw new Error(errorMessage);
   }
 
-  return json.data || json;
+  // Ensure we return the data from response
+  const result = json.data || json;
+  console.log("[Receive Service] Parsed response:", result);
+  console.log("[Receive Service] Order status:", result?.status);
+  return result;
 }
 
 // Lấy orders theo branch (Manager)
 export async function getTransferOrdersByBranch(branchId: string): Promise<VehicleTransferOrder[]> {
-  const url = buildUrl(`/branch/${branchId}`);
+  // Add timestamp to prevent caching
+  const url = buildUrl(`/branch/${branchId}?t=${Date.now()}`);
 
   const res = await fetch(url, {
     cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0"
+    }
   });
 
   const text = await res.text();
@@ -377,10 +392,16 @@ export async function getTransferOrdersByBranch(branchId: string): Promise<Vehic
 
 // Lấy pending orders theo branch (Manager)
 export async function getPendingTransferOrdersByBranch(branchId: string): Promise<VehicleTransferOrder[]> {
-  const url = buildUrl(`/branch/${branchId}/pending`);
+  // Add timestamp to prevent caching
+  const url = buildUrl(`/branch/${branchId}/pending?t=${Date.now()}`);
 
   const res = await fetch(url, {
     cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0"
+    }
   });
 
   const text = await res.text();
