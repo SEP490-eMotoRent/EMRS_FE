@@ -285,6 +285,8 @@ export async function updateBranch(
 export async function deleteBranch(branchId: string): Promise<any> {
   const url = buildUrl(`/${branchId}`);
 
+  console.log("Deleting branch:", branchId, "URL:", url);
+
   const res = await fetch(url, {
     method: "DELETE",
     headers: {
@@ -292,21 +294,32 @@ export async function deleteBranch(branchId: string): Promise<any> {
     },
   });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Failed to delete branch:", res.status, errorText);
-    throw new Error(`Failed to delete branch: ${res.statusText}`);
-  }
-
   const text = await res.text();
+  console.log("Delete branch response status:", res.status);
+  console.log("Delete branch response text:", text);
+
   let json: any;
 
   try {
     json = text ? JSON.parse(text) : {};
   } catch (e) {
     console.error("Failed to parse JSON:", text);
+    // Nếu không parse được JSON nhưng status là 200, vẫn coi là thành công
+    if (res.ok) {
+      return { success: true, data: true };
+    }
     throw new Error("Invalid JSON response");
   }
 
-  return json.data || json;
+  // Kiểm tra response structure
+  if (!res.ok) {
+    console.error("Failed to delete branch:", res.status, json);
+    const errorMessage = json.message || json.error || `Failed to delete branch: ${res.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  // Trả về response từ API
+  // API trả về: { success: true, message: "Branch deleted successfully", data: true, code: 200 }
+  console.log("Delete branch success:", json);
+  return json;
 }

@@ -13,6 +13,9 @@ export default function BranchesPage() {
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [form] = Form.useForm();
@@ -108,24 +111,40 @@ export default function BranchesPage() {
     }
   };
 
-  const handleDelete = async (branch: Branch) => {
-    Modal.confirm({
-      title: "Xác nhận xóa",
-      content: `Bạn có chắc muốn xóa chi nhánh "${branch.branchName}"?`,
-      okText: "Xóa",
-      okType: "danger",
-      cancelText: "Hủy",
-      onOk: async () => {
-        try {
-          await deleteBranch(branch.id);
-          message.success("Xóa chi nhánh thành công");
-          loadBranches();
-        } catch (error: any) {
-          console.error("Error deleting branch:", error);
-          message.error(error.message || "Không thể xóa chi nhánh");
-        }
-      },
-    });
+  const handleDelete = (branch: Branch) => {
+    console.log("handleDelete called with branch:", branch);
+    setBranchToDelete(branch);
+    setIsDeleteModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!branchToDelete) return;
+    
+    const branchId = branchToDelete.id || branchToDelete.branchId;
+    
+    if (!branchId) {
+      console.error("No branchId found:", branchToDelete);
+      message.error("Không tìm thấy ID chi nhánh");
+      setIsDeleteModalVisible(false);
+      setBranchToDelete(null);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      console.log("Delete confirmed. Deleting branch with ID:", branchId);
+      await deleteBranch(branchId);
+      console.log("Branch deleted successfully");
+      message.success("Xóa chi nhánh thành công");
+      setIsDeleteModalVisible(false);
+      setBranchToDelete(null);
+      loadBranches();
+    } catch (error: any) {
+      console.error("Error deleting branch:", error);
+      message.error(error.message || "Không thể xóa chi nhánh");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const columns: ColumnsType<Branch> = [
@@ -202,7 +221,12 @@ export default function BranchesPage() {
               type="link"
               danger
               icon={<DeleteOutlined />}
-              onClick={() => handleDelete(record)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log("Delete button clicked for branch:", record);
+                handleDelete(record);
+              }}
             >
               Xóa
             </Button>
@@ -396,6 +420,30 @@ export default function BranchesPage() {
               {selectedBranch.vehicleCount ?? "-"}
             </Descriptions.Item>
           </Descriptions>
+        )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title="Xác nhận xóa"
+        open={isDeleteModalVisible}
+        onOk={confirmDelete}
+        onCancel={() => {
+          setIsDeleteModalVisible(false);
+          setBranchToDelete(null);
+        }}
+        okText="Xóa"
+        okButtonProps={{ danger: true, loading: isDeleting }}
+        cancelText="Hủy"
+      >
+        <p>
+          Bạn có chắc muốn xóa chi nhánh{" "}
+          <strong>{branchToDelete?.branchName}</strong>?
+        </p>
+        {branchToDelete && (
+          <p className="text-sm text-gray-500 mt-2">
+            ID: {branchToDelete.id || branchToDelete.branchId}
+          </p>
         )}
       </Modal>
     </div>

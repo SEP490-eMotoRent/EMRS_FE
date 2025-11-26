@@ -6,7 +6,7 @@ import { emrsFetch } from "@/utils/emrsApi";
 // Gán xe cho booking
 export async function PUT(
   request: Request,
-  { params }: { params: { bookingId: string; vehicleId: string } }
+  context: { params: Promise<{ bookingId: string; vehicleId: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -19,8 +19,10 @@ export async function PUT(
       );
     }
 
+    const { bookingId, vehicleId } = await context.params;
+
     const beRes = await emrsFetch(
-      `/Booking/vehicle/assign/${params.bookingId}/${params.vehicleId}`,
+      `/Booking/vehicle/assign/${bookingId}/${vehicleId}`,
       {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },

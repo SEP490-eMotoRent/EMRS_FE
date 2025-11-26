@@ -11,8 +11,10 @@ import {
   Table,
   Tag,
   message,
+  Card,
+  Input,
 } from "antd";
-import { ReloadOutlined, UserSwitchOutlined } from "@ant-design/icons";
+import { ReloadOutlined, UserSwitchOutlined, SearchOutlined, EyeOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
   getRepairRequests,
@@ -22,6 +24,7 @@ import {
   Account,
   getStaffs,
 } from "../staffs/staff_service";
+import { getBranches, Branch } from "../branches/branch_service";
 
 const statusOptions = [
   "PENDING",
@@ -64,13 +67,25 @@ export default function AdminRepairRequestsPage() {
   const [assigningRequest, setAssigningRequest] = useState<any | null>(null);
   const [technicians, setTechnicians] = useState<Account[]>([]);
   const [techLoading, setTechLoading] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [searchText, setSearchText] = useState("");
   const [assignForm] = Form.useForm();
 
   useEffect(() => {
     loadRequests();
     loadTechnicians();
+    loadBranches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const loadBranches = async () => {
+    try {
+      const data = await getBranches();
+      setBranches(data);
+    } catch (err: any) {
+      console.error("Error loading branches:", err);
+    }
+  };
 
   const loadRequests = async (
     page = pagination.current,
@@ -164,40 +179,89 @@ export default function AdminRepairRequestsPage() {
     description: tech.staff?.branch?.branchName,
   }));
 
+  // Helper function để lấy tên chi nhánh
+  const getBranchName = (record: any): string => {
+    // Ưu tiên từ vehicle.branch
+    if (record.vehicle?.branch?.branchName) {
+      return record.vehicle.branch.branchName;
+    }
+    // Từ branch object
+    if (record.branch?.branchName) {
+      return record.branch.branchName;
+    }
+    // Từ staff.branch
+    if (record.staff?.branch?.branchName) {
+      return record.staff.branch.branchName;
+    }
+    // Từ branchId - tìm trong danh sách branches
+    if (record.vehicle?.branchId || record.branchId) {
+      const branchId = record.vehicle?.branchId || record.branchId;
+      const branch = branches.find((b) => b.id === branchId || b.branchId === branchId);
+      if (branch) {
+        return branch.branchName;
+      }
+    }
+    // Fallback
+    return record.branchName || "N/A";
+  };
+
+  // Filter requests (client-side filter cho search)
+  const filteredRequests = requests.filter((request) => {
+    if (!searchText) return true;
+    const searchLower = searchText.toLowerCase();
+    return (
+      request.id?.toLowerCase().includes(searchLower) ||
+      getBranchName(request).toLowerCase().includes(searchLower) ||
+      request.vehicle?.licensePlate?.toLowerCase().includes(searchLower) ||
+      request.issueDescription?.toLowerCase().includes(searchLower) ||
+      request.staff?.fullname?.toLowerCase().includes(searchLower) ||
+      request.staff?.fullName?.toLowerCase().includes(searchLower)
+    );
+  });
+
   const columns = [
     {
       title: "Mã yêu cầu",
       dataIndex: "id",
       key: "id",
+      width: 120,
       render: (id: string) => (
-        <span className="font-mono text-sm">{id?.slice(0, 8)}...</span>
+        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+          {id?.slice(0, 8)}...
+        </span>
       ),
     },
     {
       title: "Chi nhánh",
       key: "branch",
-      render: (_: any, record: any) =>
-        record.branch?.branchName ||
-        record.staff?.branch?.branchName ||
-        record.branchName ||
-        "N/A",
+      width: 200,
+      render: (_: any, record: any) => {
+        const branchName = getBranchName(record);
+        return (
+          <span className="font-medium text-blue-600">
+            {branchName}
+          </span>
+        );
+      },
     },
     {
       title: "Xe",
       key: "vehicle",
+      width: 150,
       render: (_: any, record: any) => {
         const vehicle = record.vehicle || record.assignedVehicle;
+        const licensePlate = vehicle?.licensePlate || record.vehicleLicensePlate || record.vehicleId || "N/A";
+        const modelName = vehicle?.modelName || vehicle?.vehicleModelName || vehicle?.vehicleModel?.modelName || "-";
         return (
           <div className="flex flex-col">
-            <span className="font-medium">
-              {vehicle?.licensePlate ||
-                record.vehicleLicensePlate ||
-                record.vehicleId ||
-                "N/A"}
+            <span className="font-semibold text-gray-800">
+              {licensePlate}
             </span>
-            <span className="text-xs text-gray-500">
-              {vehicle?.modelName || vehicle?.vehicleModelName || "-"}
-            </span>
+            {modelName !== "-" && (
+              <span className="text-xs text-gray-500">
+                {modelName}
+              </span>
+            )}
           </div>
         );
       },
@@ -206,38 +270,65 @@ export default function AdminRepairRequestsPage() {
       title: "Mô tả",
       dataIndex: "issueDescription",
       key: "issueDescription",
-      ellipsis: true,
+      width: 250,
+      ellipsis: { showTitle: true },
+      render: (text: string) => (
+        <span className="text-gray-700">{text || "-"}</span>
+      ),
     },
     {
       title: "Ưu tiên",
       dataIndex: "priority",
       key: "priority",
-      render: (priority: string) => (
-        <Tag color={priorityColors[priority] || "default"}>
-          {priority || "CHƯA CÓ"}
-        </Tag>
-      ),
+      width: 120,
+      render: (priority: string) => {
+        const priorityText = priority || "CHƯA CÓ";
+        const priorityMap: Record<string, string> = {
+          LOW: "Thấp",
+          MEDIUM: "Trung bình",
+          HIGH: "Cao",
+          CRITICAL: "Khẩn cấp",
+        };
+        return (
+          <Tag color={priorityColors[priority] || "default"}>
+            {priorityMap[priorityText] || priorityText}
+          </Tag>
+        );
+      },
     },
     {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
-      render: (status: string) => (
-        <Tag color={statusColors[status] || "default"}>
-          {status || "PENDING"}
-        </Tag>
-      ),
+      width: 130,
+      render: (status: string) => {
+        const statusText = status || "PENDING";
+        const statusMap: Record<string, string> = {
+          PENDING: "Chờ xử lý",
+          REVIEWING: "Đang xem xét",
+          ASSIGNED: "Đã phân công",
+          IN_PROGRESS: "Đang xử lý",
+          COMPLETED: "Hoàn thành",
+          CANCELLED: "Đã hủy",
+        };
+        return (
+          <Tag color={statusColors[status] || "default"}>
+            {statusMap[statusText] || statusText}
+          </Tag>
+        );
+      },
     },
     {
       title: "Kỹ thuật viên",
       key: "technician",
+      width: 150,
       render: (_: any, record: any) => {
         const staff = record.staff || record.technician;
+        const techName = staff?.fullname || staff?.fullName || staff?.account?.fullname;
         return (
-          staff?.fullname ||
-          staff?.fullName ||
-          staff?.account?.fullname ||
-          "Chưa phân công"
+          <span className={techName ? "text-gray-800" : "text-gray-400 italic"}>
+            {techName || "Chưa phân công"}
+          </span>
         );
       },
     },
@@ -245,15 +336,28 @@ export default function AdminRepairRequestsPage() {
       title: "Ngày tạo",
       dataIndex: "createdAt",
       key: "createdAt",
+      width: 150,
       render: (date: string) =>
-        date ? dayjs(date).format("DD/MM/YYYY HH:mm") : "-",
+        date ? (
+          <span className="text-gray-600">
+            {dayjs(date).format("DD/MM/YYYY HH:mm")}
+          </span>
+        ) : (
+          "-"
+        ),
     },
     {
       title: "Hành động",
       key: "action",
+      width: 180,
+      fixed: "right",
       render: (_: any, record: any) => (
         <Space>
-          <Button type="link" onClick={() => openDetail(record)}>
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => openDetail(record)}
+          >
             Chi tiết
           </Button>
           <Button
@@ -269,39 +373,62 @@ export default function AdminRepairRequestsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <p className="text-sm text-gray-400 uppercase">Repair Request</p>
-          <h1 className="text-2xl font-semibold text-white">
+          <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Repair Request</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
             Quản lý yêu cầu sửa chữa
           </h1>
-          <p className="text-gray-300 text-sm">
+          <p className="text-gray-600">
             Theo dõi và phân công kỹ thuật viên cho các chi nhánh.
           </p>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={() => loadRequests()}>
+        <Button
+          type="primary"
+          icon={<ReloadOutlined />}
+          onClick={() => loadRequests()}
+          size="large"
+        >
           Làm mới
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      {/* Search and Filters */}
+      <Card className="shadow-sm">
+        <div className="flex gap-4 mb-4">
+          <Input
+            placeholder="Tìm kiếm theo mã, chi nhánh, xe, mô tả..."
+            prefix={<SearchOutlined />}
+            allowClear
+            style={{ maxWidth: 400 }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+        </div>
+      </Card>
+
+      {/* Table */}
+      <Card className="shadow-sm">
         <Table
           rowKey="id"
           loading={loading}
-          dataSource={requests}
+          dataSource={filteredRequests}
           columns={columns}
+          scroll={{ x: 1200 }}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,
             total: pagination.total,
             showSizeChanger: true,
             showTotal: (total) => `Tổng ${total} yêu cầu`,
+            pageSizeOptions: ["10", "20", "50", "100"],
           }}
           onChange={handleTableChange}
           locale={{ emptyText: "Chưa có yêu cầu sửa chữa" }}
         />
-      </div>
+      </Card>
 
       <Modal
         title="Chi tiết yêu cầu sửa chữa"
@@ -325,10 +452,7 @@ export default function AdminRepairRequestsPage() {
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Chi nhánh">
-              {selectedRequest.branch?.branchName ||
-                selectedRequest.staff?.branch?.branchName ||
-                selectedRequest.branchName ||
-                "-"}
+              {getBranchName(selectedRequest)}
             </Descriptions.Item>
             <Descriptions.Item label="Ưu tiên">
               <Tag color={priorityColors[selectedRequest.priority] || "default"}>

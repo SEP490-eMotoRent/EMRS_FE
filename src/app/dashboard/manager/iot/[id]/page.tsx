@@ -442,7 +442,7 @@ export default function VehicleTrackingPage({
           return latest;
         });
       }
-    }, 8000); // ~8s để nằm giữa ngưỡng 5-10s
+    }, 3000); 
 
     return () => clearInterval(interval);
   }, [payload, fetchTelemetryPosition]);

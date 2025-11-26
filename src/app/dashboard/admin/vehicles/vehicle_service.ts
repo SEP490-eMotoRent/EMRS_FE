@@ -148,21 +148,47 @@ export async function getVehicles(filters?: VehicleFilters): Promise<VehicleList
 
 // Normalize vehicle data từ API response
 function normalizeVehicle(vehicle: any) {
-  // Xử lý ảnh từ nhiều nguồn: fileUrl, imageFiles, mediaResponses
+  // Xử lý ảnh từ nhiều nguồn: medias, fileUrl, imageFiles, mediaResponses
   let imageUrls: string[] = [];
   
-  if (vehicle.fileUrl && Array.isArray(vehicle.fileUrl)) {
+  console.log("normalizeVehicle - Raw vehicle data:", {
+    hasMedias: !!vehicle.medias,
+    mediasType: Array.isArray(vehicle.medias) ? "array" : typeof vehicle.medias,
+    mediasLength: Array.isArray(vehicle.medias) ? vehicle.medias.length : "N/A",
+    medias: vehicle.medias,
+    fileUrl: vehicle.fileUrl,
+    imageFiles: vehicle.imageFiles,
+    mediaResponses: vehicle.mediaResponses,
+  });
+  
+  // Ưu tiên medias array (format mới từ API)
+  if (vehicle.medias && Array.isArray(vehicle.medias)) {
+    console.log("normalizeVehicle - Processing medias array, length:", vehicle.medias.length);
+    imageUrls = vehicle.medias
+      .filter((media: any) => {
+        const isValid = media.mediaType === "Image" && (media.fileUrl || media.url);
+        if (!isValid) {
+          console.log("normalizeVehicle - Filtered out media:", media);
+        }
+        return isValid;
+      })
+      .map((media: any) => media.fileUrl || media.url);
+    console.log("normalizeVehicle - Extracted imageUrls from medias:", imageUrls);
+  } else if (vehicle.fileUrl && Array.isArray(vehicle.fileUrl)) {
+    console.log("normalizeVehicle - Using fileUrl array");
     imageUrls = vehicle.fileUrl;
   } else if (vehicle.imageFiles && Array.isArray(vehicle.imageFiles)) {
+    console.log("normalizeVehicle - Using imageFiles array");
     imageUrls = vehicle.imageFiles;
   } else if (vehicle.mediaResponses && Array.isArray(vehicle.mediaResponses)) {
+    console.log("normalizeVehicle - Using mediaResponses array");
     // Extract URLs từ mediaResponses array
     imageUrls = vehicle.mediaResponses
       .filter((media: any) => media.fileUrl || media.url)
       .map((media: any) => media.fileUrl || media.url);
   }
   
-  return {
+  const normalized = {
     ...vehicle,
     // Map id -> vehicleId để tương thích
     vehicleId: vehicle.id || vehicle.vehicleId,
@@ -170,9 +196,11 @@ function normalizeVehicle(vehicle: any) {
     vehicleModelName: vehicle.vehicleModel?.modelName || vehicle.vehicleModelName,
     // Map vehicleModel.id -> vehicleModelId
     vehicleModelId: vehicle.vehicleModel?.id || vehicle.vehicleModelId,
-    // Map fileUrl -> imageFiles (ưu tiên fileUrl, sau đó imageFiles, cuối cùng mediaResponses)
+    // Map fileUrl -> imageFiles (ưu tiên medias, sau đó fileUrl, imageFiles, cuối cùng mediaResponses)
     fileUrl: imageUrls,
     imageFiles: imageUrls,
+    // Giữ nguyên medias array để có thể truy cập đầy đủ thông tin
+    medias: vehicle.medias || undefined,
     // Giữ nguyên branch object nếu có
     branch: vehicle.branch || undefined,
     branchName: vehicle.branch?.branchName || vehicle.branchName,
@@ -184,6 +212,16 @@ function normalizeVehicle(vehicle: any) {
       rentalPricing: vehicle.vehicleModel.rentalPricing || undefined,
     } : undefined,
   };
+  
+  console.log("normalizeVehicle - Normalized result:", {
+    hasMedias: !!normalized.medias,
+    mediasLength: Array.isArray(normalized.medias) ? normalized.medias.length : "N/A",
+    medias: normalized.medias,
+    fileUrl: normalized.fileUrl,
+    imageFiles: normalized.imageFiles,
+  });
+  
+  return normalized;
 }
 
 // Lấy chi tiết vehicle theo ID
@@ -256,6 +294,115 @@ export async function updateVehicle(formData: FormData) {
     const errorText = await res.text();
     console.error("Failed to update vehicle:", res.status, errorText);
     throw new Error(`Failed to update vehicle: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+  
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
+// Xóa vehicle
+export async function deleteVehicle(vehicleId: string) {
+  const url = buildUrl(`/${vehicleId}`);
+  
+  console.log("Deleting vehicle:", vehicleId, "URL:", url);
+
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  const text = await res.text();
+  console.log("Delete vehicle response status:", res.status);
+  console.log("Delete vehicle response text:", text);
+
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    // Nếu không parse được JSON nhưng status là 200, vẫn coi là thành công
+    if (res.ok) {
+      return { success: true, data: true };
+    }
+    throw new Error("Invalid JSON response");
+  }
+
+  // Kiểm tra response structure
+  if (!res.ok) {
+    console.error("Failed to delete vehicle:", res.status, json);
+    const errorMessage = json.message || json.error || `Failed to delete vehicle: ${res.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  // Trả về response từ API
+  // API trả về: { success: true, message: "Vehicle created successfully.", data: true, code: 200 }
+  console.log("Delete vehicle success:", json);
+  return json;
+}
+
+// Tạo media (ảnh) mới cho vehicle
+export async function createMedia(docNo: string, file: File, entityType: string = "Vehicle", mediaType: string = "Image") {
+  const url = `${INTERNAL_BASE}/api/media`;
+  
+  const formData = new FormData();
+  formData.append("DocNo", docNo);
+  formData.append("File", file);
+  formData.append("MediaType", mediaType);
+  formData.append("EntityType", entityType);
+  
+  const res = await fetch(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to create media:", res.status, errorText);
+    throw new Error(`Failed to create media: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+  
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
+// Cập nhật media (ảnh) của vehicle
+export async function updateMedia(mediaId: string, file: File) {
+  const url = `${INTERNAL_BASE}/api/media`;
+  
+  const formData = new FormData();
+  formData.append("MediaId", mediaId);
+  formData.append("File", file);
+  
+  const res = await fetch(url, {
+    method: "PUT",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to update media:", res.status, errorText);
+    throw new Error(`Failed to update media: ${res.statusText}`);
   }
 
   const text = await res.text();

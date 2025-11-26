@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Table, Button, Input, Select, Space, Tag, Modal, Form, DatePicker, Upload, message, Image, Card, Descriptions, Tooltip } from "antd";
 import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, UploadOutlined, RadarChartOutlined } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
-import { getVehicles, getVehicleById, createVehicle, updateVehicle, VehicleFilters, VehicleListResponse } from "./vehicle_service";
+import { getVehicles, getVehicleById, createVehicle, updateVehicle, deleteVehicle, createMedia, updateMedia, VehicleFilters, VehicleListResponse } from "./vehicle_service";
 import type { ColumnsType } from "antd/es/table";
 
 const { Search } = Input;
@@ -72,6 +72,13 @@ interface Vehicle {
   vehicleModelName?: string; // Mapped từ vehicleModel.modelName
   imageFiles?: string[];
   fileUrl?: string[];
+  medias?: Array<{
+    id: string;
+    mediaType: string;
+    fileUrl: string;
+    docNo?: string;
+    entityType?: string;
+  }>;
 }
 
 export default function VehiclesPage() {
@@ -95,10 +102,14 @@ export default function VehiclesPage() {
   // Modal states
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState<any[]>([]);
+  const [originalMedias, setOriginalMedias] = useState<Array<{ id: string; fileUrl: string }>>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [vehicleModels, setVehicleModels] = useState<VehicleModel[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
@@ -298,7 +309,20 @@ export default function VehiclesPage() {
       setEditingVehicle(vehicle);
       const vehicleId = vehicle.id || vehicle.vehicleId;
       const vehicleModelId = vehicle.vehicleModelId || vehicle.vehicleModel?.id;
-      const imageFiles = vehicle.imageFiles || vehicle.fileUrl || [];
+      
+      // Lấy ảnh từ medias array (ưu tiên) hoặc từ fileUrl/imageFiles
+      let imageFiles: string[] = [];
+      let medias: Array<{ id: string; fileUrl: string }> = [];
+      
+      if (vehicle.medias && Array.isArray(vehicle.medias)) {
+        const imageMedias = vehicle.medias.filter((m) => m.mediaType === "Image" && m.fileUrl);
+        imageFiles = imageMedias.map((m) => m.fileUrl);
+        medias = imageMedias.map((m) => ({ id: m.id, fileUrl: m.fileUrl }));
+      } else {
+        imageFiles = vehicle.imageFiles || vehicle.fileUrl || [];
+      }
+      
+      setOriginalMedias(medias);
       
       form.setFieldsValue({
         licensePlate: vehicle.licensePlate,
@@ -319,11 +343,13 @@ export default function VehiclesPage() {
         name: `image-${index}.jpg`,
         status: 'done',
         url: url,
+        mediaId: medias[index]?.id, // Lưu mediaId để dùng khi update
       })));
     } else {
       setEditingVehicle(null);
       form.resetFields();
       setFileList([]);
+      setOriginalMedias([]);
     }
     setIsModalVisible(true);
   };
@@ -333,6 +359,7 @@ export default function VehiclesPage() {
     setEditingVehicle(null);
     form.resetFields();
     setFileList([]);
+    setOriginalMedias([]);
   };
 
   const handleSubmit = async () => {
@@ -374,22 +401,79 @@ export default function VehiclesPage() {
         formData.append("VehicleModelId", editingVehicle.vehicleModelId);
       }
 
-      // Append image files (only new files)
-      fileList.forEach((file) => {
-        if (file.originFileObj) {
-          formData.append("ImageFiles", file.originFileObj);
-        }
-      });
-
       if (editingVehicle) {
+        const vehicleId = editingVehicle.id || editingVehicle.vehicleId;
+        if (!vehicleId) {
+          message.error("Không tìm thấy ID xe");
+          return;
+        }
+        
+        // Update vehicle info trước (không kèm ảnh)
         await updateVehicle(formData);
+        
+        // Xử lý update ảnh: nếu có file mới và có mediaId -> dùng PUT /api/Media
+        // Nếu có file mới nhưng không có mediaId -> dùng POST /api/Media
+        const mediaPromises: Promise<any>[] = [];
+        
+        console.log("FileList khi submit:", fileList);
+        console.log("OriginalMedias:", originalMedias);
+        
+        fileList.forEach((file: any) => {
+          if (file.originFileObj) {
+            // File mới được upload
+            if (file.mediaId) {
+              // Có file mới và có mediaId -> update media bằng PUT /api/Media
+              console.log(`Updating media ${file.mediaId} with new file`);
+              mediaPromises.push(updateMedia(file.mediaId, file.originFileObj));
+            } else {
+              // Có file mới nhưng không có mediaId -> tạo media mới bằng POST /api/Media
+              console.log(`Creating new media for vehicle ${vehicleId}`);
+              mediaPromises.push(createMedia(vehicleId, file.originFileObj, "Vehicle", "Image"));
+            }
+          }
+        });
+        
+        // Chờ tất cả media operations hoàn thành
+        if (mediaPromises.length > 0) {
+          console.log(`Processing ${mediaPromises.length} media files...`);
+          await Promise.all(mediaPromises);
+          console.log("All media operations completed");
+        }
+        
         message.success("Cập nhật xe thành công");
       } else {
         if (!values.vehicleModelId || !values.branchId) {
           message.error("Vui lòng chọn Model xe và Chi nhánh");
           return;
         }
-        await createVehicle(formData);
+        
+        // Tạo vehicle mới (không kèm ảnh, sẽ thêm sau)
+        const createdVehicle = await createVehicle(formData);
+        const newVehicleId = createdVehicle?.id || createdVehicle?.data?.id || createdVehicle?.vehicleId;
+        
+        if (!newVehicleId) {
+          console.error("Failed to get vehicle ID after creation:", createdVehicle);
+          message.error("Tạo xe thành công nhưng không lấy được ID để thêm ảnh");
+          handleCloseModal();
+          loadVehicles();
+          return;
+        }
+        
+        // Thêm ảnh bằng POST /api/Media sau khi tạo vehicle
+        const createMediaPromises: Promise<any>[] = [];
+        fileList.forEach((file: any) => {
+          if (file.originFileObj) {
+            console.log(`Creating new media for vehicle ${newVehicleId}`);
+            createMediaPromises.push(createMedia(newVehicleId, file.originFileObj, "Vehicle", "Image"));
+          }
+        });
+        
+        if (createMediaPromises.length > 0) {
+          console.log(`Creating ${createMediaPromises.length} media files for new vehicle...`);
+          await Promise.all(createMediaPromises);
+          console.log("All media files created");
+        }
+        
         message.success("Tạo xe mới thành công");
       }
 
@@ -414,6 +498,10 @@ export default function VehiclesPage() {
         return;
       }
       const detail = await getVehicleById(vehicleId);
+      console.log("Vehicle detail loaded:", detail);
+      console.log("Medias in detail:", detail.medias);
+      console.log("FileUrl in detail:", detail.fileUrl);
+      console.log("ImageFiles in detail:", detail.imageFiles);
       setSelectedVehicle(detail);
       setIsDetailModalVisible(true);
     } catch (error) {
@@ -431,6 +519,43 @@ export default function VehiclesPage() {
     }
     // Navigate to tracking page
     router.push(`/dashboard/admin/vehicles/${vehicleId}/tracking`);
+  };
+
+  // Handle delete vehicle
+  const handleDelete = (vehicle: Vehicle) => {
+    console.log("handleDelete called with vehicle:", vehicle);
+    setVehicleToDelete(vehicle);
+    setIsDeleteModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!vehicleToDelete) return;
+    
+    const vehicleId = vehicleToDelete.id || vehicleToDelete.vehicleId;
+    
+    if (!vehicleId) {
+      console.error("No vehicleId found:", vehicleToDelete);
+      message.error("Không tìm thấy ID xe");
+      setIsDeleteModalVisible(false);
+      setVehicleToDelete(null);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      console.log("Delete confirmed. Deleting vehicle with ID:", vehicleId);
+      await deleteVehicle(vehicleId);
+      console.log("Vehicle deleted successfully");
+      message.success("Xóa xe thành công");
+      setIsDeleteModalVisible(false);
+      setVehicleToDelete(null);
+      loadVehicles();
+    } catch (error: any) {
+      console.error("Error deleting vehicle:", error);
+      message.error(error.message || "Không thể xóa xe");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Status tag color
@@ -549,6 +674,20 @@ export default function VehiclesPage() {
               disabled={!vehicleId}
             >
               Sửa
+            </Button>
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log("Delete button clicked for vehicle:", record);
+                handleDelete(record);
+              }}
+              disabled={!vehicleId}
+            >
+              Xóa
             </Button>
           </Space>
         );
@@ -755,7 +894,52 @@ export default function VehiclesPage() {
             <Upload
               listType="picture-card"
               fileList={fileList}
-              onChange={({ fileList }) => setFileList(fileList)}
+              onChange={({ fileList: newFileList }) => {
+                // Map mediaId từ originalMedias hoặc từ fileList cũ
+                const mappedFileList = newFileList.map((file: any, index: number) => {
+                  // Nếu file đã có mediaId, giữ nguyên
+                  if (file.mediaId) {
+                    return file;
+                  }
+                  
+                  // Nếu file có URL (ảnh cũ), tìm mediaId từ originalMedias
+                  if (file.url && !file.originFileObj) {
+                    const originalMedia = originalMedias.find((m) => m.fileUrl === file.url);
+                    if (originalMedia) {
+                      return {
+                        ...file,
+                        mediaId: originalMedia.id,
+                      };
+                    }
+                  }
+                  
+                  // Nếu file có originFileObj (file mới được upload), tìm mediaId từ fileList cũ
+                  if (file.originFileObj) {
+                    // Tìm file cũ ở cùng vị trí trong fileList
+                    const oldFile = fileList[index];
+                    if (oldFile && oldFile.mediaId) {
+                      // Giữ lại mediaId của file cũ để update
+                      return {
+                        ...file,
+                        mediaId: oldFile.mediaId,
+                      };
+                    }
+                    
+                    // Nếu không tìm thấy ở cùng vị trí, thử tìm trong originalMedias
+                    const originalMedia = originalMedias[index];
+                    if (originalMedia) {
+                      return {
+                        ...file,
+                        mediaId: originalMedia.id,
+                      };
+                    }
+                  }
+                  
+                  return file;
+                });
+                
+                setFileList(mappedFileList);
+              }}
               beforeUpload={() => false}
               multiple
             >
@@ -930,33 +1114,105 @@ export default function VehiclesPage() {
             {/* Hình ảnh */}
             <div className="mt-4">
               <h4 className="mb-3 font-semibold">Hình ảnh xe:</h4>
-              {(selectedVehicle.imageFiles?.length > 0 || selectedVehicle.fileUrl?.length > 0) ? (
-                <Image.PreviewGroup>
-                  <Space wrap>
-                    {(selectedVehicle.fileUrl || selectedVehicle.imageFiles || []).map((url, index) => (
-                      <Image
-                        key={index}
-                        src={url}
-                        alt={`Ảnh xe ${index + 1}`}
-                        width={150}
-                        height={150}
-                        style={{ objectFit: "cover", borderRadius: "8px" }}
-                        className="border border-gray-200"
-                      />
-                    ))}
-                  </Space>
-                </Image.PreviewGroup>
-              ) : (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-gray-500">Chưa có hình ảnh</p>
-                </div>
-              )}
+              {(() => {
+                // Ưu tiên lấy từ medias array (format mới từ API)
+                let imageUrls: string[] = [];
+                
+                console.log("Checking images for selectedVehicle:", {
+                  medias: selectedVehicle.medias,
+                  fileUrl: selectedVehicle.fileUrl,
+                  imageFiles: selectedVehicle.imageFiles,
+                });
+                
+                if (selectedVehicle.medias && Array.isArray(selectedVehicle.medias) && selectedVehicle.medias.length > 0) {
+                  console.log("Using medias array, count:", selectedVehicle.medias.length);
+                  imageUrls = selectedVehicle.medias
+                    .filter((media) => {
+                      const isImage = media.mediaType === "Image" && media.fileUrl;
+                      if (!isImage) {
+                        console.log("Filtered out media:", media);
+                      }
+                      return isImage;
+                    })
+                    .map((media) => media.fileUrl);
+                  console.log("Extracted imageUrls from medias:", imageUrls);
+                } else if (selectedVehicle.fileUrl && Array.isArray(selectedVehicle.fileUrl) && selectedVehicle.fileUrl.length > 0) {
+                  console.log("Using fileUrl array, count:", selectedVehicle.fileUrl.length);
+                  imageUrls = selectedVehicle.fileUrl;
+                } else if (selectedVehicle.imageFiles && Array.isArray(selectedVehicle.imageFiles) && selectedVehicle.imageFiles.length > 0) {
+                  console.log("Using imageFiles array, count:", selectedVehicle.imageFiles.length);
+                  imageUrls = selectedVehicle.imageFiles;
+                } else {
+                  console.log("No images found in any source");
+                }
+
+                return imageUrls.length > 0 ? (
+                  <Image.PreviewGroup>
+                    <Space wrap>
+                      {imageUrls.map((url, index) => (
+                        <Image
+                          key={index}
+                          src={url}
+                          alt={`Ảnh xe ${index + 1}`}
+                          width={150}
+                          height={150}
+                          style={{ objectFit: "cover", borderRadius: "8px" }}
+                          className="border border-gray-200"
+                        />
+                      ))}
+                    </Space>
+                  </Image.PreviewGroup>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                    <svg className="w-16 h-16 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-gray-500">Chưa có hình ảnh</p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title="Xác nhận xóa"
+        open={isDeleteModalVisible}
+        onOk={confirmDelete}
+        onCancel={() => {
+          setIsDeleteModalVisible(false);
+          setVehicleToDelete(null);
+        }}
+        okText="Xóa"
+        okButtonProps={{ danger: true, loading: isDeleting }}
+        cancelText="Hủy"
+      >
+        <p>
+          Bạn có chắc muốn xóa xe{" "}
+          <strong>{vehicleToDelete?.licensePlate}</strong>?
+        </p>
+        {vehicleToDelete && (
+          <>
+            <p className="text-sm text-gray-500 mt-2">
+              ID: {vehicleToDelete.id || vehicleToDelete.vehicleId}
+            </p>
+            {vehicleToDelete.vehicleModel?.modelName && (
+              <p className="text-sm text-gray-500">
+                Model: {vehicleToDelete.vehicleModel.modelName}
+              </p>
+            )}
+            {vehicleToDelete.branch?.branchName && (
+              <p className="text-sm text-gray-500">
+                Chi nhánh: {vehicleToDelete.branch.branchName}
+              </p>
+            )}
+          </>
+        )}
+        <p className="text-red-500 text-sm mt-3 font-medium">
+          ⚠️ Hành động này không thể hoàn tác!
+        </p>
       </Modal>
     </div>
   );

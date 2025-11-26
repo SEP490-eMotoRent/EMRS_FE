@@ -6,7 +6,7 @@ import { emrsFetch } from "@/utils/emrsApi";
 // Hủy booking
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -19,7 +19,9 @@ export async function PUT(
       );
     }
 
-    const beRes = await emrsFetch(`/Booking/cancel/${params.id}`, {
+    const { id } = await context.params;
+
+    const beRes = await emrsFetch(`/Booking/cancel/${id}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}` },
     });
