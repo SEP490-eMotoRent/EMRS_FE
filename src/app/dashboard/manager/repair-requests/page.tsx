@@ -201,6 +201,19 @@ export default function ManagerRepairRequestsPage() {
         date ? dayjs(date).format("DD/MM/YYYY HH:mm") : "-",
     },
     {
+      title: "Ngày duyệt",
+      dataIndex: "approvedAt",
+      key: "approvedAt",
+      render: (date: string) =>
+        date ? (
+          <span className="text-gray-600">
+            {dayjs(date).format("DD/MM/YYYY HH:mm")}
+          </span>
+        ) : (
+          <Tag color="default">Chưa duyệt</Tag>
+        ),
+    },
+    {
       title: "Hành động",
       key: "action",
       render: (_: any, record: any) => (
@@ -368,6 +381,11 @@ export default function ManagerRepairRequestsPage() {
               {selectedRequest.createdAt
                 ? dayjs(selectedRequest.createdAt).format("DD/MM/YYYY HH:mm")
                 : "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Ngày duyệt">
+              {selectedRequest.approvedAt
+                ? dayjs(selectedRequest.approvedAt).format("DD/MM/YYYY HH:mm")
+                : "Chưa duyệt"}
             </Descriptions.Item>
             <Descriptions.Item label="Ngày cập nhật">
               {selectedRequest.updatedAt

@@ -51,6 +51,7 @@ export interface ConfigurationItem {
   value: string;
   updatedAt?: string | null;
   createdAt?: string;
+  _isTemplate?: boolean;
 }
 
 async function handleResponse(res: Response) {
@@ -71,6 +72,20 @@ async function handleResponse(res: Response) {
 
 export async function getConfigurations(): Promise<ConfigurationItem[]> {
   const res = await fetch(buildUrl(""), { cache: "no-store" });
+  return handleResponse(res);
+}
+
+export async function getConfigurationById(
+  id: string
+): Promise<ConfigurationItem> {
+  const res = await fetch(buildUrl(`/${id}`), { cache: "no-store" });
+  return handleResponse(res);
+}
+
+export async function getConfigurationByType(
+  type: string | ConfigurationType
+): Promise<ConfigurationItem[]> {
+  const res = await fetch(buildUrl(`/type/${type}`), { cache: "no-store" });
   return handleResponse(res);
 }
 
@@ -104,6 +119,46 @@ export async function updateConfiguration(
 export async function deleteConfiguration(id: string) {
   const res = await fetch(buildUrl(`/${id}`), {
     method: "DELETE",
+  });
+  return handleResponse(res);
+}
+
+export async function createConfigurationMedia(payload: {
+  title: string;
+  description: string;
+  type: string | ConfigurationType;
+  file: File;
+}) {
+  const formData = new FormData();
+  formData.append("Title", payload.title);
+  formData.append("Description", payload.description);
+  formData.append("Type", String(payload.type));
+  formData.append("File", payload.file);
+
+  const res = await fetch(buildUrl("/media"), {
+    method: "POST",
+    body: formData,
+  });
+  return handleResponse(res);
+}
+
+export async function updateConfigurationMedia(payload: {
+  id: string;
+  title: string;
+  description: string;
+  type: string | ConfigurationType;
+  file: File;
+}) {
+  const formData = new FormData();
+  formData.append("Id", payload.id);
+  formData.append("Title", payload.title);
+  formData.append("Description", payload.description);
+  formData.append("Type", String(payload.type));
+  formData.append("File", payload.file);
+
+  const res = await fetch(buildUrl("/media"), {
+    method: "PUT",
+    body: formData,
   });
   return handleResponse(res);
 }

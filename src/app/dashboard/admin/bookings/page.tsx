@@ -20,6 +20,8 @@ import {
   EyeOutlined,
   CloseCircleOutlined,
   SearchOutlined,
+  FileTextOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
@@ -644,6 +646,167 @@ export default function AdminBookingsPage() {
                 {selectedBooking.averageRentalPrice.toLocaleString("vi-VN")} VNĐ/ngày
               </Descriptions.Item>
             </Descriptions>
+
+            {/* Hợp đồng thuê */}
+            {selectedBooking.rentalContract && (
+              <Descriptions title="Hợp đồng thuê" column={2} bordered>
+                <Descriptions.Item label="Trạng thái hợp đồng">
+                  {selectedBooking.rentalContract.contractStatus ? (
+                    <Tag color={selectedBooking.rentalContract.contractStatus === "Signed" ? "green" : "orange"}>
+                      {selectedBooking.rentalContract.contractStatus === "Signed" ? "Đã ký" : selectedBooking.rentalContract.contractStatus}
+                    </Tag>
+                  ) : (
+                    "N/A"
+                  )}
+                </Descriptions.Item>
+                {selectedBooking.rentalContract.otpCode && (
+                  <Descriptions.Item label="Mã OTP">
+                    <span className="font-mono">{selectedBooking.rentalContract.otpCode}</span>
+                  </Descriptions.Item>
+                )}
+                {selectedBooking.rentalContract.expireAt && (
+                  <Descriptions.Item label="Hết hạn">
+                    {dayjs(selectedBooking.rentalContract.expireAt).format("DD/MM/YYYY HH:mm")}
+                  </Descriptions.Item>
+                )}
+                {selectedBooking.rentalContract.file && (
+                  <Descriptions.Item label="File hợp đồng" span={2}>
+                    <Button
+                      type="link"
+                      icon={<FileTextOutlined />}
+                      href={selectedBooking.rentalContract.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-0"
+                    >
+                      <Space>
+                        <DownloadOutlined />
+                        Xem/Tải hợp đồng
+                      </Space>
+                    </Button>
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+            )}
+
+            {/* Biên bản giao trả */}
+            {selectedBooking.rentalReceipt && selectedBooking.rentalReceipt.length > 0 && (
+              <div>
+                <h4 className="text-lg font-semibold mb-3">Biên bản giao trả</h4>
+                {selectedBooking.rentalReceipt.map((receipt, index) => (
+                  <Descriptions
+                    key={receipt.id || index}
+                    title={`Biên bản ${index + 1}`}
+                    column={2}
+                    bordered
+                    className="mb-4"
+                  >
+                    {receipt.notes && (
+                      <Descriptions.Item label="Ghi chú" span={2}>
+                        {receipt.notes}
+                      </Descriptions.Item>
+                    )}
+                    {receipt.renterConfirmedAt && (
+                      <Descriptions.Item label="Thời gian xác nhận">
+                        {dayjs(receipt.renterConfirmedAt).format("DD/MM/YYYY HH:mm")}
+                      </Descriptions.Item>
+                    )}
+                    {receipt.startOdometerKm !== undefined && (
+                      <Descriptions.Item label="Số km bắt đầu">
+                        {receipt.startOdometerKm} km
+                      </Descriptions.Item>
+                    )}
+                    {receipt.endOdometerKm !== undefined && (
+                      <Descriptions.Item label="Số km kết thúc">
+                        {receipt.endOdometerKm} km
+                      </Descriptions.Item>
+                    )}
+                    {receipt.startBatteryPercentage !== undefined && (
+                      <Descriptions.Item label="Pin bắt đầu">
+                        {receipt.startBatteryPercentage}%
+                      </Descriptions.Item>
+                    )}
+                    {receipt.endBatteryPercentage !== undefined && (
+                      <Descriptions.Item label="Pin kết thúc">
+                        {receipt.endBatteryPercentage}%
+                      </Descriptions.Item>
+                    )}
+                    {receipt.handOverVehicleImageFiles && receipt.handOverVehicleImageFiles.length > 0 && (
+                      <Descriptions.Item label="Ảnh giao xe" span={2}>
+                        <Space wrap>
+                          {receipt.handOverVehicleImageFiles.map((url, imgIndex) => (
+                            <Button
+                              key={imgIndex}
+                              type="link"
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              icon={<EyeOutlined />}
+                            >
+                              Ảnh {imgIndex + 1}
+                            </Button>
+                          ))}
+                        </Space>
+                      </Descriptions.Item>
+                    )}
+                    {receipt.returnVehicleImageFiles && receipt.returnVehicleImageFiles.length > 0 && (
+                      <Descriptions.Item label="Ảnh trả xe" span={2}>
+                        <Space wrap>
+                          {receipt.returnVehicleImageFiles.map((url, imgIndex) => (
+                            <Button
+                              key={imgIndex}
+                              type="link"
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              icon={<EyeOutlined />}
+                            >
+                              Ảnh {imgIndex + 1}
+                            </Button>
+                          ))}
+                        </Space>
+                      </Descriptions.Item>
+                    )}
+                    {receipt.checkListHandoverFile && receipt.checkListHandoverFile.length > 0 && (
+                      <Descriptions.Item label="Checklist giao xe" span={2}>
+                        <Space wrap>
+                          {receipt.checkListHandoverFile.map((url, imgIndex) => (
+                            <Button
+                              key={imgIndex}
+                              type="link"
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              icon={<FileTextOutlined />}
+                            >
+                              Checklist giao xe
+                            </Button>
+                          ))}
+                        </Space>
+                      </Descriptions.Item>
+                    )}
+                    {receipt.checkListReturnFile && receipt.checkListReturnFile.length > 0 && (
+                      <Descriptions.Item label="Checklist trả xe" span={2}>
+                        <Space wrap>
+                          {receipt.checkListReturnFile.map((url, imgIndex) => (
+                            <Button
+                              key={imgIndex}
+                              type="link"
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              icon={<FileTextOutlined />}
+                            >
+                              Checklist trả xe
+                            </Button>
+                          ))}
+                        </Space>
+                      </Descriptions.Item>
+                    )}
+                  </Descriptions>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </Modal>

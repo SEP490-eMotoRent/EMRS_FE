@@ -19,6 +19,7 @@ import dayjs from "dayjs";
 import {
   getRepairRequests,
   updateRepairRequest,
+  getRepairRequestById,
 } from "@/services/repair_request_service";
 import {
   Account,
@@ -63,6 +64,7 @@ export default function AdminRepairRequestsPage() {
   });
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assigningRequest, setAssigningRequest] = useState<any | null>(null);
   const [technicians, setTechnicians] = useState<Account[]>([]);
@@ -72,11 +74,18 @@ export default function AdminRepairRequestsPage() {
   const [assignForm] = Form.useForm();
 
   useEffect(() => {
-    loadRequests();
-    loadTechnicians();
     loadBranches();
+    loadTechnicians();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load requests sau khi technicians đã load xong
+  useEffect(() => {
+    if (technicians.length > 0 || techLoading === false) {
+      loadRequests();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [technicians.length, techLoading]);
 
   const loadBranches = async () => {
     try {
@@ -98,7 +107,34 @@ export default function AdminRepairRequestsPage() {
         pageSize,
         orderByDesc: true,
       });
-      setRequests(res.items ?? []);
+      const items = res.items ?? [];
+      
+      // Enrich với thông tin technician từ danh sách technicians
+      const enrichedItems = items.map((item: any) => {
+        if (item.technicianId && technicians.length > 0) {
+          const technician = technicians.find(
+            (tech) => tech.staff?.id === item.technicianId || tech.id === item.technicianId
+          );
+          if (technician) {
+            return {
+              ...item,
+              staff: {
+                id: technician.staff?.id || technician.id,
+                fullname: technician.fullname || technician.staff?.fullName || technician.staff?.account?.fullname,
+                fullName: technician.fullname || technician.staff?.fullName || technician.staff?.account?.fullname,
+                account: technician.staff?.account || technician.account,
+              },
+              technician: {
+                id: technician.staff?.id || technician.id,
+                fullname: technician.fullname || technician.staff?.fullName || technician.staff?.account?.fullname,
+              },
+            };
+          }
+        }
+        return item;
+      });
+      
+      setRequests(enrichedItems);
       setPagination({
         current: res.currentPage ?? page,
         pageSize: res.pageSize ?? pageSize,
@@ -134,9 +170,21 @@ export default function AdminRepairRequestsPage() {
     loadRequests(config.current, config.pageSize);
   };
 
-  const openDetail = (record: any) => {
-    setSelectedRequest(record);
-    setDetailOpen(true);
+  const openDetail = async (record: any) => {
+    try {
+      setDetailLoading(true);
+      setDetailOpen(true);
+      // Load chi tiết từ API để có đầy đủ thông tin
+      const detail = await getRepairRequestById(record.id);
+      setSelectedRequest(detail);
+    } catch (err: any) {
+      console.error("Error loading repair request detail:", err);
+      message.error(err.message || "Không thể tải chi tiết yêu cầu sửa chữa");
+      // Fallback: dùng data từ table
+      setSelectedRequest(record);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const openAssignModal = (record: any) => {
@@ -160,7 +208,8 @@ export default function AdminRepairRequestsPage() {
       message.success("Đã cập nhật yêu cầu sửa chữa");
       setAssignOpen(false);
       setAssigningRequest(null);
-      loadRequests();
+      // Reload với pagination hiện tại
+      await loadRequests(pagination.current, pagination.pageSize);
     } catch (err: any) {
       if (err?.errorFields) return;
       console.error(err);
@@ -230,19 +279,6 @@ export default function AdminRepairRequestsPage() {
           {id?.slice(0, 8)}...
         </span>
       ),
-    },
-    {
-      title: "Chi nhánh",
-      key: "branch",
-      width: 200,
-      render: (_: any, record: any) => {
-        const branchName = getBranchName(record);
-        return (
-          <span className="font-medium text-blue-600">
-            {branchName}
-          </span>
-        );
-      },
     },
     {
       title: "Xe",
@@ -347,6 +383,20 @@ export default function AdminRepairRequestsPage() {
         ),
     },
     {
+      title: "Ngày duyệt",
+      dataIndex: "approvedAt",
+      key: "approvedAt",
+      width: 150,
+      render: (date: string) =>
+        date ? (
+          <span className="text-gray-600">
+            {dayjs(date).format("DD/MM/YYYY HH:mm")}
+          </span>
+        ) : (
+          <Tag color="default">Chưa duyệt</Tag>
+        ),
+    },
+    {
       title: "Hành động",
       key: "action",
       width: 180,
@@ -433,57 +483,123 @@ export default function AdminRepairRequestsPage() {
       <Modal
         title="Chi tiết yêu cầu sửa chữa"
         open={detailOpen}
-        onCancel={() => setDetailOpen(false)}
+        onCancel={() => {
+          setDetailOpen(false);
+          setSelectedRequest(null);
+        }}
         footer={[
-          <Button key="close" onClick={() => setDetailOpen(false)}>
+          <Button key="close" onClick={() => {
+            setDetailOpen(false);
+            setSelectedRequest(null);
+          }}>
             Đóng
           </Button>,
         ]}
-        width={820}
+        width={900}
+        loading={detailLoading}
       >
         {selectedRequest ? (
-          <Descriptions bordered column={2}>
-            <Descriptions.Item label="Mã yêu cầu">
-              <span className="font-mono">{selectedRequest.id}</span>
-            </Descriptions.Item>
-            <Descriptions.Item label="Trạng thái">
-              <Tag color={statusColors[selectedRequest.status] || "default"}>
-                {selectedRequest.status || "PENDING"}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Chi nhánh">
-              {getBranchName(selectedRequest)}
-            </Descriptions.Item>
-            <Descriptions.Item label="Ưu tiên">
-              <Tag color={priorityColors[selectedRequest.priority] || "default"}>
-                {selectedRequest.priority || "CHƯA CÓ"}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Xe">
-              {selectedRequest.vehicle?.licensePlate ||
-                selectedRequest.vehicleLicensePlate ||
-                selectedRequest.vehicleId}
-            </Descriptions.Item>
-            <Descriptions.Item label="Kỹ thuật viên">
-              {selectedRequest.staff?.fullname ||
-                selectedRequest.staff?.fullName ||
-                selectedRequest.staff?.account?.fullname ||
-                "Chưa phân công"}
-            </Descriptions.Item>
-            <Descriptions.Item label="Mô tả" span={2}>
-              {selectedRequest.issueDescription}
-            </Descriptions.Item>
-            <Descriptions.Item label="Ngày tạo">
-              {selectedRequest.createdAt
-                ? dayjs(selectedRequest.createdAt).format("DD/MM/YYYY HH:mm")
-                : "-"}
-            </Descriptions.Item>
-            <Descriptions.Item label="Ngày cập nhật">
-              {selectedRequest.updatedAt
-                ? dayjs(selectedRequest.updatedAt).format("DD/MM/YYYY HH:mm")
-                : "-"}
-            </Descriptions.Item>
-          </Descriptions>
+          <div className="space-y-4">
+            {/* Thông tin cơ bản */}
+            <Descriptions title="Thông tin cơ bản" bordered column={2}>
+              <Descriptions.Item label="Mã yêu cầu">
+                <span className="font-mono text-sm">{selectedRequest.id}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Trạng thái">
+                <Tag color={statusColors[selectedRequest.status] || "default"}>
+                  {selectedRequest.status === "PENDING" && "Chờ xử lý"}
+                  {selectedRequest.status === "REVIEWING" && "Đang xem xét"}
+                  {selectedRequest.status === "ASSIGNED" && "Đã phân công"}
+                  {selectedRequest.status === "IN_PROGRESS" && "Đang xử lý"}
+                  {selectedRequest.status === "COMPLETED" && "Hoàn thành"}
+                  {selectedRequest.status === "CANCELLED" && "Đã hủy"}
+                  {!["PENDING", "REVIEWING", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].includes(selectedRequest.status) && selectedRequest.status}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Ưu tiên">
+                <Tag color={priorityColors[selectedRequest.priority] || "default"}>
+                  {selectedRequest.priority === "LOW" && "Thấp"}
+                  {selectedRequest.priority === "MEDIUM" && "Trung bình"}
+                  {selectedRequest.priority === "HIGH" && "Cao"}
+                  {selectedRequest.priority === "CRITICAL" && "Khẩn cấp"}
+                  {!["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(selectedRequest.priority) && (selectedRequest.priority || "CHƯA CÓ")}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Mã xe">
+                <span className="font-mono text-sm">
+                  {selectedRequest.vehicleId || "N/A"}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Mã kỹ thuật viên">
+                <span className="font-mono text-sm">
+                  {selectedRequest.technicianId || "Chưa phân công"}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Mô tả sự cố" span={2}>
+                <div className="bg-gray-50 p-3 rounded border">
+                  {selectedRequest.issueDescription || "N/A"}
+                </div>
+              </Descriptions.Item>
+              <Descriptions.Item label="Ngày tạo">
+                {selectedRequest.createdAt
+                  ? dayjs(selectedRequest.createdAt).format("DD/MM/YYYY HH:mm")
+                  : "-"}
+              </Descriptions.Item>
+              {selectedRequest.approvedAt && (
+                <Descriptions.Item label="Ngày duyệt">
+                  {dayjs(selectedRequest.approvedAt).format("DD/MM/YYYY HH:mm")}
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+
+            {/* Thông tin chi nhánh */}
+            {selectedRequest.branch && (
+              <Descriptions title="Thông tin chi nhánh" bordered column={2}>
+                <Descriptions.Item label="Tên chi nhánh">
+                  <span className="font-semibold text-blue-600">
+                    {selectedRequest.branch.branchName || "N/A"}
+                  </span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Mã chi nhánh">
+                  <span className="font-mono text-sm">
+                    {selectedRequest.branch.id || "N/A"}
+                  </span>
+                </Descriptions.Item>
+                {selectedRequest.branch.address && (
+                  <Descriptions.Item label="Địa chỉ" span={2}>
+                    {selectedRequest.branch.address}
+                  </Descriptions.Item>
+                )}
+                {selectedRequest.branch.city && (
+                  <Descriptions.Item label="Thành phố">
+                    {selectedRequest.branch.city}
+                  </Descriptions.Item>
+                )}
+                {selectedRequest.branch.phone && (
+                  <Descriptions.Item label="Số điện thoại">
+                    {selectedRequest.branch.phone}
+                  </Descriptions.Item>
+                )}
+                {selectedRequest.branch.email && (
+                  <Descriptions.Item label="Email">
+                    {selectedRequest.branch.email}
+                  </Descriptions.Item>
+                )}
+                {(selectedRequest.branch.openingTime || selectedRequest.branch.closingTime) && (
+                  <Descriptions.Item label="Giờ mở cửa">
+                    {selectedRequest.branch.openingTime || "N/A"} - {selectedRequest.branch.closingTime || "N/A"}
+                  </Descriptions.Item>
+                )}
+                {(selectedRequest.branch.latitude || selectedRequest.branch.longitude) && (
+                  <Descriptions.Item label="Tọa độ">
+                    {selectedRequest.branch.latitude && selectedRequest.branch.longitude
+                      ? `${selectedRequest.branch.latitude}, ${selectedRequest.branch.longitude}`
+                      : "N/A"}
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+            )}
+          </div>
         ) : (
           <p className="text-gray-500">Không có dữ liệu yêu cầu.</p>
         )}

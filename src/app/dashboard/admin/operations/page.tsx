@@ -204,7 +204,7 @@ export default function OperationPage() {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-4">
-          Vận hành (Giao/Trả)
+          Quản lý giao trả xe
         </h1>
 
         {/* Tabs */}
@@ -505,3 +505,4 @@ export default function OperationPage() {
     </div>
   );
 }
+

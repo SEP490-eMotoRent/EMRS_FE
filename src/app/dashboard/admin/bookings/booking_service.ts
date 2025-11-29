@@ -93,6 +93,26 @@ export interface Booking {
     packageFee: number;
     description?: string;
   };
+  rentalContract?: {
+    id: string;
+    otpCode?: string;
+    expireAt?: string | null;
+    contractStatus?: string;
+    file?: string;
+  } | null;
+  rentalReceipt?: Array<{
+    id: string;
+    notes?: string;
+    renterConfirmedAt?: string;
+    startOdometerKm?: number;
+    startBatteryPercentage?: number;
+    endBatteryPercentage?: number;
+    endOdometerKm?: number;
+    handOverVehicleImageFiles?: string[];
+    returnVehicleImageFiles?: string[];
+    checkListHandoverFile?: string[];
+    checkListReturnFile?: string[];
+  }>;
 }
 
 // Lấy danh sách bookings với filters và pagination

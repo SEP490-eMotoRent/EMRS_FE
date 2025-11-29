@@ -168,6 +168,36 @@ export async function updateVehicleModel(modelId: string, data: Partial<VehicleM
   return json.data || json;
 }
 
+// Xóa vehicle model
+export async function deleteVehicleModel(modelId: string): Promise<any> {
+  const url = buildUrl(`/${modelId}`);
+
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to delete vehicle model:", res.status, errorText);
+    throw new Error(`Failed to delete vehicle model: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
 // Normalize vehicle model data từ API response
 function normalizeVehicleModel(model: any): VehicleModel {
   // Xử lý images: có thể là array hoặc single URL

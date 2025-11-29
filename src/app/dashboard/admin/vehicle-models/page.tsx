@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Table, Button, Input, Space, Tag, Modal, Form, InputNumber, Upload, message, Image, Descriptions, Select } from "antd";
-import { EditOutlined, PlusOutlined, EyeOutlined, UploadOutlined } from "@ant-design/icons";
-import { getVehicleModels, getVehicleModelById, createVehicleModel, updateVehicleModel, VehicleModel } from "./vehicle_model_service";
+import { EditOutlined, PlusOutlined, EyeOutlined, UploadOutlined, DeleteOutlined } from "@ant-design/icons";
+import { getVehicleModels, getVehicleModelById, createVehicleModel, updateVehicleModel, deleteVehicleModel, VehicleModel } from "./vehicle_model_service";
 import { getVehicles } from "../vehicles/vehicle_service";
 import type { ColumnsType } from "antd/es/table";
 
@@ -23,8 +23,11 @@ export default function VehicleModelsPage() {
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [editingModel, setEditingModel] = useState<VehicleModel | null>(null);
   const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
+  const [modelToDelete, setModelToDelete] = useState<VehicleModel | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState<any[]>([]);
   const [rentalPricings, setRentalPricings] = useState<RentalPricing[]>([]);
@@ -240,6 +243,37 @@ export default function VehicleModelsPage() {
     }
   };
 
+  const handleDelete = (model: VehicleModel) => {
+    setModelToDelete(model);
+    setIsDeleteModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!modelToDelete) return;
+    
+    const modelId = modelToDelete.vehicleModelId || modelToDelete.id;
+    if (!modelId) {
+      message.error("Không tìm thấy ID model để xóa");
+      setIsDeleteModalVisible(false);
+      setModelToDelete(null);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteVehicleModel(modelId);
+      message.success("Xóa model xe thành công");
+      setIsDeleteModalVisible(false);
+      setModelToDelete(null);
+      loadModels();
+    } catch (error: any) {
+      console.error("Error deleting vehicle model:", error);
+      message.error(error.message || "Không thể xóa model xe");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const getCategoryTag = (category?: string) => {
     const categoryMap: Record<string, { color: string; text: string }> = {
       ECONOMY: { color: "blue", text: "ECONOMY" },
@@ -334,6 +368,15 @@ export default function VehicleModelsPage() {
               disabled={!modelId}
             >
               Sửa
+            </Button>
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record)}
+              disabled={!modelId}
+            >
+              Xóa
             </Button>
           </Space>
         );
@@ -607,6 +650,37 @@ export default function VehicleModelsPage() {
                 </Space>
               </div>
             )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title="Xác nhận xóa model xe"
+        open={isDeleteModalVisible}
+        onCancel={() => {
+          setIsDeleteModalVisible(false);
+          setModelToDelete(null);
+        }}
+        onOk={confirmDelete}
+        okText="Xóa"
+        okButtonProps={{ danger: true, loading: isDeleting }}
+        cancelText="Hủy"
+      >
+        {modelToDelete && (
+          <div>
+            <p className="mb-2">
+              Bạn có chắc muốn xóa model <strong className="text-red-600">{modelToDelete.modelName}</strong>?
+            </p>
+            <p className="text-sm text-gray-600">
+              ID: {modelToDelete.vehicleModelId || modelToDelete.id}
+            </p>
+            {modelToDelete.countTotal && modelToDelete.countTotal > 0 && (
+              <p className="text-sm text-yellow-600 mt-2">
+                ⚠️ Cảnh báo: Model này đang có {modelToDelete.countTotal} xe. Việc xóa có thể ảnh hưởng đến dữ liệu liên quan.
+              </p>
+            )}
+            <p className="text-red-500 mt-3 font-medium">Hành động này không thể hoàn tác!</p>
           </div>
         )}
       </Modal>

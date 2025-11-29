@@ -21,6 +21,19 @@ export interface UpdateRepairRequestPayload {
   staffId?: string;
 }
 
+export interface TechnicianRepairRequestPayload extends RepairRequestPayload {
+  priority?: string;
+  status?: string;
+  approvedAt?: string;
+  technicianId: string;
+}
+
+export interface TechnicianUpdatePayload {
+  priority?: string;
+  status?: string;
+  staffId?: string;
+}
+
 async function parseJson(res: Response) {
   const text = await res.text();
   if (!text) {
@@ -204,5 +217,41 @@ export async function getBranchVehicles(options?: {
   }
   const normalized = normalizeListResponse(json);
   return normalized.items;
+}
+
+export async function createTechnicianRepairRequest(
+  payload: TechnicianRepairRequestPayload
+) {
+  const res = await fetch(`${API_PREFIX}/technician`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const json = await parseJson(res);
+  if (!res.ok) {
+    throw new Error(json?.message || "Không thể tạo yêu cầu cho kỹ thuật viên");
+  }
+  return json?.data ?? json;
+}
+
+export async function updateTechnicianRepairRequest(
+  repairRequestId: string,
+  payload: TechnicianUpdatePayload
+) {
+  if (!repairRequestId) throw new Error("Thiếu repairRequestId");
+
+  const res = await fetch(`${API_PREFIX}/technician/${repairRequestId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const json = await parseJson(res);
+  if (!res.ok) {
+    throw new Error(json?.message || "Không thể cập nhật yêu cầu (technician)");
+  }
+
+  return json?.data ?? json;
 }
 

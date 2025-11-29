@@ -12,6 +12,8 @@ import {
   Tag,
   Space,
   message,
+  Upload,
+  Typography,
 } from "antd";
 import { ColumnsType } from "antd/es/table";
 import {
@@ -20,23 +22,52 @@ import {
   ConfigurationType,
   createConfiguration,
   deleteConfiguration,
+  getConfigurationByType,
   getConfigurations,
   updateConfiguration,
+  createConfigurationMedia,
+  updateConfigurationMedia,
 } from "./configuration_service";
 import {
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
+  UploadOutlined,
+  FilePdfOutlined,
 } from "@ant-design/icons";
+import type {
+  UploadChangeParam,
+  UploadFile,
+  UploadProps,
+} from "antd/es/upload/interface";
 
 const { TextArea } = Input;
+const { Dragger } = Upload;
+const { Text } = Typography;
 
-const typeLabel = (type: ConfigurationType) =>
-  configurationTypeOptions.find((opt) => opt.value === type)?.label ||
-  `Loại ${type}`;
+const normalizeConfig = (item: ConfigurationItem | any): ConfigurationItem => ({
+  ...item,
+  type: item.type,
+});
+
+const isRentalTemplateType = (type: ConfigurationType | string) =>
+  String(type) === "RentalContractTemplate" ||
+  Number(type) === ConfigurationType.RentalContractTemplate;
+
+const getTypeLabel = (type: ConfigurationType | string) => {
+  if (isRentalTemplateType(type)) {
+    return "File hợp đồng thuê";
+  }
+  const numericType = Number(type);
+  return (
+    configurationTypeOptions.find((opt) => Number(opt.value) === numericType)
+      ?.label || `Loại ${type}`
+  );
+};
 
 export default function AdminConfigurationPage() {
   const [configs, setConfigs] = useState<ConfigurationItem[]>([]);
+  const [activeType, setActiveType] = useState<string>("ALL");
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ConfigurationItem | null>(
@@ -47,16 +78,29 @@ export default function AdminConfigurationPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [form] = Form.useForm();
+  const [templateForm] = Form.useForm();
+  const [templateConfig, setTemplateConfig] = useState<ConfigurationItem | null>(
+    null
+  );
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateFileList, setTemplateFileList] = useState<UploadFile[]>([]);
+
+  const RENTAL_TEMPLATE_TYPE = ConfigurationType.RentalContractTemplate;
+  const RENTAL_TEMPLATE_SLUG = "RentalContractTemplate";
 
   useEffect(() => {
     loadConfigs();
+    loadContractTemplate();
   }, []);
 
   const loadConfigs = async () => {
     setLoading(true);
     try {
       const data = await getConfigurations();
-      const sorted = data
+      const normalized = data.map(normalizeConfig);
+      const sorted = normalized
         .filter((item) => item.type !== ConfigurationType.FacePlusPlus)
         .sort((a, b) => a.type - b.type);
       setConfigs(sorted);
@@ -65,6 +109,20 @@ export default function AdminConfigurationPage() {
       message.error(error?.message || "Không thể tải danh sách cấu hình");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadContractTemplate = async () => {
+    setTemplateLoading(true);
+    try {
+      const data = await getConfigurationByType(RENTAL_TEMPLATE_SLUG);
+      const list = Array.isArray(data) ? data : [];
+      setTemplateConfig(list[0] ? normalizeConfig(list[0]) : null);
+    } catch (error) {
+      console.error("Error loading contract template:", error);
+      setTemplateConfig(null);
+    } finally {
+      setTemplateLoading(false);
     }
   };
 
@@ -83,6 +141,36 @@ export default function AdminConfigurationPage() {
       value: record.value,
     });
     setIsModalOpen(true);
+  };
+
+  const openTemplateModal = () => {
+    templateForm.setFieldsValue({
+      title: templateConfig?.title || "RentalContractTemplate",
+      description: templateConfig?.description || "RentalContractTemplate",
+    });
+
+    if (templateConfig?.value) {
+      const fileName =
+        templateConfig.value.split("/").pop() || "rental-contract.pdf";
+      setTemplateFileList([
+        {
+          uid: "-1",
+          name: fileName,
+          status: "done",
+          url: templateConfig.value,
+        },
+      ]);
+    } else {
+      setTemplateFileList([]);
+    }
+
+    setTemplateModalOpen(true);
+  };
+
+  const handleTemplateModalClose = () => {
+    setTemplateModalOpen(false);
+    setTemplateFileList([]);
+    templateForm.resetFields();
   };
 
   const handleDelete = (record: ConfigurationItem) => {
@@ -135,6 +223,108 @@ export default function AdminConfigurationPage() {
     }
   };
 
+  const handleTemplateSubmit = async () => {
+    try {
+      const values = await templateForm.validateFields();
+      const file = templateFileList[0]?.originFileObj as File | undefined;
+
+      if (!templateConfig?.id && !file) {
+        message.error("Vui lòng tải lên file hợp đồng (PDF)");
+        return;
+      }
+
+      if (templateConfig?.id && !file) {
+        message.error("Vui lòng chọn file PDF mới để cập nhật");
+        return;
+      }
+
+      setTemplateSaving(true);
+
+      if (templateConfig?.id && file) {
+        await updateConfigurationMedia({
+          id: templateConfig.id,
+          title: values.title,
+          description: values.description,
+          type: RENTAL_TEMPLATE_SLUG,
+          file,
+        });
+        message.success("Đã cập nhật hợp đồng mẫu");
+      } else if (file) {
+        await createConfigurationMedia({
+          title: values.title,
+          description: values.description,
+          type: RENTAL_TEMPLATE_SLUG,
+          file,
+        });
+        message.success("Đã tạo hợp đồng mẫu");
+      }
+
+      handleTemplateModalClose();
+      loadContractTemplate();
+    } catch (error: any) {
+      if (error?.errorFields) return;
+      console.error("Error saving contract template:", error);
+      message.error(error?.message || "Không thể lưu hợp đồng mẫu");
+    } finally {
+      setTemplateSaving(false);
+    }
+  };
+
+  const typeOptions = useMemo(() => {
+    const baseList = configurationTypeOptions
+      .filter((opt) => opt.value !== ConfigurationType.FacePlusPlus)
+      .map((opt) => ({ label: opt.label, value: String(opt.value) }));
+
+    const templateExists = baseList.some(
+      (opt) => Number(opt.value) === Number(RENTAL_TEMPLATE_TYPE)
+    );
+    if (!templateExists) {
+      baseList.push({
+        label: "File hợp đồng thuê",
+        value: String(RENTAL_TEMPLATE_TYPE),
+      });
+    }
+
+    return baseList;
+  }, []);
+
+  const templateRow = useMemo(
+    () =>
+      templateConfig
+        ? {
+            ...templateConfig,
+            type: String(RENTAL_TEMPLATE_TYPE),
+            _isTemplate: true,
+          }
+        : null,
+    [templateConfig]
+  );
+
+  const groupedCounts = useMemo(() => {
+    const counts = configs.reduce<Record<string, number>>((acc, item) => {
+      const key = String(item.type);
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    if (templateRow) {
+      counts[String(RENTAL_TEMPLATE_TYPE)] = 1;
+    } else {
+      counts[String(RENTAL_TEMPLATE_TYPE)] =
+        counts[String(RENTAL_TEMPLATE_TYPE)] || 0;
+    }
+
+    return counts;
+  }, [configs, templateRow]);
+
+  const filteredConfigs = useMemo(() => {
+    if (activeType === "ALL") return configs;
+    if (activeType === String(RENTAL_TEMPLATE_TYPE)) {
+      return templateRow ? [templateRow] : [];
+    }
+    return configs.filter((item) => String(item.type) === activeType);
+  }, [configs, templateRow, activeType]);
+
   const columns: ColumnsType<ConfigurationItem> = useMemo(
     () => [
       {
@@ -163,18 +353,26 @@ export default function AdminConfigurationPage() {
         dataIndex: "type",
         key: "type",
         width: 200,
-        render: (type) => <Tag color="blue">{typeLabel(type)}</Tag>,
+        render: (type) => <Tag color="blue">{getTypeLabel(type)}</Tag>,
       },
       {
         title: "Giá trị",
         dataIndex: "value",
         key: "value",
-        width: 180,
+        width: 200,
         render: (value, record) =>
-          record.type === ConfigurationType.RentalContractTemplate ? (
-            <a href={value} target="_blank" className="text-blue-600">
-              Tải xuống
-            </a>
+          (record as ConfigurationItem)._isTemplate ||
+          isRentalTemplateType(record.type) ? (
+            <Button
+              type="link"
+              icon={<FilePdfOutlined />}
+              href={value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-0"
+            >
+              Download hợp đồng mẫu
+            </Button>
           ) : (
             <span>{value}</span>
           ),
@@ -217,6 +415,32 @@ export default function AdminConfigurationPage() {
     []
   );
 
+  const templateUploadProps: UploadProps = {
+    accept: ".pdf",
+    multiple: false,
+    fileList: templateFileList,
+    beforeUpload: (file) => {
+      const isPdf =
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf");
+      if (!isPdf) {
+        message.error("Vui lòng chọn file định dạng PDF");
+        return Upload.LIST_IGNORE;
+      }
+      return false;
+    },
+    onChange: (info: UploadChangeParam<UploadFile>) => {
+      const latest = info.fileList.slice(-1).map((file) => ({
+        ...file,
+        status: "done" as const,
+      }));
+      setTemplateFileList(latest);
+    },
+    onRemove: () => {
+      setTemplateFileList([]);
+    },
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white rounded-xl shadow px-6 py-4 border border-gray-100">
@@ -236,10 +460,95 @@ export default function AdminConfigurationPage() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow border border-gray-100 p-4 space-y-5">
+        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[
+            { label: "Tất cả", value: "ALL" },
+            ...typeOptions,
+          ].map((option) => {
+            const isActive = activeType === option.value;
+            const count =
+              option.value === "ALL"
+                ? configs.length + (templateRow ? 1 : 0)
+                : groupedCounts[option.value] || 0;
+            return (
+              <button
+                key={option.value}
+                onClick={() => setActiveType(option.value)}
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium transition-all ${
+                  isActive
+                    ? "bg-blue-600 text-white border-blue-600 shadow"
+                    : "bg-gray-50 text-gray-700 border-gray-200 hover:border-blue-400 hover:text-blue-800"
+                }`}
+              >
+                <span>{option.label}</span>
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    isActive ? "bg-white/30" : "bg-white text-blue-600 border border-blue-200"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeType === String(RENTAL_TEMPLATE_TYPE) && (
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-blue-600">
+                Hợp đồng thuê mẫu
+              </p>
+              {templateLoading ? (
+                <Text type="secondary">Đang tải thông tin hợp đồng...</Text>
+              ) : templateConfig ? (
+                <div className="space-y-1">
+                  <p className="text-lg font-semibold text-gray-900">
+                    {templateConfig.title}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Cập nhật lần cuối:{" "}
+                    {templateConfig.updatedAt || templateConfig.createdAt
+                      ? new Date(
+                          templateConfig.updatedAt ||
+                            templateConfig.createdAt ||
+                            ""
+                        ).toLocaleString("vi-VN")
+                      : "Chưa xác định"}
+                  </p>
+                </div>
+              ) : (
+                <Text type="secondary">
+                  Chưa có file hợp đồng mẫu. Vui lòng tải lên để các bộ phận sử dụng chung.
+                </Text>
+              )}
+            </div>
+            <Space>
+              {templateConfig?.value && (
+                <Button
+                  icon={<FilePdfOutlined />}
+                  href={templateConfig.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Xem file hiện tại
+                </Button>
+              )}
+              <Button
+                type="primary"
+                icon={<UploadOutlined />}
+                onClick={openTemplateModal}
+              >
+                {templateConfig ? "Cập nhật mẫu" : "Tải mẫu lên"}
+              </Button>
+            </Space>
+          </div>
+        )}
+
         <Table
           columns={columns}
-          dataSource={configs}
+          dataSource={filteredConfigs}
           rowKey="id"
           loading={loading}
           pagination={{ pageSize: 10, showSizeChanger: false }}
@@ -247,6 +556,50 @@ export default function AdminConfigurationPage() {
           locale={{ emptyText: "Chưa có cấu hình" }}
         />
       </div>
+
+      <Modal
+        title={templateConfig ? "Cập nhật hợp đồng mẫu" : "Tải hợp đồng mẫu"}
+        open={templateModalOpen}
+        onCancel={handleTemplateModalClose}
+        onOk={handleTemplateSubmit}
+        okText={templateConfig ? "Cập nhật" : "Tạo mới"}
+        confirmLoading={templateSaving}
+        destroyOnClose
+      >
+        <Form layout="vertical" form={templateForm}>
+          <Form.Item
+            name="title"
+            label="Tiêu đề"
+            rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}
+          >
+            <Input placeholder="Tên hiển thị của mẫu hợp đồng" />
+          </Form.Item>
+          <Form.Item
+            name="description"
+            label="Mô tả"
+            rules={[{ required: true, message: "Vui lòng nhập mô tả" }]}
+          >
+            <TextArea rows={3} placeholder="Mô tả ngắn về mẫu hợp đồng" />
+          </Form.Item>
+          <Form.Item
+            label="File PDF"
+            required
+            extra="Chỉ hỗ trợ định dạng .pdf, dung lượng tối đa theo cấu hình máy chủ."
+          >
+            <Dragger {...templateUploadProps}>
+              <p className="ant-upload-drag-icon">
+                <UploadOutlined />
+              </p>
+              <p className="ant-upload-text">
+                Kéo thả hoặc bấm để chọn file PDF hợp đồng
+              </p>
+              <p className="ant-upload-hint text-gray-500">
+                File hiện tại sẽ được thay thế sau khi lưu.
+              </p>
+            </Dragger>
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal
         title={editingConfig ? "Cập nhật cấu hình" : "Tạo cấu hình"}

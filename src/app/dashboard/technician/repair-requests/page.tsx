@@ -6,17 +6,21 @@ import {
   Button,
   Descriptions,
   Form,
+  Input,
   Modal,
   Select,
   Table,
   Tag,
   message,
 } from "antd";
-import { ReloadOutlined } from "@ant-design/icons";
+import { ReloadOutlined, EyeOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
+  createTechnicianRepairRequest,
+  getBranchVehicles,
+  getRepairRequestById,
   getTechnicianRepairRequests,
-  updateRepairRequest,
+  updateTechnicianRepairRequest,
 } from "@/services/repair_request_service";
 import {
   readBrowserCookies,
@@ -32,6 +36,15 @@ const statusColors: Record<string, string> = {
   CANCELLED: "red",
 };
 
+const statusDisplayMap: Record<string, string> = {
+  PENDING: "Chờ xử lý",
+  REVIEWING: "Đang xem xét",
+  ASSIGNED: "Đã phân công",
+  IN_PROGRESS: "Đang xử lý",
+  COMPLETED: "Hoàn thành",
+  CANCELLED: "Đã hủy",
+};
+
 const priorityColors: Record<string, string> = {
   LOW: "default",
   MEDIUM: "blue",
@@ -39,7 +52,19 @@ const priorityColors: Record<string, string> = {
   CRITICAL: "red",
 };
 
+const priorityOptions = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const technicianStatusOptions = ["ASSIGNED", "IN_PROGRESS", "COMPLETED"];
+const { TextArea } = Input;
+
+const normalizeStatus = (status?: string) =>
+  (status || "PENDING").replace(/\s+/g, "").toUpperCase();
+
+const toPascalCaseStatus = (status: string) =>
+  status
+    .toLowerCase()
+    .split(/[_\s]+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
 
 export default function TechnicianRepairRequestsPage() {
   const [technicianId, setTechnicianId] = useState("");
@@ -52,7 +77,12 @@ export default function TechnicianRepairRequestsPage() {
   });
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [statusForm] = Form.useForm();
+  const [createForm] = Form.useForm();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [vehicleLoading, setVehicleLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -87,6 +117,7 @@ export default function TechnicianRepairRequestsPage() {
   useEffect(() => {
     if (!technicianId) return;
     loadRequests();
+    loadVehicles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [technicianId]);
 
@@ -117,32 +148,87 @@ export default function TechnicianRepairRequestsPage() {
     }
   };
 
+  const loadVehicles = async () => {
+    try {
+      setVehicleLoading(true);
+      const data = await getBranchVehicles({ pageSize: 500 });
+      setVehicles(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error(err);
+      message.warning("Không thể tải danh sách xe để tạo yêu cầu");
+      setVehicles([]);
+    } finally {
+      setVehicleLoading(false);
+    }
+  };
+
   const handleTableChange = (config: any) => {
     loadRequests(config.current, config.pageSize);
   };
 
-  const openDetail = (record: any) => {
-    setSelectedRequest(record);
-    statusForm.setFieldsValue({ status: record.status || "ASSIGNED" });
-    setDetailOpen(true);
+  const openDetail = async (record: any) => {
+    try {
+      setDetailLoading(true);
+      setDetailOpen(true);
+      // Load chi tiết từ API để có đầy đủ thông tin
+      const detail = await getRepairRequestById(record.id);
+      setSelectedRequest(detail);
+      const normalized = normalizeStatus(detail.status || record.status || "ASSIGNED");
+      statusForm.setFieldsValue({ status: normalized });
+    } catch (err: any) {
+      console.error("Error loading repair request detail:", err);
+      message.error(err.message || "Không thể tải chi tiết yêu cầu sửa chữa");
+      // Fallback: dùng data từ table
+      setSelectedRequest(record);
+      statusForm.setFieldsValue({ status: normalizeStatus(record.status || "ASSIGNED") });
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleStatusUpdate = async () => {
     if (!selectedRequest?.id) return;
     try {
       const values = await statusForm.validateFields();
-      await updateRepairRequest({
-        id: selectedRequest.id,
-        status: values.status,
+      const apiStatus = toPascalCaseStatus(values.status);
+      await updateTechnicianRepairRequest(selectedRequest.id, {
+        status: apiStatus,
+        staffId: technicianId || selectedRequest.technicianId,
       });
       message.success("Đã cập nhật trạng thái yêu cầu");
       setDetailOpen(false);
       setSelectedRequest(null);
-      loadRequests();
+      // Reload với pagination hiện tại
+      await loadRequests(pagination.current, pagination.pageSize);
     } catch (err: any) {
       if (err?.errorFields) return;
       console.error(err);
       message.error(err.message || "Không thể cập nhật trạng thái");
+    }
+  };
+
+  const handleCreateRequest = async () => {
+    if (!technicianId) {
+      message.error("Không xác định được kỹ thuật viên");
+      return;
+    }
+    try {
+      const values = await createForm.validateFields();
+      await createTechnicianRepairRequest({
+        issueDescription: values.issueDescription,
+        vehicleId: values.vehicleId,
+        priority: values.priority,
+        status: toPascalCaseStatus("PENDING"),
+        technicianId,
+      });
+      message.success("Đã tạo yêu cầu sửa chữa");
+      setCreateOpen(false);
+      createForm.resetFields();
+      await loadRequests();
+    } catch (err: any) {
+      if (err?.errorFields) return;
+      console.error(err);
+      message.error(err.message || "Không thể tạo yêu cầu");
     }
   };
 
@@ -157,53 +243,76 @@ export default function TechnicianRepairRequestsPage() {
         ),
       },
       {
-        title: "Chi nhánh",
-        key: "branch",
-        render: (_: any, record: any) =>
-          record.branch?.branchName ||
-          record.managerBranch?.branchName ||
-          record.staff?.branch?.branchName ||
-          "N/A",
-      },
-      {
         title: "Xe",
         key: "vehicle",
+        width: 180,
         render: (_: any, record: any) => {
           const vehicle = record.vehicle || record.assignedVehicle;
+          const licensePlate = vehicle?.licensePlate ||
+            record.vehicleLicensePlate ||
+            record.vehicleId ||
+            "N/A";
+          const modelName = vehicle?.modelName ||
+            vehicle?.vehicleModelName ||
+            vehicle?.vehicleModel?.modelName ||
+            "-";
           return (
             <div className="flex flex-col">
-              <span className="font-medium">
-                {vehicle?.licensePlate ||
-                  record.vehicleLicensePlate ||
-                  record.vehicleId ||
-                  "N/A"}
+              <span className="font-semibold text-gray-800">
+                {licensePlate}
               </span>
-              <span className="text-xs text-gray-500">
-                {vehicle?.modelName || vehicle?.vehicleModelName || "-"}
-              </span>
+              {modelName !== "-" && (
+                <span className="text-xs text-gray-500">
+                  {modelName}
+                </span>
+              )}
             </div>
           );
         },
       },
       {
+        title: "Mô tả",
+        dataIndex: "issueDescription",
+        key: "issueDescription",
+        width: 250,
+        ellipsis: { showTitle: true },
+        render: (text: string) => (
+          <span className="text-gray-700">{text || "-"}</span>
+        ),
+      },
+      {
         title: "Ưu tiên",
         dataIndex: "priority",
         key: "priority",
-        render: (priority: string) => (
-          <Tag color={priorityColors[priority] || "default"}>
-            {priority || "CHƯA CÓ"}
-          </Tag>
-        ),
+        width: 120,
+        render: (priority: string) => {
+          const priorityText = priority || "CHƯA CÓ";
+          const priorityMap: Record<string, string> = {
+            LOW: "Thấp",
+            MEDIUM: "Trung bình",
+            HIGH: "Cao",
+            CRITICAL: "Khẩn cấp",
+          };
+          return (
+            <Tag color={priorityColors[priority] || "default"}>
+              {priorityMap[priorityText] || priorityText}
+            </Tag>
+          );
+        },
       },
       {
         title: "Trạng thái",
         dataIndex: "status",
         key: "status",
-        render: (status: string) => (
-          <Tag color={statusColors[status] || "default"}>
-            {status || "ASSIGNED"}
-          </Tag>
-        ),
+        width: 130,
+        render: (status: string) => {
+          const normalized = normalizeStatus(status);
+          return (
+            <Tag color={statusColors[normalized] || "default"}>
+              {statusDisplayMap[normalized] || status || "PENDING"}
+            </Tag>
+          );
+        },
       },
       {
         title: "Ngày cập nhật",
@@ -215,8 +324,13 @@ export default function TechnicianRepairRequestsPage() {
       {
         title: "Hành động",
         key: "action",
+        width: 120,
         render: (_: any, record: any) => (
-          <Button type="link" onClick={() => openDetail(record)}>
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => openDetail(record)}
+          >
             Chi tiết
           </Button>
         ),
@@ -224,6 +338,25 @@ export default function TechnicianRepairRequestsPage() {
     ],
     []
   );
+
+  const vehicleOptions = useMemo(() => {
+    return vehicles.map((vehicle) => {
+      const license =
+        vehicle.licensePlate ||
+        vehicle.VehicleLicensePlate ||
+        vehicle.vehicleId ||
+        vehicle.id;
+      const model =
+        vehicle.vehicleModelName ||
+        vehicle.ModelName ||
+        vehicle.vehicleModel?.modelName;
+
+      return {
+        label: [license, model].filter(Boolean).join(" • "),
+        value: vehicle.vehicleId || vehicle.id,
+      };
+    });
+  }, [vehicles]);
 
   return (
     <div className="space-y-6">
@@ -239,13 +372,25 @@ export default function TechnicianRepairRequestsPage() {
             Theo dõi và cập nhật tiến độ xử lý tại chi nhánh.
           </p>
         </div>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={() => loadRequests()}
-          disabled={!technicianId}
-        >
-          Làm mới
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="primary"
+            disabled={!technicianId}
+            onClick={() => {
+              createForm.resetFields();
+              setCreateOpen(true);
+            }}
+          >
+            Tạo yêu cầu
+          </Button>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => loadRequests()}
+            disabled={!technicianId}
+          >
+            Làm mới
+          </Button>
+        </div>
       </div>
 
       {!technicianId && (
@@ -276,11 +421,20 @@ export default function TechnicianRepairRequestsPage() {
       </div>
 
       <Modal
-        title="Chi tiết yêu cầu"
+        title="Chi tiết yêu cầu sửa chữa"
         open={detailOpen}
-        onCancel={() => setDetailOpen(false)}
+        onCancel={() => {
+          setDetailOpen(false);
+          setSelectedRequest(null);
+        }}
         footer={[
-          <Button key="close" onClick={() => setDetailOpen(false)}>
+          <Button
+            key="close"
+            onClick={() => {
+              setDetailOpen(false);
+              setSelectedRequest(null);
+            }}
+          >
             Đóng
           </Button>,
           <Button
@@ -292,44 +446,144 @@ export default function TechnicianRepairRequestsPage() {
             Cập nhật trạng thái
           </Button>,
         ]}
-        width={760}
+        width={900}
+        loading={detailLoading}
       >
         {selectedRequest ? (
           <div className="space-y-4">
-            <Descriptions bordered column={2}>
+            {/* Thông tin cơ bản */}
+            <Descriptions title="Thông tin cơ bản" bordered column={2}>
               <Descriptions.Item label="Mã yêu cầu">
-                <span className="font-mono">{selectedRequest.id}</span>
+                <span className="font-mono text-sm">{selectedRequest.id}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Trạng thái">
+                {(() => {
+                  const normalized = normalizeStatus(selectedRequest.status);
+                  return (
+                    <Tag color={statusColors[normalized] || "default"}>
+                      {statusDisplayMap[normalized] ||
+                        selectedRequest.status ||
+                        "PENDING"}
+                    </Tag>
+                  );
+                })()}
               </Descriptions.Item>
               <Descriptions.Item label="Ưu tiên">
                 <Tag color={priorityColors[selectedRequest.priority] || "default"}>
-                  {selectedRequest.priority || "CHƯA CÓ"}
+                  {selectedRequest.priority === "LOW" && "Thấp"}
+                  {selectedRequest.priority === "MEDIUM" && "Trung bình"}
+                  {selectedRequest.priority === "HIGH" && "Cao"}
+                  {selectedRequest.priority === "CRITICAL" && "Khẩn cấp"}
+                  {!["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(selectedRequest.priority) && (selectedRequest.priority || "CHƯA CÓ")}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Xe">
-                {selectedRequest.vehicle?.licensePlate ||
-                  selectedRequest.vehicleLicensePlate ||
-                  selectedRequest.vehicleId}
+              <Descriptions.Item label="Mã xe">
+                <span className="font-mono text-sm">
+                  {selectedRequest.vehicleId || "N/A"}
+                </span>
               </Descriptions.Item>
-              <Descriptions.Item label="Chi nhánh">
-                {selectedRequest.branch?.branchName ||
-                  selectedRequest.staff?.branch?.branchName ||
-                  "N/A"}
+              <Descriptions.Item label="Mã kỹ thuật viên">
+                <span className="font-mono text-sm">
+                  {selectedRequest.technicianId || "Chưa phân công"}
+                </span>
               </Descriptions.Item>
-              <Descriptions.Item label="Mô tả" span={2}>
-                {selectedRequest.issueDescription}
+              <Descriptions.Item label="Mô tả sự cố" span={2}>
+                <div className="bg-gray-50 p-3 rounded border">
+                  {selectedRequest.issueDescription || "N/A"}
+                </div>
               </Descriptions.Item>
               <Descriptions.Item label="Ngày tạo">
                 {selectedRequest.createdAt
                   ? dayjs(selectedRequest.createdAt).format("DD/MM/YYYY HH:mm")
                   : "-"}
               </Descriptions.Item>
-              <Descriptions.Item label="Ngày cập nhật">
-                {selectedRequest.updatedAt
-                  ? dayjs(selectedRequest.updatedAt).format("DD/MM/YYYY HH:mm")
-                  : "-"}
-              </Descriptions.Item>
+              {selectedRequest.approvedAt && (
+                <Descriptions.Item label="Ngày duyệt">
+                  {dayjs(selectedRequest.approvedAt).format("DD/MM/YYYY HH:mm")}
+                </Descriptions.Item>
+              )}
+              {selectedRequest.updatedAt && (
+                <Descriptions.Item label="Ngày cập nhật">
+                  {dayjs(selectedRequest.updatedAt).format("DD/MM/YYYY HH:mm")}
+                </Descriptions.Item>
+              )}
             </Descriptions>
 
+            {/* Thông tin chi nhánh */}
+            {selectedRequest.branch && (
+              <Descriptions title="Thông tin chi nhánh" bordered column={2}>
+                <Descriptions.Item label="Tên chi nhánh">
+                  <span className="font-semibold text-blue-600">
+                    {selectedRequest.branch.branchName || "N/A"}
+                  </span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Mã chi nhánh">
+                  <span className="font-mono text-sm">
+                    {selectedRequest.branch.id || "N/A"}
+                  </span>
+                </Descriptions.Item>
+                {selectedRequest.branch.address && (
+                  <Descriptions.Item label="Địa chỉ" span={2}>
+                    {selectedRequest.branch.address}
+                  </Descriptions.Item>
+                )}
+                {selectedRequest.branch.city && (
+                  <Descriptions.Item label="Thành phố">
+                    {selectedRequest.branch.city}
+                  </Descriptions.Item>
+                )}
+                {selectedRequest.branch.phone && (
+                  <Descriptions.Item label="Số điện thoại">
+                    {selectedRequest.branch.phone}
+                  </Descriptions.Item>
+                )}
+                {selectedRequest.branch.email && (
+                  <Descriptions.Item label="Email liên hệ">
+                    {selectedRequest.branch.email}
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+            )}
+
+            {/* Thông tin xe */}
+            {selectedRequest.vehicle && (
+              <Descriptions title="Thông tin xe" bordered column={2}>
+                <Descriptions.Item label="Biển số">
+                  <span className="font-semibold text-green-600">
+                    {selectedRequest.vehicle.licensePlate ||
+                      selectedRequest.vehicleId ||
+                      "N/A"}
+                  </span>
+                </Descriptions.Item>
+                {selectedRequest.vehicle.color && (
+                  <Descriptions.Item label="Màu sắc">
+                    {selectedRequest.vehicle.color}
+                  </Descriptions.Item>
+                )}
+                {selectedRequest.vehicle.vehicleModel && (
+                  <>
+                    <Descriptions.Item label="Model">
+                      {selectedRequest.vehicle.vehicleModel.modelName || "N/A"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Phân loại">
+                      {selectedRequest.vehicle.vehicleModel.category || "N/A"}
+                    </Descriptions.Item>
+                  </>
+                )}
+                {selectedRequest.vehicle.currentOdometerKm !== undefined && (
+                  <Descriptions.Item label="Odo hiện tại">
+                    {selectedRequest.vehicle.currentOdometerKm} km
+                  </Descriptions.Item>
+                )}
+                {selectedRequest.vehicle.status && (
+                  <Descriptions.Item label="Trạng thái xe">
+                    {selectedRequest.vehicle.status}
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+            )}
+
+            {/* Form cập nhật trạng thái */}
             <Form layout="vertical" form={statusForm}>
               <Form.Item
                 name="status"
@@ -337,10 +591,17 @@ export default function TechnicianRepairRequestsPage() {
                 rules={[{ required: true, message: "Vui lòng chọn trạng thái" }]}
               >
                 <Select
-                  options={technicianStatusOptions.map((status) => ({
-                    label: status,
-                    value: status,
-                  }))}
+                  options={technicianStatusOptions.map((status) => {
+                    const statusMap: Record<string, string> = {
+                      ASSIGNED: "Đã phân công",
+                      IN_PROGRESS: "Đang xử lý",
+                      COMPLETED: "Hoàn thành",
+                    };
+                    return {
+                      label: statusMap[status] || status,
+                      value: status,
+                    };
+                  })}
                 />
               </Form.Item>
             </Form>
@@ -348,6 +609,68 @@ export default function TechnicianRepairRequestsPage() {
         ) : (
           <p className="text-gray-500">Không tìm thấy dữ liệu yêu cầu.</p>
         )}
+      </Modal>
+
+      <Modal
+        title="Tạo yêu cầu sửa chữa"
+        open={createOpen}
+        onCancel={() => setCreateOpen(false)}
+        onOk={handleCreateRequest}
+        okText="Gửi yêu cầu"
+        cancelText="Hủy"
+        destroyOnClose
+      >
+        <Form form={createForm} layout="vertical" initialValues={{ priority: "MEDIUM" }}>
+          <Form.Item
+            name="vehicleId"
+            label="Xe cần sửa chữa"
+            rules={[{ required: true, message: "Vui lòng chọn xe" }]}
+          >
+            <Select
+              showSearch
+              placeholder={
+                vehicleLoading ? "Đang tải danh sách xe..." : "Chọn xe cần báo lỗi"
+              }
+              loading={vehicleLoading}
+              options={vehicleOptions}
+              filterOption={(input, option) =>
+                (option?.label as string)
+                  ?.toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="priority"
+            label="Mức độ ưu tiên"
+            rules={[{ required: true, message: "Vui lòng chọn ưu tiên" }]}
+          >
+            <Select
+              options={priorityOptions.map((priority) => ({
+                label: priority,
+                value: priority,
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="issueDescription"
+            label="Mô tả sự cố"
+            rules={[
+              { required: true, message: "Vui lòng mô tả chi tiết" },
+              { min: 10, message: "Mô tả tối thiểu 10 ký tự" },
+            ]}
+          >
+            <TextArea rows={4} placeholder="Ví dụ: Đèn pha không sáng..." />
+          </Form.Item>
+
+          <Alert
+            type="info"
+            showIcon
+            message="Yêu cầu sẽ được gửi lên hệ thống để quản lý phê duyệt."
+          />
+        </Form>
       </Modal>
     </div>
   );

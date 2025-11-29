@@ -22,38 +22,27 @@ export default function TechnicianLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [technicianName, setTechnicianName] = useState("Technician");
-  const [branchName, setBranchName] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const bootstrap = async () => {
       const cookies = readBrowserCookies();
       if (cookies.fullName && mounted) setTechnicianName(cookies.fullName);
-      if (cookies.branchName && mounted) setBranchName(cookies.branchName);
 
       const account = await resolveAccountFromSession(cookies);
       if (!mounted || !account) return;
 
       const staffId = account.staff?.id;
-      const branch =
-        account.staff?.branch?.branchName ||
-        account.branchName ||
-        cookies.branchName ||
-        null;
       const fullname =
         account.fullname || account.fullName || account.username || "Technician";
 
       if (staffId) {
         document.cookie = `staffId=${staffId}; path=/;`;
       }
-      if (branch) {
-        document.cookie = `branchName=${encodeURIComponent(branch)}; path=/;`;
-      }
       document.cookie = `fullName=${encodeURIComponent(fullname)}; path=/;`;
 
       if (mounted) {
         setTechnicianName(fullname);
-        setBranchName(branch);
       }
     };
     bootstrap();
@@ -126,9 +115,9 @@ export default function TechnicianLayout({
       <div className="flex-1 flex flex-col">
         <header className="bg-white border-b px-6 py-3 flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase text-gray-400">Chi nhánh</p>
-            <p className="text-sm font-medium">
-              {branchName || "Đang xác định..."}
+            <p className="text-xs uppercase text-gray-400">Technician Workspace</p>
+            <p className="text-sm font-medium text-gray-700">
+              Theo dõi yêu cầu sửa chữa được phân công
             </p>
           </div>
           <div className="flex items-center gap-4">
