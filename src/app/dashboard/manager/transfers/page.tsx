@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Table, Button, Input, Select, Space, Tag, Modal, Form, message, Descriptions, Card, Tabs, InputNumber } from "antd";
-import { PlusOutlined, EyeOutlined, CheckOutlined, CloseOutlined, SendOutlined, InboxOutlined } from "@ant-design/icons";
+import { PlusOutlined, EyeOutlined, CheckOutlined, CloseOutlined, SendOutlined, InboxOutlined, FileTextOutlined, ClockCircleOutlined, CheckCircleOutlined, CarOutlined } from "@ant-design/icons";
 import { 
   getTransferOrdersByBranch,
   getPendingTransferOrdersByBranch,
@@ -21,7 +21,7 @@ import {
 import { getVehicleModels, VehicleModel } from "../../admin/vehicle-models/vehicle_model_service";
 import type { ColumnsType } from "antd/es/table";
 
-const { Search } = Input;
+import { SearchOutlined } from "@ant-design/icons";
 const { Option } = Select;
 const { TabPane } = Tabs;
 
@@ -530,11 +530,12 @@ export default function ManagerTransferPage() {
       fixed: "right",
       render: (_, record) => {
         return (
-          <Space>
+          <Space size="small">
             <Button
               type="link"
               icon={<EyeOutlined />}
               onClick={() => handleViewRequestDetail(record)}
+              className="px-2"
             >
               Xem
             </Button>
@@ -544,6 +545,7 @@ export default function ManagerTransferPage() {
                 danger
                 icon={<CloseOutlined />}
                 onClick={() => handleCancelRequest(record)}
+                className="px-2"
               >
                 Hủy
               </Button>
@@ -616,11 +618,12 @@ export default function ManagerTransferPage() {
         const canReceive = record.status === "InTransit" && record.toBranchId === branchId;
         
         return (
-          <Space>
+          <Space size="small">
             <Button
               type="link"
               icon={<EyeOutlined />}
               onClick={() => handleViewOrderDetail(record)}
+              className="px-2"
             >
               Xem
             </Button>
@@ -629,6 +632,7 @@ export default function ManagerTransferPage() {
                 type="link"
                 icon={<SendOutlined />}
                 onClick={() => handleDispatch(record)}
+                className="px-2 text-blue-600 hover:text-blue-700"
               >
                 Xác nhận xuất
               </Button>
@@ -638,6 +642,7 @@ export default function ManagerTransferPage() {
                 type="link"
                 icon={<InboxOutlined />}
                 onClick={() => handleReceive(record)}
+                className="px-2 text-green-600 hover:text-green-700"
               >
                 Xác nhận nhận
               </Button>
@@ -659,17 +664,16 @@ export default function ManagerTransferPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h2 className="text-2xl font-semibold">Quản lý điều chuyển xe</h2>
-          <p className="text-sm text-gray-500 mt-1">Chi nhánh: {branchName || branchId}</p>
-        </div>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <h1 className="text-xl font-semibold text-gray-800">Điều chuyển xe</h1>
         {activeTab === "requests" && (
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={handleCreateRequest}
+            size="middle"
           >
             Tạo yêu cầu điều chuyển
           </Button>
@@ -678,51 +682,73 @@ export default function ManagerTransferPage() {
 
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
         {/* Tab: Yêu cầu điều chuyển */}
-        <TabPane tab={`Yêu cầu điều chuyển (${requests.filter(r => r.status === "Pending").length} chờ duyệt)`} key="requests">
+        <TabPane tab="Yêu cầu điều chuyển" key="requests">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <Card>
-              <div className="text-sm text-gray-500">Tổng yêu cầu</div>
-              <div className="text-2xl font-semibold mt-1">{requests.length}</div>
-            </Card>
-            <Card>
-              <div className="text-sm text-gray-500">Chờ duyệt</div>
-              <div className="text-2xl font-semibold mt-1 text-orange-600">
-                {requests.filter(r => r.status === "Pending").length}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <Card className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Tổng yêu cầu</div>
+                  <div className="text-2xl font-bold text-gray-800">{requests.length}</div>
+                </div>
+                <FileTextOutlined className="text-3xl text-blue-400 opacity-60" />
               </div>
             </Card>
-            <Card>
-              <div className="text-sm text-gray-500">Đã duyệt</div>
-              <div className="text-2xl font-semibold mt-1 text-green-600">
-                {requests.filter(r => r.status === "Approved").length}
+            <Card className="border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Chờ duyệt</div>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {requests.filter(r => r.status === "Pending").length}
+                  </div>
+                </div>
+                <ClockCircleOutlined className="text-3xl text-orange-400 opacity-60" />
+              </div>
+            </Card>
+            <Card className="border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Đã duyệt</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {requests.filter(r => r.status === "Approved").length}
+                  </div>
+                </div>
+                <CheckCircleOutlined className="text-3xl text-green-400 opacity-60" />
               </div>
             </Card>
           </div>
 
           {/* Filters */}
-          <div className="mb-4 flex gap-4 flex-wrap">
-            <Search
-              placeholder="Tìm theo model, mô tả"
-              allowClear
-              style={{ width: 300 }}
-              onSearch={(value) => setRequestSearchText(value)}
-              onChange={(e) => !e.target.value && setRequestSearchText("")}
-            />
-            <Select
-              placeholder="Trạng thái"
-              style={{ width: 150 }}
-              value={selectedRequestStatus}
-              onChange={setSelectedRequestStatus}
-            >
-              <Option value="all">Tất cả</Option>
-              <Option value="Pending">Chờ duyệt</Option>
-              <Option value="Approved">Đã duyệt</Option>
-              <Option value="Cancelled">Đã hủy</Option>
-            </Select>
-          </div>
+          <Card className="shadow-sm mb-4 border-0">
+            <div className="flex gap-3 flex-wrap">
+              <Input
+                placeholder="Tìm theo model, mô tả"
+                allowClear
+                prefix={<SearchOutlined className="text-gray-400" />}
+                style={{ maxWidth: 400, flex: 1, minWidth: 250 }}
+                value={requestSearchText}
+                onChange={(e) => setRequestSearchText(e.target.value)}
+                onPressEnter={() => setRequestSearchText(requestSearchText)}
+                className="rounded-lg"
+              />
+              <Select
+                placeholder="Trạng thái"
+                style={{ width: 150 }}
+                value={selectedRequestStatus}
+                onChange={setSelectedRequestStatus}
+                className="rounded-lg"
+              >
+                <Option value="all">Tất cả</Option>
+                <Option value="Pending">Chờ duyệt</Option>
+                <Option value="Approved">Đã duyệt</Option>
+                <Option value="Cancelled">Đã hủy</Option>
+              </Select>
+            </div>
+          </Card>
 
           {/* Table */}
-          <Table
+          <Card className="shadow-sm border-0">
+            <Table
             columns={requestColumns}
             dataSource={filteredRequests}
             rowKey="id"
@@ -737,69 +763,95 @@ export default function ManagerTransferPage() {
               showTotal: (total) => `Tổng: ${total} yêu cầu`,
               pageSizeOptions: ["12", "24", "48", "96"],
             }}
+            size="middle"
           />
+          </Card>
         </TabPane>
 
         {/* Tab: Lệnh điều chuyển */}
-        <TabPane tab={`Lệnh điều chuyển (${pendingOrders.length} chờ xử lý)`} key="orders">
+        <TabPane tab="Lệnh điều chuyển" key="orders">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <Card>
-              <div className="text-sm text-gray-500">Tổng lệnh điều chuyển</div>
-              <div className="text-2xl font-semibold mt-1">{orders.length}</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <Card className="border-l-4 border-l-indigo-500 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Tổng lệnh điều chuyển</div>
+                  <div className="text-2xl font-bold text-gray-800">{orders.length}</div>
+                </div>
+                <FileTextOutlined className="text-3xl text-indigo-400 opacity-60" />
+              </div>
             </Card>
-            <Card>
-              <div className="text-sm text-gray-500">Chờ xử lý</div>
-              <div className="text-2xl font-semibold mt-1 text-orange-600">{pendingOrders.length}</div>
+            <Card className="border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Chờ xử lý</div>
+                  <div className="text-2xl font-bold text-orange-600">{pendingOrders.length}</div>
+                </div>
+                <ClockCircleOutlined className="text-3xl text-orange-400 opacity-60" />
+              </div>
             </Card>
-            <Card>
-              <div className="text-sm text-gray-500">Đang vận chuyển</div>
-              <div className="text-2xl font-semibold mt-1 text-blue-600">
-                {orders.filter(o => o.status === "InTransit").length}
+            <Card className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Đang vận chuyển</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {orders.filter(o => o.status === "InTransit").length}
+                  </div>
+                </div>
+                <CarOutlined className="text-3xl text-blue-400 opacity-60" />
               </div>
             </Card>
           </div>
 
           {/* Filters */}
-          <div className="mb-4 flex gap-4 flex-wrap">
-            <Search
-              placeholder="Tìm theo biển số, chi nhánh"
-              allowClear
-              style={{ width: 300 }}
-              onSearch={(value) => setOrderSearchText(value)}
-              onChange={(e) => !e.target.value && setOrderSearchText("")}
-            />
-            <Select
-              placeholder="Trạng thái"
-              style={{ width: 150 }}
-              value={selectedOrderStatus}
-              onChange={setSelectedOrderStatus}
-            >
-              <Option value="all">Tất cả</Option>
-              <Option value="Pending">Chờ xuất xe</Option>
+          <Card className="shadow-sm mb-4 border-0">
+            <div className="flex gap-3 flex-wrap">
+              <Input
+                placeholder="Tìm theo biển số, chi nhánh"
+                allowClear
+                prefix={<SearchOutlined className="text-gray-400" />}
+                style={{ maxWidth: 400, flex: 1, minWidth: 250 }}
+                value={orderSearchText}
+                onChange={(e) => setOrderSearchText(e.target.value)}
+                onPressEnter={() => setOrderSearchText(orderSearchText)}
+                className="rounded-lg"
+              />
+              <Select
+                placeholder="Trạng thái"
+                style={{ width: 150 }}
+                value={selectedOrderStatus}
+                onChange={setSelectedOrderStatus}
+                className="rounded-lg"
+              >
+                <Option value="all">Tất cả</Option>
+                <Option value="Pending">Chờ xuất xe</Option>
               <Option value="InTransit">Đang vận chuyển</Option>
               <Option value="Completed">Hoàn tất</Option>
               <Option value="Cancelled">Đã hủy</Option>
             </Select>
-          </div>
+            </div>
+          </Card>
 
           {/* Table */}
-          <Table
-            columns={orderColumns}
-            dataSource={filteredOrders}
-            rowKey="id"
-            loading={loadingOrders}
-            scroll={{ x: 1200 }}
-            locale={{
-              emptyText: "Không có lệnh điều chuyển nào"
-            }}
-            pagination={{
-              pageSize: 12,
-              showSizeChanger: true,
-              showTotal: (total) => `Tổng: ${total} lệnh điều chuyển`,
-              pageSizeOptions: ["12", "24", "48", "96"],
-            }}
-          />
+          <Card className="shadow-sm border-0">
+            <Table
+              columns={orderColumns}
+              dataSource={filteredOrders}
+              rowKey="id"
+              loading={loadingOrders}
+              scroll={{ x: 1200 }}
+              locale={{
+                emptyText: "Không có lệnh điều chuyển nào"
+              }}
+              pagination={{
+                pageSize: 12,
+                showSizeChanger: true,
+                showTotal: (total) => `Tổng: ${total} lệnh điều chuyển`,
+                pageSizeOptions: ["12", "24", "48", "96"],
+              }}
+              size="middle"
+            />
+          </Card>
         </TabPane>
       </Tabs>
 

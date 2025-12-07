@@ -215,7 +215,7 @@ export async function createAccount(data: {
   dateOfBirth?: string;
   branchId?: string;
 }): Promise<Account> {
-  const url = buildUrl("/create");
+  const url = buildUrl("/create-test-account");
 
   const res = await fetch(url, {
     method: "POST",

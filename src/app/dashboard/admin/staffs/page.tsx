@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Table, Button, Input, Select, Space, Tag, Modal, Form, message, Descriptions, DatePicker } from "antd";
-import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined } from "@ant-design/icons";
+import { Table, Button, Card, Input, Select, Space, Tag, Modal, Form, message, Descriptions, DatePicker } from "antd";
+import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, SearchOutlined } from "@ant-design/icons";
 import { getStaffs, getAccountById, updateAccountRole, deleteAccount, createAccount, Account } from "./staff_service";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 
-const { Search } = Input;
 const { Option } = Select;
 
 interface Branch {
@@ -37,6 +36,7 @@ export default function StaffPage() {
   const [currentUsername, setCurrentUsername] = useState<string>("");
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedCreateRole, setSelectedCreateRole] = useState<string>("");
 
   const getCookieValue = (name: string) => {
     if (typeof document === "undefined") return "";
@@ -238,6 +238,7 @@ export default function StaffPage() {
     // Reset form completely before opening modal
     createForm.resetFields();
     createForm.setFieldsValue({});
+    setSelectedCreateRole("");
     setIsCreateModalVisible(true);
   };
 
@@ -254,8 +255,13 @@ export default function StaffPage() {
         email: values.email || undefined,
         phone: values.phone || undefined,
         address: values.address || undefined,
-        branchId: values.branchId || undefined,
       };
+
+      // Technician không cần branchId (không thuộc quản lý của branch)
+      // Manager và Staff cần branchId
+      if (values.role !== "TECHNICIAN" && values.branchId) {
+        accountData.branchId = values.branchId;
+      }
 
       if (values.dateOfBirth) {
         accountData.dateOfBirth = dayjs(values.dateOfBirth).format("YYYY-MM-DD");
@@ -268,6 +274,7 @@ export default function StaffPage() {
       setTimeout(() => {
         createForm.resetFields();
         createForm.setFieldsValue({});
+        setSelectedCreateRole("");
       }, 100);
       loadStaffs();
     } catch (error: any) {
@@ -293,7 +300,7 @@ export default function StaffPage() {
       if (!editingAccount) return;
 
       await updateAccountRole(editingAccount.id, values.role);
-      message.success("Cập nhật role thành công");
+      message.success("Cập nhật vai trò thành công");
       setIsModalVisible(false);
       setEditingAccount(null);
       form.resetFields();
@@ -318,7 +325,7 @@ export default function StaffPage() {
     setIsDeleting(true);
     try {
       await deleteAccount(accountToDelete.id);
-      message.success("Xóa tài khoản thành công");
+      message.success("Xóa nhân sự thành công");
       setIsDeleteConfirmVisible(false);
       setAccountToDelete(null);
       loadStaffs();
@@ -410,7 +417,7 @@ export default function StaffPage() {
               icon={<EyeOutlined />}
               onClick={() => handleViewDetail(record)}
             >
-              Xem
+              Xem chi tiết
             </Button>
             {isAdminUser && (
               <Button
@@ -438,27 +445,34 @@ export default function StaffPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold">Quản lý nhân sự</h2>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <h1 className="text-3xl font-bold text-gray-800">
+          Quản lý nhân sự
+        </h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={handleCreate}
+          size="large"
         >
           Tạo tài khoản
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="mb-4 flex gap-4 flex-wrap">
-        <Search
-          placeholder="Tìm theo tên, username hoặc chi nhánh"
-          allowClear
-          style={{ width: 300 }}
-          onSearch={(value) => setSearchText(value)}
-          onChange={(e) => !e.target.value && setSearchText("")}
-        />
+      <Card className="shadow-sm">
+        <div className="flex gap-4 flex-wrap">
+          <Input
+            placeholder="Tìm theo tên, username hoặc chi nhánh"
+            allowClear
+            prefix={<SearchOutlined />}
+            style={{ maxWidth: 400, flex: 1, minWidth: 250 }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onPressEnter={() => setSearchText(searchText)}
+          />
         <Select
           placeholder="Role"
           style={{ width: 150 }}
@@ -471,10 +485,12 @@ export default function StaffPage() {
           <Option value="STAFF">Nhân viên</Option>
           <Option value="TECHNICIAN">Kỹ thuật viên</Option>
         </Select>
-      </div>
+        </div>
+      </Card>
 
       {/* Table */}
-      <Table
+      <Card className="shadow-sm">
+        <Table
         columns={columns}
         dataSource={filteredStaffs}
         rowKey="id"
@@ -486,7 +502,9 @@ export default function StaffPage() {
           showTotal: (total) => `Tổng: ${total} nhân sự`,
           pageSizeOptions: ["12", "24", "48", "96"],
         }}
+        locale={{ emptyText: "Chưa có nhân sự" }}
       />
+      </Card>
 
       {/* Create Account Modal */}
       <Modal
@@ -498,6 +516,7 @@ export default function StaffPage() {
           setTimeout(() => {
             createForm.resetFields();
             createForm.setFieldsValue({});
+            setSelectedCreateRole("");
           }, 100);
         }}
         onOk={handleCreateAccount}
@@ -509,6 +528,7 @@ export default function StaffPage() {
           // Ensure form is completely cleared after modal closes
           createForm.resetFields();
           createForm.setFieldsValue({});
+          setSelectedCreateRole("");
         }}
       >
         <Form form={createForm} layout="vertical" autoComplete="off">
@@ -541,10 +561,17 @@ export default function StaffPage() {
           </Form.Item>
           <Form.Item
             name="role"
-            label="Role"
-            rules={[{ required: true, message: "Vui lòng chọn role" }]}
+            label="Vai trò"
+            rules={[{ required: true, message: "Vui lòng chọn vai trò" }]}
           >
-            <Select placeholder="Chọn role">
+            <Select 
+              placeholder="Chọn vai trò"
+              onChange={(value) => {
+                setSelectedCreateRole(value);
+                // Reset branchId khi đổi role
+                createForm.setFieldsValue({ branchId: undefined });
+              }}
+            >
               <Option value="MANAGER">Manager</Option>
               <Option value="STAFF">Nhân viên</Option>
               <Option value="TECHNICIAN">Kỹ thuật viên</Option>
@@ -585,29 +612,49 @@ export default function StaffPage() {
             />
           </Form.Item>
           <Form.Item
-            name="branchId"
-            label="Chi nhánh"
+            noStyle
+            shouldUpdate={(prevValues, currentValues) => prevValues.role !== currentValues.role}
           >
-            <Select
-              placeholder="Chọn chi nhánh"
-              loading={loadingBranches}
-              showSearch
-              allowClear
-              filterOption={(input, option) =>
-                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+            {({ getFieldValue }) => {
+              const role = getFieldValue("role");
+              // Ẩn field branchId nếu role là TECHNICIAN
+              if (role === "TECHNICIAN") {
+                return null;
               }
-              options={branches.map((branch) => ({
-                value: branch.branchId,
-                label: branch.branchName,
-              }))}
-            />
+              return (
+                <Form.Item
+                  name="branchId"
+                  label="Chi nhánh"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Vui lòng chọn chi nhánh",
+                    },
+                  ]}
+                >
+                  <Select
+                    placeholder="Chọn chi nhánh"
+                    loading={loadingBranches}
+                    showSearch
+                    allowClear
+                    filterOption={(input, option) =>
+                      (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+                    }
+                    options={branches.map((branch) => ({
+                      value: branch.branchId,
+                      label: branch.branchName,
+                    }))}
+                  />
+                </Form.Item>
+              );
+            }}
           </Form.Item>
         </Form>
       </Modal>
 
       {/* Edit Role Modal */}
       <Modal
-        title="Cập nhật Role"
+        title="Đổi vai trò"
         open={isModalVisible}
         onCancel={() => {
           setIsModalVisible(false);
@@ -615,16 +662,16 @@ export default function StaffPage() {
           form.resetFields();
         }}
         onOk={handleUpdateRole}
-        okText="Cập nhật"
+        okText="Lưu"
         cancelText="Hủy"
       >
         <Form form={form} layout="vertical">
           <Form.Item
             name="role"
-            label="Role"
-            rules={[{ required: true, message: "Vui lòng chọn role" }]}
+            label="Vai trò"
+            rules={[{ required: true, message: "Vui lòng chọn vai trò" }]}
           >
-            <Select placeholder="Chọn role">
+            <Select placeholder="Chọn vai trò">
               <Option value="MANAGER">Manager</Option>
               <Option value="STAFF">Nhân viên</Option>
               <Option value="TECHNICIAN">Kỹ thuật viên</Option>
@@ -737,7 +784,7 @@ export default function StaffPage() {
 
       {/* Delete confirmation Modal */}
       <Modal
-        title="Xác nhận xóa"
+        title="Xác nhận xóa nhân sự"
         open={isDeleteConfirmVisible}
         okText="Xóa"
         okButtonProps={{ danger: true, loading: isDeleting }}
@@ -747,12 +794,33 @@ export default function StaffPage() {
           setIsDeleteConfirmVisible(false);
           setAccountToDelete(null);
         }}
+        width={480}
+        centered
       >
-        <p>
-          Bạn có chắc muốn xóa tài khoản{" "}
-          <strong>{accountToDelete?.fullname || accountToDelete?.username}</strong>?
-        </p>
-        <p className="text-sm text-gray-500">ID sẽ xóa: {accountToDelete?.id}</p>
+        {accountToDelete && (
+          <div className="space-y-4">
+            <p className="text-base">
+              Bạn có chắc chắn muốn xóa nhân sự này không?
+            </p>
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <p className="font-semibold text-gray-900 mb-2">
+                Tên: <span className="text-blue-600">{accountToDelete.fullname || accountToDelete.username}</span>
+              </p>
+              <p className="text-sm text-gray-600 mb-2">
+                Username: <span className="font-medium">{accountToDelete.username}</span>
+              </p>
+              <p className="text-sm text-gray-600">
+                ID: <span className="font-mono text-xs">{accountToDelete.id}</span>
+              </p>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-600 font-semibold flex items-center gap-2">
+                <span>⚠️</span>
+                <span>Hành động này không thể hoàn tác!</span>
+              </p>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

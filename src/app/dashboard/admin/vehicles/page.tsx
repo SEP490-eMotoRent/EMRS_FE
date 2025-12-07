@@ -3,18 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Table, Button, Input, Select, Space, Tag, Modal, Form, DatePicker, Upload, message, Image, Card, Descriptions, Tooltip } from "antd";
-import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, UploadOutlined, RadarChartOutlined } from "@ant-design/icons";
+import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, UploadOutlined, RadarChartOutlined, SearchOutlined } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
 import { getVehicles, getVehicleById, createVehicle, updateVehicle, deleteVehicle, createMedia, updateMedia, VehicleFilters, VehicleListResponse } from "./vehicle_service";
 import type { ColumnsType } from "antd/es/table";
 
-const { Search } = Input;
 const { Option } = Select;
 
 const INTERNAL_BASE = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-// ID của xe có tracking (tạm thời hardcode, có thể lấy từ API sau)
-const TRACKING_VEHICLE_ID = "072ea2b3-c69b-4607-85ff-ff5825ff8e2a";
 
 interface Branch {
   branchId: string;
@@ -25,6 +21,11 @@ interface VehicleModel {
   vehicleModelId: string;
   modelName: string;
   brand?: string;
+}
+
+interface TrackingInfo {
+  gpsDeviceIdent?: string;
+  flespiDeviceId?: number;
 }
 
 interface Vehicle {
@@ -114,6 +115,7 @@ export default function VehiclesPage() {
   const [vehicleModels, setVehicleModels] = useState<VehicleModel[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [trackingCache, setTrackingCache] = useState<Record<string, TrackingInfo>>({});
 
   // Load branches and models once
   useEffect(() => {
@@ -175,7 +177,57 @@ export default function VehiclesPage() {
         };
       });
       
-      setVehicles(vehiclesWithBranch);
+      const trackingUpdates: Record<string, TrackingInfo> = {};
+      const vehiclesWithTracking = await Promise.all(
+        vehiclesWithBranch.map(async (vehicle) => {
+          const vehicleId = vehicle.id || vehicle.vehicleId;
+          if (!vehicleId) {
+            return vehicle;
+          }
+
+          const cachedTracking = trackingCache[vehicleId];
+          if (cachedTracking) {
+            return {
+              ...vehicle,
+              ...cachedTracking,
+            };
+          }
+
+          if (vehicle.gpsDeviceIdent || vehicle.flespiDeviceId) {
+            trackingUpdates[vehicleId] = {
+              gpsDeviceIdent: vehicle.gpsDeviceIdent,
+              flespiDeviceId: vehicle.flespiDeviceId,
+            };
+            return vehicle;
+          }
+
+          try {
+            const detail = await getVehicleById(vehicleId);
+            const trackingData: TrackingInfo = {
+              gpsDeviceIdent: detail.gpsDeviceIdent || undefined,
+              flespiDeviceId: detail.flespiDeviceId || undefined,
+            };
+            trackingUpdates[vehicleId] = trackingData;
+            return {
+              ...vehicle,
+              ...trackingData,
+            };
+          } catch (error) {
+            console.warn("Không thể lấy tracking info cho xe", vehicleId, error);
+            trackingUpdates[vehicleId] = {};
+            return vehicle;
+          }
+        })
+      );
+
+      if (Object.keys(trackingUpdates).length > 0) {
+        setTrackingCache((prev) => ({
+          ...prev,
+          ...trackingUpdates,
+        }));
+      }
+
+      setVehicles(vehiclesWithTracking);
       setPagination({
         current: response.currentPage,
         pageSize: response.pageSize,
@@ -474,7 +526,7 @@ export default function VehiclesPage() {
           console.log("All media files created");
         }
         
-        message.success("Tạo xe mới thành công");
+        message.success("Thêm xe thành công");
       }
 
       handleCloseModal();
@@ -636,13 +688,7 @@ export default function VehiclesPage() {
       key: "tracking",
       width: 100,
       render: (_, record) => {
-        const vehicleId = record.id || record.vehicleId;
-        // Kiểm tra xe có tracking hay không:
-        // 1. Kiểm tra ID xe có trong danh sách tracking
-        // 2. Hoặc kiểm tra có gpsDeviceIdent hoặc flespiDeviceId
-        const hasTracking = 
-          (vehicleId && vehicleId.toLowerCase() === TRACKING_VEHICLE_ID.toLowerCase()) ||
-          !!(record.gpsDeviceIdent || record.flespiDeviceId);
+        const hasTracking = Boolean(record.gpsDeviceIdent || record.flespiDeviceId);
         return (
           <Tag color={hasTracking ? "green" : "default"}>
             {hasTracking ? "Có" : "Không"}
@@ -696,26 +742,32 @@ export default function VehiclesPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold">Quản lý xe</h2>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <h1 className="text-3xl font-bold text-gray-800">
+          Quản lý xe
+        </h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => handleOpenModal()}
+          size="large"
         >
           Thêm xe mới
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="mb-4 flex gap-4 flex-wrap">
-        <Search
+      <Card className="shadow-sm">
+        <div className="flex gap-4 flex-wrap">
+        <Input
           placeholder="Tìm theo biển số hoặc model"
           allowClear
+          prefix={<SearchOutlined />}
           style={{ width: 300 }}
-          onSearch={(value) => setSearchText(value)}
-          onChange={(e) => !e.target.value && setSearchText("")}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
         />
         <Select
           placeholder="Trạng thái"
@@ -750,9 +802,10 @@ export default function VehiclesPage() {
           onChange={setSelectedModel}
           loading={loadingModels}
           showSearch
-          filterOption={(input, option) =>
-            (option?.children as string)?.toLowerCase().includes(input.toLowerCase())
-          }
+          filterOption={(input, option) => {
+            const label = typeof option?.label === 'string' ? option.label : String(option?.label || '');
+            return label.toLowerCase().includes(input.toLowerCase());
+          }}
         >
           <Option value="all">Tất cả</Option>
           {vehicleModels.map((model) => (
@@ -761,26 +814,28 @@ export default function VehiclesPage() {
             </Option>
           ))}
         </Select>
-      </div>
+        </div>
+      </Card>
 
       {/* Table */}
-      <Table
-        columns={columns}
-        dataSource={vehicles}
-        rowKey={(record) => record.id || record.vehicleId || record.licensePlate}
-        loading={loading}
-        scroll={{ x: 1200 }}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: pagination.total,
-          showSizeChanger: true,
-          showTotal: (total) => `Tổng: ${total} xe`,
-          pageSizeOptions: ["12", "24", "48", "96"],
-          onChange: handleTableChange,
-          onShowSizeChange: handleTableChange,
-        }}
-      />
+      <Card className="shadow-sm">
+        <Table
+          columns={columns}
+          dataSource={vehicles}
+          rowKey={(record) => record.id || record.vehicleId || record.licensePlate}
+          loading={loading}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng: ${total} xe`,
+            pageSizeOptions: ["12", "24", "48", "96"],
+            onChange: handleTableChange,
+            onShowSizeChange: handleTableChange,
+          }}
+        />
+      </Card>
 
       {/* Create/Edit Modal */}
       <Modal
@@ -866,9 +921,10 @@ export default function VehiclesPage() {
               disabled={!!editingVehicle}
               loading={loadingModels}
               showSearch
-              filterOption={(input, option) =>
-                (option?.children as string)?.toLowerCase().includes(input.toLowerCase())
-              }
+              filterOption={(input, option) => {
+                const label = typeof option?.label === 'string' ? option.label : String(option?.label || '');
+                return label.toLowerCase().includes(input.toLowerCase());
+              }}
             >
               {vehicleModels.map((model) => (
                 <Option key={model.vehicleModelId} value={model.vehicleModelId}>
@@ -956,11 +1012,7 @@ export default function VehiclesPage() {
         onCancel={() => setIsDetailModalVisible(false)}
         footer={[
           (() => {
-            const vehicleId = selectedVehicle?.id || selectedVehicle?.vehicleId;
-            const hasTracking = selectedVehicle && (
-              (vehicleId && vehicleId.toLowerCase() === TRACKING_VEHICLE_ID.toLowerCase()) ||
-              !!(selectedVehicle.gpsDeviceIdent || selectedVehicle.flespiDeviceId)
-            );
+            const hasTracking = Boolean(selectedVehicle?.gpsDeviceIdent || selectedVehicle?.flespiDeviceId);
             const trackButton = (
               <Button 
                 key="track" 
@@ -1178,7 +1230,7 @@ export default function VehiclesPage() {
 
       {/* Delete Confirmation Modal */}
       <Modal
-        title="Xác nhận xóa"
+        title="Xác nhận xóa xe"
         open={isDeleteModalVisible}
         onOk={confirmDelete}
         onCancel={() => {
@@ -1188,31 +1240,40 @@ export default function VehiclesPage() {
         okText="Xóa"
         okButtonProps={{ danger: true, loading: isDeleting }}
         cancelText="Hủy"
+        width={480}
+        centered
       >
-        <p>
-          Bạn có chắc muốn xóa xe{" "}
-          <strong>{vehicleToDelete?.licensePlate}</strong>?
-        </p>
         {vehicleToDelete && (
-          <>
-            <p className="text-sm text-gray-500 mt-2">
-              ID: {vehicleToDelete.id || vehicleToDelete.vehicleId}
+          <div className="space-y-4">
+            <p className="text-base">
+              Bạn có chắc chắn muốn xóa xe này không?
             </p>
-            {vehicleToDelete.vehicleModel?.modelName && (
-              <p className="text-sm text-gray-500">
-                Model: {vehicleToDelete.vehicleModel.modelName}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <p className="font-semibold text-gray-900 mb-2">
+                Biển số: <span className="text-blue-600">{vehicleToDelete.licensePlate}</span>
               </p>
-            )}
-            {vehicleToDelete.branch?.branchName && (
-              <p className="text-sm text-gray-500">
-                Chi nhánh: {vehicleToDelete.branch.branchName}
+              {vehicleToDelete.vehicleModel?.modelName && (
+                <p className="text-sm text-gray-600 mb-2">
+                  Model: <span className="font-medium">{vehicleToDelete.vehicleModel.modelName}</span>
+                </p>
+              )}
+              {vehicleToDelete.branch?.branchName && (
+                <p className="text-sm text-gray-600 mb-2">
+                  Chi nhánh: <span className="font-medium">{vehicleToDelete.branch.branchName}</span>
+                </p>
+              )}
+              <p className="text-sm text-gray-600">
+                ID: <span className="font-mono text-xs">{vehicleToDelete.id || vehicleToDelete.vehicleId}</span>
               </p>
-            )}
-          </>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-600 font-semibold flex items-center gap-2">
+                <span>⚠️</span>
+                <span>Hành động này không thể hoàn tác!</span>
+              </p>
+            </div>
+          </div>
         )}
-        <p className="text-red-500 text-sm mt-3 font-medium">
-          ⚠️ Hành động này không thể hoàn tác!
-        </p>
       </Modal>
     </div>
   );

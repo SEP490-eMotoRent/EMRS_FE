@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Table, Tag, Button, Modal, Descriptions, Image, Space, message } from "antd";
+import { Table, Tag, Button, Modal, Descriptions, Image, Space, message, Card, Tabs } from "antd";
 import { EyeOutlined, FileTextOutlined, DownloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { getRentalReceipts, getRentalReceiptById } from "./operation_service";
@@ -201,36 +201,34 @@ export default function OperationPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold mb-4">
-          Vận hành (Giao/Trả)
-        </h1>
+    <div className="space-y-4">
+      {/* Header */}
+      <h1 className="text-xl font-semibold text-gray-800">Vận hành (Giao/Trả)</h1>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-4">
-          <Button
-            type={tab === "all" ? "primary" : "default"}
-            onClick={() => setTab("all")}
-          >
-            Tất cả
-          </Button>
-          <Button
-            type={tab === "handover" ? "primary" : "default"}
-            onClick={() => setTab("handover")}
-          >
-            Đã giao xe
-          </Button>
-          <Button
-            type={tab === "return" ? "primary" : "default"}
-            onClick={() => setTab("return")}
-          >
-            Đã trả xe
-          </Button>
-        </div>
-      </div>
+      {/* Filter Tabs */}
+      <Card className="shadow-sm border-0">
+        <Tabs
+          activeKey={tab}
+          onChange={(key) => setTab(key as "all" | "handover" | "return")}
+          items={[
+            {
+              key: "all",
+              label: "Tất cả",
+            },
+            {
+              key: "handover",
+              label: "Giao xe",
+            },
+            {
+              key: "return",
+              label: "Trả xe",
+            },
+          ]}
+        />
+      </Card>
 
-      <div className="bg-white shadow rounded-lg p-4">
+      {/* Table */}
+      <Card className="shadow-sm border-0">
         <Table
           rowKey="id"
           loading={loading}
@@ -242,8 +240,9 @@ export default function OperationPage() {
             showSizeChanger: true,
             showTotal: (total) => `Tổng ${total} biên bản`,
           }}
+          size="middle"
         />
-      </div>
+      </Card>
 
       {/* Modal chi tiết */}
       <Modal

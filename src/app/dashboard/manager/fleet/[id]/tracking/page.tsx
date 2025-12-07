@@ -7,14 +7,14 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export default function AdminVehicleTrackingPage({ params }: PageProps) {
+export default function ManagerVehicleTrackingPage({ params }: PageProps) {
   const { id } = use(params);
 
   return (
     <VehicleTrackingScreen
       vehicleId={id}
-      backHref="/dashboard/admin/vehicles"
-      backLabel="← Quay lại danh sách xe"
+      backHref="/dashboard/manager/fleet"
+      backLabel="← Quay lại quản lý Fleet"
     />
   );
 }

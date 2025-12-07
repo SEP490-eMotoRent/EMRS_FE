@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -13,8 +13,9 @@ import {
   Tooltip,
   Space,
   Avatar,
+  Card,
 } from "antd";
-import { Search } from "lucide-react";
+import { SearchOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 
 import {
@@ -22,7 +23,6 @@ import {
   getBookingById,
 } from "./booking_service";
 
-const { Search: AntSearch } = Input;
 
 // Map status to Vietnamese and color
 const getStatusInfo = (status: string) => {
@@ -61,12 +61,12 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<string | undefined>("all");
   const router = useRouter();
 
   useEffect(() => {
     loadBookings();
-  }, [statusFilter]);
+  }, []);
 
   const enrichBookingsWithDetail = async (items: any[]) => {
     return Promise.all(
@@ -110,41 +110,53 @@ export default function BookingsPage() {
   };
 
   // Filter bookings based on search text and status
-  const filteredBookings = bookings.filter((booking) => {
-    // Status filter
-    const statusValue = booking.bookingStatus || booking.status;
-    if (statusFilter && statusValue !== statusFilter) {
-      return false;
-    }
+  const filteredBookings = useMemo(() => {
+    return bookings.filter((booking) => {
+      // Status filter - chỉ filter nếu statusFilter có giá trị hợp lệ và không phải "all"
+      const hasStatusFilter = statusFilter && statusFilter !== "all" && statusFilter !== undefined && statusFilter !== null && statusFilter !== "";
+      if (hasStatusFilter) {
+        const statusValue = booking.bookingStatus || booking.status;
+        if (statusValue !== statusFilter) {
+          return false; // Không match status filter, loại bỏ
+        }
+      }
 
-    // Search filter
-    if (!searchText.trim()) return true;
-    const searchLower = searchText.toLowerCase();
-    return (
-      (booking.bookingId || booking.id || "")
-        .toLowerCase()
-        .includes(searchLower) ||
-      (
-        booking.renter?.fullName ||
-        booking.renter?.account?.fullname ||
-        booking.renterName ||
-        ""
-      )
-        .toLowerCase()
-        .includes(searchLower) ||
-      (
-        booking.renter?.phoneNumber ||
-        booking.renter?.phone ||
-        booking.phoneNumber ||
-        ""
-      )
-        .toLowerCase()
-        .includes(searchLower) ||
-      (booking.vehicleModel?.modelName || booking.vehicleModelName || "")
-        .toLowerCase()
-        .includes(searchLower)
-    );
-  });
+      // Search filter - chỉ filter nếu có search text
+      const hasSearchText = searchText && searchText.trim();
+      if (!hasSearchText) {
+        return true; // Không có search text, pass qua
+      }
+      
+      // Có search text, kiểm tra match
+      const searchLower = searchText.toLowerCase().trim();
+      const matchesSearch = (
+        (booking.bookingId || booking.id || "")
+          .toLowerCase()
+          .includes(searchLower) ||
+        (
+          booking.renter?.fullName ||
+          booking.renter?.account?.fullname ||
+          booking.renterName ||
+          ""
+        )
+          .toLowerCase()
+          .includes(searchLower) ||
+        (
+          booking.renter?.phoneNumber ||
+          booking.renter?.phone ||
+          booking.phoneNumber ||
+          ""
+        )
+          .toLowerCase()
+          .includes(searchLower) ||
+        (booking.vehicleModel?.modelName || booking.vehicleModelName || "")
+          .toLowerCase()
+          .includes(searchLower)
+      );
+      
+      return matchesSearch; // Phải match search text
+    });
+  }, [bookings, statusFilter, searchText]);
 
   const handleAssignVehicle = async (bookingId: string) => {
     // TODO: Open modal to select vehicle
@@ -328,46 +340,55 @@ export default function BookingsPage() {
   ];
 
   // Get unique statuses for filter
-  const statusOptions = [
-    { label: "Tất cả trạng thái", value: undefined },
-    ...Array.from(
+  const statusOptions = useMemo(() => {
+    const uniqueStatuses = Array.from(
       new Set(
         bookings
           .map((b) => b.bookingStatus || b.status)
           .filter((status): status is string => Boolean(status))
       )
-    ).map((status) => ({
-      label: getStatusInfo(status).label,
-      value: status,
-    })),
-  ];
+    );
+    
+    return [
+      { label: "Tất cả trạng thái", value: "all" },
+      ...uniqueStatuses.map((status) => ({
+        label: getStatusInfo(status).label,
+        value: status,
+      })),
+    ];
+  }, [bookings]);
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold mb-4">
-          Bookings
-        </h1>
+    <div className="space-y-4">
+      {/* Header */}
+      <h1 className="text-xl font-semibold text-gray-800">Bookings</h1>
 
-        <div className="flex gap-4 items-center mb-4">
-          <div className="flex-1">
-            <AntSearch
+      {/* Filters */}
+      <Card className="shadow-sm border-0">
+        <div className="flex gap-4 items-center flex-wrap">
+          <div className="flex-1 min-w-[250px]">
+            <Input
               placeholder="Tìm booking, khách, model"
               allowClear
-              enterButton={<Search className="w-4 h-4" />}
+              prefix={<SearchOutlined />}
               size="large"
-              onSearch={handleSearch}
+              value={searchText}
               onChange={(e) => {
+                setSearchText(e.target.value);
                 if (!e.target.value) {
                   handleSearch("");
                 }
               }}
+              onPressEnter={() => handleSearch(searchText)}
             />
           </div>
           <Select
             placeholder="Tất cả trạng thái"
             value={statusFilter}
-            onChange={setStatusFilter}
+            onChange={(value) => {
+              // Khi clear hoặc chọn "all", set về "all"
+              setStatusFilter(value === null || value === undefined || value === "" ? "all" : value);
+            }}
             style={{ width: 200 }}
             allowClear
           >
@@ -378,9 +399,10 @@ export default function BookingsPage() {
             ))}
           </Select>
         </div>
-      </div>
+      </Card>
 
-      <div className="bg-white shadow rounded-lg p-4">
+      {/* Table */}
+      <Card className="shadow-sm border-0">
         <Table
           size="middle"
           className="booking-table"
@@ -395,7 +417,7 @@ export default function BookingsPage() {
             showTotal: (total) => `Tổng ${total} booking`,
           }}
         />
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Table, Button, Input, Space, Tag, Modal, Form, InputNumber, Upload, message, Image, Descriptions, Select } from "antd";
+import { Table, Button, Card, Input, Space, Tag, Modal, Form, InputNumber, Upload, message, Image, Descriptions, Select } from "antd";
 import { EditOutlined, PlusOutlined, EyeOutlined, UploadOutlined, DeleteOutlined } from "@ant-design/icons";
 import { getVehicleModels, getVehicleModelById, createVehicleModel, updateVehicleModel, deleteVehicleModel, VehicleModel } from "./vehicle_model_service";
 import { getVehicles } from "../vehicles/vehicle_service";
@@ -179,7 +179,7 @@ export default function VehicleModelsPage() {
       if (editingModel) {
         // Update
         await updateVehicleModel(editingModel.vehicleModelId || editingModel.id || "", values);
-        message.success("Cập nhật model xe thành công");
+        message.success("Cập nhật model thành công");
       } else {
         // Create
         const formData = new FormData();
@@ -213,7 +213,7 @@ export default function VehicleModelsPage() {
         });
 
         await createVehicleModel(formData);
-        message.success("Tạo model xe mới thành công");
+        message.success("Thêm model thành công");
       }
 
       handleCloseModal();
@@ -262,7 +262,7 @@ export default function VehicleModelsPage() {
     setIsDeleting(true);
     try {
       await deleteVehicleModel(modelId);
-      message.success("Xóa model xe thành công");
+      message.success("Xóa model thành công");
       setIsDeleteModalVisible(false);
       setModelToDelete(null);
       loadModels();
@@ -385,31 +385,38 @@ export default function VehicleModelsPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold">Quản lý Model xe</h2>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <h1 className="text-3xl font-bold text-gray-800">
+          Quản lý Model xe
+        </h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => handleOpenModal()}
+          size="large"
         >
           Thêm model mới
         </Button>
       </div>
 
-      <Table
-        columns={columns}
-        dataSource={models}
-        rowKey={(record) => record.vehicleModelId || record.id || ""}
-        loading={loading}
-        scroll={{ x: 1200 }}
-        pagination={{
-          pageSize: 12,
-          showSizeChanger: true,
-          showTotal: (total) => `Tổng: ${total} model`,
-          pageSizeOptions: ["12", "24", "48", "96"],
-        }}
-      />
+      {/* Table */}
+      <Card className="shadow-sm">
+        <Table
+          columns={columns}
+          dataSource={models}
+          rowKey={(record) => record.vehicleModelId || record.id || ""}
+          loading={loading}
+          scroll={{ x: 1200 }}
+          pagination={{
+            pageSize: 12,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng: ${total} model`,
+            pageSizeOptions: ["12", "24", "48", "96"],
+          }}
+        />
+      </Card>
 
       {/* Create/Edit Modal */}
       <Modal
@@ -484,22 +491,26 @@ export default function VehicleModelsPage() {
                 (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
               }
             >
-              {rentalPricings.map((pricing) => (
-                <Option 
-                  key={pricing.id} 
-                  value={pricing.id}
-                  label={`${pricing.rentalPrice.toLocaleString()} VNĐ - ${pricing.excessKmPrice.toLocaleString()} VNĐ/km`}
-                >
-                  <div className="flex justify-between items-center">
-                    <span>
-                      <strong>{pricing.rentalPrice.toLocaleString()} VNĐ</strong>
-                      <span className="text-gray-500 ml-2">
-                        / {pricing.excessKmPrice.toLocaleString()} VNĐ/km
+              {rentalPricings.map((pricing) => {
+                const rentalPrice = pricing.rentalPrice ?? 0;
+                const excessKmPrice = pricing.excessKmPrice ?? 0;
+                return (
+                  <Option 
+                    key={pricing.id} 
+                    value={pricing.id}
+                    label={`${rentalPrice.toLocaleString()} VNĐ - ${excessKmPrice.toLocaleString()} VNĐ/km`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span>
+                        <strong>{rentalPrice.toLocaleString()} VNĐ</strong>
+                        <span className="text-gray-500 ml-2">
+                          / {excessKmPrice.toLocaleString()} VNĐ/km
+                        </span>
                       </span>
-                    </span>
-                  </div>
-                </Option>
-              ))}
+                    </div>
+                  </Option>
+                );
+              })}
             </Select>
           </Form.Item>
 
@@ -666,21 +677,38 @@ export default function VehicleModelsPage() {
         okText="Xóa"
         okButtonProps={{ danger: true, loading: isDeleting }}
         cancelText="Hủy"
+        width={480}
+        centered
       >
         {modelToDelete && (
-          <div>
-            <p className="mb-2">
-              Bạn có chắc muốn xóa model <strong className="text-red-600">{modelToDelete.modelName}</strong>?
+          <div className="space-y-4">
+            <p className="text-base">
+              Bạn có chắc chắn muốn xóa model xe này không?
             </p>
-            <p className="text-sm text-gray-600">
-              ID: {modelToDelete.vehicleModelId || modelToDelete.id}
-            </p>
-            {modelToDelete.countTotal && modelToDelete.countTotal > 0 && (
-              <p className="text-sm text-yellow-600 mt-2">
-                ⚠️ Cảnh báo: Model này đang có {modelToDelete.countTotal} xe. Việc xóa có thể ảnh hưởng đến dữ liệu liên quan.
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <p className="font-semibold text-gray-900 mb-2">
+                Tên model: <span className="text-blue-600">{modelToDelete.modelName}</span>
               </p>
-            )}
-            <p className="text-red-500 mt-3 font-medium">Hành động này không thể hoàn tác!</p>
+              {modelToDelete.category && (
+                <p className="text-sm text-gray-600 mb-2">
+                  Phân loại: <span className="font-medium">{modelToDelete.category}</span>
+                </p>
+              )}
+              {modelToDelete.countTotal && modelToDelete.countTotal > 0 && (
+                <p className="text-sm text-orange-600 mb-2">
+                  ⚠️ Đang có {modelToDelete.countTotal} xe sử dụng model này
+                </p>
+              )}
+              <p className="text-sm text-gray-600">
+                ID: <span className="font-mono text-xs">{modelToDelete.vehicleModelId || modelToDelete.id}</span>
+              </p>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-600 font-semibold flex items-center gap-2">
+                <span>⚠️</span>
+                <span>Hành động này không thể hoàn tác!</span>
+              </p>
+            </div>
           </div>
         )}
       </Modal>

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Menu, LogOut } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { message } from "antd";
 
 const menuItems = [
@@ -10,11 +10,11 @@ const menuItems = [
   { name: "Vận hành (Giao/Trả)", path: "/dashboard/manager/operations" },
   { name: "Quản lý sửa chữa", path: "/dashboard/manager/repair-requests" },
   { name: "Quản lý Fleet", path: "/dashboard/manager/fleet" },
+  { name: "Model xe", path: "/dashboard/manager/vehicle-models" },
   { name: "Bookings", path: "/dashboard/manager/bookings" },
   { name: "Điều chuyển xe", path: "/dashboard/manager/transfers" },
   { name: "Tickets - Hỗ trợ kỹ thuật", path: "/dashboard/manager/tickets" },
   { name: "Sự cố & Bảo hiểm", path: "/dashboard/manager/insurance" },
-  { name: "IoT Realtime", path: "/dashboard/manager/iot" },
   { name: "Cài đặt", path: "/dashboard/manager/settings" },
 ];
 
@@ -190,30 +190,29 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
       {/* ===== Main Content ===== */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="flex justify-between items-center bg-white border-b px-6 py-3">
+        <header className="flex justify-between items-center bg-white border-b px-6 py-3 h-16">
           <div className="flex items-center gap-3">
             <Menu className="w-5 h-5 text-gray-600 md:hidden" />
-            <p className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 flex items-center leading-none">
               Chi nhánh:{" "}
-              <span className="font-medium">{branchName || "Đang tải..."}</span>
-            </p>
+              <span className="font-medium ml-1">{branchName || "Đang tải..."}</span>
+            </span>
           </div>
           <div className="flex items-center gap-4">
-            <Bell className="w-5 h-5 text-gray-600 cursor-pointer hover:text-gray-800" />
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center font-semibold text-sm">
+              <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0">
                 {(managerName || "M").charAt(0).toUpperCase()}
               </div>
-              <div className="text-sm">
-                <p className="font-medium">{managerName}</p>
-              </div>
+              <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                {managerName || "Manager"}
+              </span>
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors whitespace-nowrap"
               title="Đăng xuất"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 flex-shrink-0" />
               <span>Đăng xuất</span>
             </button>
           </div>

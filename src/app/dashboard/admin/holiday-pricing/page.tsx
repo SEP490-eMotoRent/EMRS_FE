@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Button,
+  Card,
   DatePicker,
   Form,
   Input,
@@ -37,6 +38,10 @@ export default function HolidayPricingPage() {
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState<HolidayPricing | null>(
+    null
+  );
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingHoliday, setDeletingHoliday] = useState<HolidayPricing | null>(
     null
   );
   const [form] = Form.useForm();
@@ -85,49 +90,62 @@ export default function HolidayPricingPage() {
   };
 
   const handleDelete = (record: HolidayPricing) => {
-    Modal.confirm({
-      title: "Xóa giá ngày lễ",
-      content: `Bạn có chắc muốn xóa giá ngày lễ "${record.holidayName}"?`,
-      okText: "Xóa",
-      okType: "danger",
-      cancelText: "Hủy",
-      onOk: async () => {
-        try {
-          await deleteHolidayPricing(record.id);
-          message.success("Đã xóa giá ngày lễ");
-          refreshList();
-        } catch (error: any) {
-          console.error("Error deleting holiday pricing:", error);
-          message.error(error?.message || "Không thể xóa giá ngày lễ");
-        }
-      },
-    });
+    setDeletingHoliday(record);
+    setIsDeleteModalOpen(true);
   };
 
-  const handleSubmit = async () => {
+  const confirmDelete = async () => {
+    if (!deletingHoliday) return;
+    
     try {
-      const values = await form.validateFields();
+      setLoading(true);
+      await deleteHolidayPricing(deletingHoliday.id);
+      message.success("Đã xóa giá ngày lễ thành công");
+      setIsDeleteModalOpen(false);
+      setDeletingHoliday(null);
+      await refreshList();
+    } catch (error: any) {
+      console.error("Error deleting holiday pricing:", error);
+      message.error(error?.message || "Không thể xóa giá ngày lễ");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (values: any) => {
+    try {
+      // DatePicker trả về dayjs object, API cần format YYYY-MM-DD
+      const holidayDate = values.holidayDate
+        ? dayjs(values.holidayDate).format("YYYY-MM-DD")
+        : null;
+
+      if (!holidayDate) {
+        message.error("Ngày lễ không hợp lệ");
+        return;
+      }
+
       const payload = {
         holidayName: values.holidayName,
-        holidayDate: values.holidayDate.toISOString(),
+        holidayDate: holidayDate,
         priceMultiplier: values.priceMultiplier,
-        description: values.description,
-        isActive: values.isActive,
+        description: values.description || "",
+        isActive: values.isActive ?? true,
       };
 
       if (editingHoliday) {
+        // Cập nhật
         await updateHolidayPricing(editingHoliday.id, payload);
-        message.success("Cập nhật giá ngày lễ thành công");
+        message.success("Đã cập nhật giá ngày lễ");
       } else {
+        // Tạo mới
         await createHolidayPricing(payload);
-        message.success("Tạo giá ngày lễ thành công");
+        message.success("Đã thêm giá ngày lễ");
       }
 
       setIsModalOpen(false);
       form.resetFields();
       refreshList();
     } catch (error: any) {
-      if (error?.errorFields) return;
       console.error("Error saving holiday pricing:", error);
       message.error(error?.message || "Không thể lưu giá ngày lễ");
     }
@@ -200,7 +218,11 @@ export default function HolidayPricingPage() {
               type="link"
               danger
               icon={<DeleteOutlined />}
-              onClick={() => handleDelete(record)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDelete(record);
+              }}
             >
               Xóa
             </Button>
@@ -212,33 +234,33 @@ export default function HolidayPricingPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">
-            Quản lý giá ngày lễ
-          </h2>
-          <p className="text-gray-500">
-            Thiết lập hệ số giá thuê cho các ngày lễ/tết đặc biệt.
-          </p>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-800">
+          Quản lý giá ngày lễ
+        </h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => handleOpenModal()}
+          size="large"
         >
           Thêm ngày lễ
         </Button>
       </div>
 
-      <Table
-        rowKey="id"
-        columns={columns}
-        dataSource={holidayPricings}
-        loading={loading}
-        pagination={{ pageSize: 10 }}
-        locale={{ emptyText: "Chưa có giá ngày lễ" }}
-      />
+      {/* Table */}
+      <Card className="shadow-sm">
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={holidayPricings}
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          locale={{ emptyText: "Chưa có giá ngày lễ" }}
+        />
+      </Card>
 
       <Modal
         title={editingHoliday ? "Cập nhật giá ngày lễ" : "Thêm giá ngày lễ"}
@@ -247,12 +269,12 @@ export default function HolidayPricingPage() {
           setIsModalOpen(false);
           form.resetFields();
         }}
-        onOk={handleSubmit}
+        onOk={() => form.submit()}
         okText={editingHoliday ? "Cập nhật" : "Thêm mới"}
         cancelText="Hủy"
         width={520}
       >
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
             name="holidayName"
             label="Tên ngày lễ"
@@ -294,6 +316,47 @@ export default function HolidayPricingPage() {
             <Switch checkedChildren="Đang áp dụng" unCheckedChildren="Không" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="Xác nhận xóa giá ngày lễ"
+        open={isDeleteModalOpen}
+        onOk={confirmDelete}
+        onCancel={() => {
+          setIsDeleteModalOpen(false);
+          setDeletingHoliday(null);
+        }}
+        okText="Xóa"
+        okType="danger"
+        cancelText="Hủy"
+        width={480}
+        centered
+        confirmLoading={loading}
+      >
+        {deletingHoliday && (
+          <div className="space-y-4">
+            <p className="text-base">
+              Bạn có chắc chắn muốn xóa giá ngày lễ này không?
+            </p>
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <p className="font-semibold text-gray-900 mb-2">
+                Tên ngày lễ: <span className="text-blue-600">{deletingHoliday.holidayName}</span>
+              </p>
+              <p className="text-sm text-gray-600 mb-2">
+                Ngày: <span className="font-medium">{dayjs(deletingHoliday.holidayDate).format(dateFormat)}</span>
+              </p>
+              <p className="text-sm text-gray-600">
+                Hệ số giá: <span className="font-medium text-orange-600">x{deletingHoliday.priceMultiplier.toFixed(2)}</span>
+              </p>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-600 font-semibold flex items-center gap-2">
+                <span>⚠️</span>
+                <span>Hành động này không thể hoàn tác!</span>
+              </p>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

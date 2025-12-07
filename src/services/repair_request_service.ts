@@ -19,6 +19,7 @@ export interface UpdateRepairRequestPayload {
   priority?: string;
   status?: string;
   staffId?: string;
+  approvedAt?: string;
 }
 
 export interface TechnicianRepairRequestPayload extends RepairRequestPayload {
@@ -29,9 +30,8 @@ export interface TechnicianRepairRequestPayload extends RepairRequestPayload {
 }
 
 export interface TechnicianUpdatePayload {
-  priority?: string;
-  status?: string;
-  staffId?: string;
+  repairRequestId: string;
+  checklist: string; // JSON string
 }
 
 async function parseJson(res: Response) {
@@ -237,14 +237,25 @@ export async function createTechnicianRepairRequest(
 
 export async function updateTechnicianRepairRequest(
   repairRequestId: string,
-  payload: TechnicianUpdatePayload
+  payload: { status?: string; checklist?: any }
 ) {
   if (!repairRequestId) throw new Error("Thiếu repairRequestId");
 
-  const res = await fetch(`${API_PREFIX}/technician/${repairRequestId}`, {
+  // Theo API spec: PUT /api/RepairRequest/technician
+  // Body: { repairRequestId, checklist: "string" }
+  const requestBody = {
+    repairRequestId,
+    checklist: payload.checklist 
+      ? (typeof payload.checklist === 'string' 
+          ? payload.checklist 
+          : JSON.stringify(payload.checklist))
+      : JSON.stringify({ status: payload.status || "" })
+  };
+
+  const res = await fetch(`${API_PREFIX}/technician`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestBody),
   });
 
   const json = await parseJson(res);

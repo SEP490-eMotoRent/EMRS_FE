@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, LogOut, Wrench } from "lucide-react";
+import { LogOut, Wrench } from "lucide-react";
 import { message } from "antd";
 import {
   readBrowserCookies,
@@ -92,10 +92,10 @@ export default function TechnicianLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   active
-                    ? "bg-indigo-600 text-white"
-                    : "text-gray-600 hover:bg-indigo-50"
+                    ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
+                    : "text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
                 }`}
               >
                 {item.label}
@@ -103,38 +103,36 @@ export default function TechnicianLayout({
             );
           })}
         </nav>
-        <button
-          onClick={handleLogout}
-          className="flex items-center justify-center gap-2 text-sm text-red-600 border border-red-200 rounded-lg py-2 hover:bg-red-50 transition"
-        >
-          <LogOut size={16} />
-          Đăng xuất
-        </button>
       </aside>
 
       <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b px-6 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase text-gray-400">Technician Workspace</p>
-            <p className="text-sm font-medium text-gray-700">
-              Theo dõi yêu cầu sửa chữa được phân công
-            </p>
+        <header className="bg-white border-b px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4 flex-1">
+            <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+              Kỹ thuật viên
+            </span>
           </div>
-          <div className="flex items-center gap-4">
-            <Bell className="w-5 h-5 text-gray-500" />
+          <div className="flex items-center gap-3 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-semibold shadow-md">
                 {technicianName.charAt(0).toUpperCase()}
               </div>
               <div>
-                <p className="text-sm font-medium">{technicianName}</p>
-                <p className="text-xs text-gray-500">Technician</p>
+                <p className="text-sm font-medium text-gray-800 whitespace-nowrap">{technicianName}</p>
+                <p className="text-xs text-gray-500 whitespace-nowrap">Technician</p>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
+            >
+              <LogOut size={16} />
+              <span className="whitespace-nowrap">Đăng xuất</span>
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+        <main className="flex-1 p-6 overflow-y-auto bg-gray-50">{children}</main>
       </div>
     </div>
   );

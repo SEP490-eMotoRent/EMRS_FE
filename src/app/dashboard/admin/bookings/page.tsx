@@ -34,7 +34,6 @@ import {
 } from "./booking_service";
 import type { ColumnsType } from "antd/es/table";
 
-const { Search } = Input;
 const { Option } = Select;
 
 // Map status to Vietnamese and color
@@ -371,15 +370,9 @@ export default function AdminBookingsPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wide mb-1">Booking Management</p>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Quản lý đặt xe
-          </h1>
-          <p className="text-gray-600">
-            Quản lý và theo dõi tất cả các đặt xe trong hệ thống.
-          </p>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-800">
+          Quản lý đặt xe
+        </h1>
         <Button
           type="primary"
           icon={<ReloadOutlined />}
@@ -393,13 +386,14 @@ export default function AdminBookingsPage() {
       {/* Search and Filters */}
       <Card className="shadow-sm">
         <div className="flex gap-4 flex-wrap">
-          <Search
+          <Input
             placeholder="Tìm kiếm theo mã, khách hàng, xe, chi nhánh..."
             prefix={<SearchOutlined />}
             allowClear
             style={{ maxWidth: 400, flex: 1, minWidth: 250 }}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
+            onPressEnter={() => loadBookings()}
           />
           <Select
             placeholder="Trạng thái"

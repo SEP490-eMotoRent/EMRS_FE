@@ -101,7 +101,7 @@ export default function RentalPricingPage() {
         message.success("Cập nhật bảng giá thành công");
       } else {
         await createRentalPricing(values);
-        message.success("Tạo bảng giá mới thành công");
+        message.success("Thêm bảng giá thành công");
       }
       setIsModalOpen(false);
       refreshList();

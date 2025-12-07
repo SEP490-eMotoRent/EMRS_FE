@@ -119,7 +119,7 @@ export default function MembershipManagementPage() {
         message.success("Cập nhật hạng thành viên thành công");
       } else {
         await createMembership(values);
-        message.success("Tạo hạng thành viên thành công");
+        message.success("Thêm hạng thành viên thành công");
       }
 
       handleCloseModal();
@@ -325,7 +325,7 @@ export default function MembershipManagementPage() {
         onCancel={handleCloseModal}
         confirmLoading={isSubmitting}
         okText={editingMembership ? "Cập nhật" : "Tạo mới"}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" preserve={false}>
           <Form.Item
@@ -367,7 +367,7 @@ export default function MembershipManagementPage() {
         open={isDetailModalVisible}
         onCancel={() => setIsDetailModalVisible(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         {selectedMembership ? (
           <Descriptions column={1} layout="vertical" bordered size="small">

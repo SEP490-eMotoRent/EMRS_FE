@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import mqtt, { MqttClient } from "mqtt";
 import {
@@ -32,22 +32,17 @@ interface TrackingPayload {
   exp: number;
 }
 
-interface TrackingApiResponse {
-  success: boolean;
-  data: {
-    id: string;
-    licensePlate: string;
-    color: string;
-    // ... các field khác
-    tmpTrackingPayload: TrackingPayload;
-  };
-}
-
 interface VehicleLocation {
   lat: number;
   lng: number;
   speed?: number;
   ts?: number;
+}
+
+interface VehicleTrackingScreenProps {
+  vehicleId: string;
+  backHref: string;
+  backLabel?: string;
 }
 
 function parseCoord(value: unknown): number | null {
@@ -102,14 +97,11 @@ function RecenterOnMarker({ position }: { position: LatLngExpression }) {
   return null;
 }
 
-export default function VehicleTrackingPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  // Unwrap params trong Next.js 15
-  const { id } = use(params);
-  const vehicleId = id;
+export default function VehicleTrackingScreen({
+  vehicleId,
+  backHref,
+  backLabel = "← Quay lại danh sách xe",
+}: VehicleTrackingScreenProps) {
   const [loading, setLoading] = useState(true);
   const [licensePlate, setLicensePlate] = useState<string>("");
   const [payload, setPayload] = useState<TrackingPayload | null>(null);
@@ -442,7 +434,7 @@ export default function VehicleTrackingPage({
           return latest;
         });
       }
-    }, 3000); 
+    }, 8000); // ~8s để nằm giữa ngưỡng 5-10s
 
     return () => clearInterval(interval);
   }, [payload, fetchTelemetryPosition]);
@@ -455,10 +447,10 @@ export default function VehicleTrackingPage({
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/manager/iot"
+            href={backHref}
             className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
           >
-            ← Quay lại danh sách
+            {backLabel}
           </Link>
           <div>
             <h1 className="text-xl font-semibold">
@@ -491,8 +483,40 @@ export default function VehicleTrackingPage({
       )}
 
       {!loading && !payload && (
-        <div className="text-sm text-red-500">
-          Không lấy được token tracking từ server.
+        <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6 mb-4 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-red-900 mb-2">
+                Xe này chưa được cấu hình tracking
+              </h3>
+              <p className="text-base text-red-800 mb-3">
+                Không thể lấy được token tracking từ server. Xe này có thể chưa được cấu hình thiết bị GPS hoặc chưa được kích hoạt tính năng tracking.
+              </p>
+              <div className="bg-white rounded p-4 border border-red-200">
+                <p className="text-sm text-red-700 font-medium mb-2">
+                  Để kích hoạt tracking cho xe này, bạn cần:
+                </p>
+                <ul className="list-disc list-inside text-sm text-red-700 space-y-1 ml-2">
+                  <li>Cấu hình GPS Device ID hoặc Flespi Device ID trong thông tin xe</li>
+                  <li>Đảm bảo thiết bị GPS đã được kết nối và hoạt động</li>
+                  <li>Liên hệ quản trị viên hệ thống để kích hoạt tính năng tracking</li>
+                </ul>
+              </div>
+              <div className="mt-4 pt-4 border-t border-red-200">
+                <p className="text-xs text-red-600">
+                  <strong>Lưu ý:</strong> Hiện tại chỉ có một số xe được cấu hình tracking. 
+                  Vui lòng quay lại danh sách xe để xem các xe có hỗ trợ tracking.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -511,12 +535,24 @@ export default function VehicleTrackingPage({
         </div>
       )}
 
-      <div className="h-[500px] w-full rounded-lg overflow-hidden shadow relative">
-        <MapContainer
-          center={location ? [location.lat, location.lng] : defaultCenter}
-          zoom={location ? 15 : 13}
-          style={{ height: "100%", width: "100%" }}
-        >
+      {!loading && !payload ? (
+        // Ẩn map khi không có tracking
+        <div className="h-[300px] w-full rounded-lg overflow-hidden shadow bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300">
+          <div className="text-center">
+            <svg className="w-16 h-16 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            <p className="text-gray-500 font-medium">Bản đồ không khả dụng</p>
+            <p className="text-sm text-gray-400 mt-1">Xe này chưa được cấu hình tracking</p>
+          </div>
+        </div>
+      ) : (
+        <div className="h-[500px] w-full rounded-lg overflow-hidden shadow relative">
+          <MapContainer
+            center={location ? [location.lat, location.lng] : defaultCenter}
+            zoom={location ? 15 : 13}
+            style={{ height: "100%", width: "100%" }}
+          >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -576,24 +612,25 @@ export default function VehicleTrackingPage({
           )}
         </MapContainer>
         
-        {/* Overlay thông tin khi chưa có vị trí */}
-        {!location && payload && (
-          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg border border-gray-200 z-[1000] max-w-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium text-gray-700">
-                Đang chờ dữ liệu GPS
-              </span>
+          {/* Overlay thông tin khi chưa có vị trí */}
+          {!location && payload && (
+            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg border border-gray-200 z-[1000] max-w-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-gray-700">
+                  Đang chờ dữ liệu GPS
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 mt-2">
+                Device ID: {payload.deviceId || payload.imei}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Kiểm tra console để xem message từ MQTT
+              </p>
             </div>
-            <p className="text-xs text-gray-600 mt-2">
-              Device ID: {payload.deviceId || payload.imei}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              Kiểm tra console để xem message từ MQTT
-            </p>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

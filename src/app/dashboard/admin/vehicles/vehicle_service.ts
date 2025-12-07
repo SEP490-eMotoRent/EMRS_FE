@@ -190,6 +190,8 @@ function normalizeVehicle(vehicle: any) {
   
   const normalized = {
     ...vehicle,
+    gpsDeviceIdent: vehicle.gpsDeviceIdent || vehicle.GpsDeviceIdent || null,
+    flespiDeviceId: vehicle.flespiDeviceId || vehicle.FlespiDeviceId || null,
     // Map id -> vehicleId để tương thích
     vehicleId: vehicle.id || vehicle.vehicleId,
     // Map vehicleModel.modelName -> vehicleModelName

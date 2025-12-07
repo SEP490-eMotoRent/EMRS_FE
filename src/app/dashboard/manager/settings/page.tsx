@@ -156,8 +156,8 @@ export default function SettingsPage() {
   const staff = Array.isArray(accountData?.staff) ? accountData.staff[0] : accountData?.staff;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Cài đặt</h1>
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold text-gray-800">Cài đặt</h1>
 
       {/* Thông tin tài khoản */}
       <Card title="Thông tin tài khoản" className="shadow-sm">

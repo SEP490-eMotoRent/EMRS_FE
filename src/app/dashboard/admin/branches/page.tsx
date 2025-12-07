@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Table, Button, Input, Space, Tag, Modal, Form, message, Descriptions, InputNumber } from "antd";
-import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined } from "@ant-design/icons";
+import { Table, Button, Card, Input, Space, Tag, Modal, Form, message, Descriptions, InputNumber } from "antd";
+import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, SearchOutlined } from "@ant-design/icons";
 import { getBranches, getBranchById, createBranch, updateBranch, deleteBranch, Branch } from "./branch_service";
 import type { ColumnsType } from "antd/es/table";
 
-const { Search } = Input;
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -237,43 +236,51 @@ export default function BranchesPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold">Quản lý chi nhánh</h2>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <h1 className="text-3xl font-bold text-gray-800">
+          Quản lý chi nhánh
+        </h1>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={handleCreate}
+          size="large"
         >
           Tạo chi nhánh
         </Button>
       </div>
 
       {/* Search */}
-      <div className="mb-4">
-        <Search
+      <Card className="shadow-sm">
+        <Input
           placeholder="Tìm theo tên, địa chỉ, thành phố hoặc số điện thoại"
           allowClear
-          style={{ width: 400 }}
-          onSearch={(value) => setSearchText(value)}
-          onChange={(e) => !e.target.value && setSearchText("")}
+          prefix={<SearchOutlined />}
+          style={{ maxWidth: 400 }}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          onPressEnter={() => setSearchText(searchText)}
         />
-      </div>
+      </Card>
 
       {/* Table */}
-      <Table
-        columns={columns}
-        dataSource={filteredBranches}
-        rowKey="id"
-        loading={loading}
-        scroll={{ x: 1200 }}
-        pagination={{
-          pageSize: 12,
-          showSizeChanger: true,
-          showTotal: (total) => `Tổng: ${total} chi nhánh`,
-          pageSizeOptions: ["12", "24", "48", "96"],
-        }}
-      />
+      <Card className="shadow-sm">
+        <Table
+          columns={columns}
+          dataSource={filteredBranches}
+          rowKey="id"
+          loading={loading}
+          scroll={{ x: 1200 }}
+          pagination={{
+            pageSize: 12,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng: ${total} chi nhánh`,
+            pageSizeOptions: ["12", "24", "48", "96"],
+          }}
+        />
+      </Card>
 
       {/* Create/Edit Modal */}
       <Modal

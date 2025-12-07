@@ -210,7 +210,7 @@ export default function AdminConfigurationPage() {
         message.success("Cập nhật cấu hình thành công");
       } else {
         await createConfiguration(payload);
-        message.success("Tạo cấu hình thành công");
+        message.success("Thêm cấu hình thành công");
       }
 
       setIsModalOpen(false);
@@ -564,7 +564,7 @@ export default function AdminConfigurationPage() {
         onOk={handleTemplateSubmit}
         okText={templateConfig ? "Cập nhật" : "Tạo mới"}
         confirmLoading={templateSaving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form layout="vertical" form={templateForm}>
           <Form.Item

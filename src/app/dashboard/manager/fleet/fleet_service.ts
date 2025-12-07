@@ -1,10 +1,15 @@
 const INTERNAL_BASE =
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const API_PREFIX = "/api/vehicle-model";
+const VEHICLE_MODEL_PREFIX = "/api/vehicle-model";
+const VEHICLE_PREFIX = "/api/vehicle";
 
 // Helper build URL tuyệt đối cho fetch phía server
-function buildUrl(path: string) {
-  return `${INTERNAL_BASE}${API_PREFIX}${path}`;
+function buildModelUrl(path: string) {
+  return `${INTERNAL_BASE}${VEHICLE_MODEL_PREFIX}${path}`;
+}
+
+function buildVehicleUrl(path: string) {
+  return `${INTERNAL_BASE}${VEHICLE_PREFIX}${path}`;
 }
 
 export interface VehicleFilters {
@@ -35,7 +40,7 @@ export async function getVehicleModels(options?: {
     descendingOrder: String(descendingOrder),
   });
 
-  const url = `${buildUrl("/list")}?${queryParams.toString()}`;
+  const url = `${buildModelUrl("/list")}?${queryParams.toString()}`;
 
   const res = await fetch(url, {
     cache: "no-store",
@@ -225,5 +230,134 @@ export async function updateVehicle(data: any) {
 
   const text = await res.text();
   return text ? JSON.parse(text) : {};
+}
+
+export interface ManagerVehicle {
+  id?: string;
+  vehicleId?: string;
+  licensePlate: string;
+  color?: string;
+  status?: string;
+  currentOdometerKm?: number;
+  batteryHealthPercentage?: number;
+  branchId?: string;
+  branchName?: string;
+  gpsDeviceIdent?: string;
+  flespiDeviceId?: number;
+  purchaseDate?: string;
+  vehicleModel?: {
+    id?: string;
+    modelName?: string;
+  };
+}
+
+export interface ManagerVehicleListResponse {
+  items: ManagerVehicle[];
+  totalItems: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+}
+
+const normalizeVehicle = (vehicle: any): ManagerVehicle => {
+  return {
+    ...vehicle,
+    id: vehicle.id || vehicle.vehicleId,
+    vehicleId: vehicle.vehicleId || vehicle.id,
+    branchName: vehicle.branch?.branchName || vehicle.branchName,
+    branchId: vehicle.branch?.id || vehicle.branchId,
+    gpsDeviceIdent: vehicle.gpsDeviceIdent || vehicle.GpsDeviceIdent || undefined,
+    flespiDeviceId:
+      vehicle.flespiDeviceId || vehicle.FlespiDeviceId || undefined,
+    vehicleModel: vehicle.vehicleModel || undefined,
+  };
+};
+
+export async function getVehiclesByBranch(options: {
+  branchId: string;
+  licensePlate?: string;
+  status?: string;
+  pageNum?: number;
+  pageSize?: number;
+}) {
+  const params = new URLSearchParams();
+
+  params.append("BranchId", options.branchId);
+  params.append("PageSize", String(options.pageSize || 100));
+  params.append("PageNum", String(options.pageNum || 1));
+
+  if (options.licensePlate) {
+    params.append("LicensePlate", options.licensePlate);
+  }
+  if (options.status && options.status !== "all") {
+    params.append("Status", options.status);
+  }
+
+  const url = `${buildVehicleUrl("")}?${params.toString()}`;
+
+  const res = await fetch(url, { cache: "no-store" });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Failed to fetch branch vehicles:", res.status, text);
+    throw new Error(res.statusText || "Failed to fetch branch vehicles");
+  }
+
+  const text = await res.text();
+  const json = text ? JSON.parse(text) : {};
+
+  if (json.success && json.data?.items) {
+    return {
+      items: json.data.items.map(normalizeVehicle),
+      totalItems: json.data.totalItems || 0,
+      totalPages: json.data.totalPages || 1,
+      currentPage: json.data.currentPage || 1,
+      pageSize: json.data.pageSize || options.pageSize || 100,
+    } as ManagerVehicleListResponse;
+  }
+
+  if (Array.isArray(json.data)) {
+    return {
+      items: json.data.map(normalizeVehicle),
+      totalItems: json.data.length,
+      totalPages: 1,
+      currentPage: 1,
+      pageSize: json.data.length,
+    } as ManagerVehicleListResponse;
+  }
+
+  if (Array.isArray(json)) {
+    return {
+      items: json.map(normalizeVehicle),
+      totalItems: json.length,
+      totalPages: 1,
+      currentPage: 1,
+      pageSize: json.length,
+    } as ManagerVehicleListResponse;
+  }
+
+  return {
+    items: [],
+    totalItems: 0,
+    totalPages: 0,
+    currentPage: 1,
+    pageSize: options.pageSize || 100,
+  } as ManagerVehicleListResponse;
+}
+
+export async function getVehicleById(id: string) {
+  const res = await fetch(buildVehicleUrl(`/${id}`), { cache: "no-store" });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Failed to fetch vehicle detail:", res.status, text);
+    throw new Error(res.statusText || "Failed to fetch vehicle detail");
+  }
+
+  const text = await res.text();
+  const json = text ? JSON.parse(text) : {};
+  const data = json.data || json;
+
+  return normalizeVehicle(data);
 }
 

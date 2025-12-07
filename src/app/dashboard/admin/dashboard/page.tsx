@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { message } from "antd";
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -16,160 +15,191 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { getBranches } from "@/app/dashboard/admin/branches/branch_service";
-import { getVehicles } from "@/app/dashboard/admin/vehicles/vehicle_service";
+import {
+  AdminDashboardData,
+  getAdminDashboardData,
+} from "./admin_dashboard_service";
 
-
-export default function Dashboard() {
-  const [data, setData] = useState<any>({
-    branches: [],
-    vehicles: [],
-    bookings: [],
-    payments: [],
-  });
+export default function AdminDashboardPage() {
+  const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchAll() {
+    async function load() {
       try {
-        const [branches, vehiclesResponse] = await Promise.all([
-          getBranches(),
-          getVehicles(),
-        ]);
-        // getVehicles() trả về VehicleListResponse với items array
-        const vehicles = vehiclesResponse?.items || [];
-        setData({ branches, vehicles, bookings: [], payments: [] });
-      } catch (err) {
-        console.error("Fetch error:", err);
+        setLoading(true);
+        const dashboard = await getAdminDashboardData();
+        setData(dashboard);
+      } catch (err: any) {
+        console.error("Failed to load admin dashboard:", err);
+        message.error(err?.message || "Không thể tải dữ liệu dashboard");
       } finally {
         setLoading(false);
       }
     }
-    fetchAll();
+
+    load();
   }, []);
 
-  if (loading) return <div>Đang tải dữ liệu...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px] text-gray-500">
+        Đang tải dữ liệu...
+      </div>
+    );
+  }
 
-  // Đảm bảo vehicles là array trước khi filter
-  const vehiclesArray = Array.isArray(data.vehicles) ? data.vehicles : [];
-  
-  const activeVehicles =
-    vehiclesArray.filter((v: any) => v.status === "rented")?.length ?? 0;
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px] text-red-500">
+        Không thể tải dữ liệu dashboard
+      </div>
+    );
+  }
 
-  const maintenanceVehicles =
-    vehiclesArray.filter((v: any) => v.status === "maintenance")?.length ?? 0;
+  const vehicleTotals = data.vehicle || ({} as AdminDashboardData["vehicle"]);
+  const accountTotals = data.accounts || ({} as AdminDashboardData["accounts"]);
+  const trackedPercent = vehicleTotals.totalVehicles
+    ? Math.round(
+        (vehicleTotals.totalTracked / vehicleTotals.totalVehicles) * 100
+      )
+    : 0;
 
-  const totalRevenue =
-    data.payments?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) ?? 0;
+  const vehicleStatusData = [
+    { name: "Sẵn sàng", value: vehicleTotals.totalAvailable || 0 },
+    { name: "Đã đặt", value: vehicleTotals.totalBooked || 0 },
+    { name: "Giữ chỗ", value: vehicleTotals.totalHold || 0 },
+    { name: "Đang điều chuyển", value: vehicleTotals.totalTransfering || 0 },
+    { name: "Đang thuê", value: vehicleTotals.totalRented || 0 },
+    { name: "Không khả dụng", value: vehicleTotals.totalUnavailable || 0 },
+    { name: "Đang sửa", value: vehicleTotals.totalRepaired || 0 },
+  ];
 
-  const todayBookings =
-    data.bookings?.filter(
-      (b: any) =>
-        new Date(b.created_at).toDateString() === new Date().toDateString()
-    )?.length ?? 0;
+  const accountRoleData = [
+    { name: "Admin", value: accountTotals.totalAdmin || 0 },
+    { name: "Manager", value: accountTotals.totalManager || 0 },
+    { name: "Staff", value: accountTotals.totalStaff || 0 },
+    { name: "Technician", value: accountTotals.totalTechnician || 0 },
+    { name: "Khách thuê", value: accountTotals.totalRenter || 0 },
+  ];
 
-  // Chart data sẽ được tính từ dữ liệu thực tế từ API
-  const chartRevenue: any[] = [];
-  const branchStats: any[] = [];
-
-  const activeRatio = Math.round(
-    (activeVehicles / (vehiclesArray.length || 1)) * 100
-  );
+  const revenueInMillions = (data.transactions?.totalRevenue || 0) / 1_000_000;
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
 
-      {/* Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card title="Tổng khách thuê (hôm nay)" value={todayBookings} />
-        <Card title="Xe đang được thuê" value={activeVehicles} />
-        <Card title="Doanh thu (hôm nay)" value={totalRevenue ? `${(totalRevenue / 1000000).toFixed(1)} triệu` : "0"} />
-        <Card title="Xe bảo trì" value={maintenanceVehicles} />
+        <SummaryCard
+          title="Tổng model"
+          value={data.vehicleModel?.totalVehicleModels ?? 0}
+        />
+        <SummaryCard
+          title="Tổng xe"
+          value={vehicleTotals.totalVehicles ?? 0}
+          subText={`${vehicleTotals.totalAvailable ?? 0} đang sẵn sàng`}
+        />
+        <SummaryCard
+          title="Tổng chi nhánh"
+          value={data.branch?.totalBranches ?? 0}
+        />
+        <SummaryCard
+          title="Tổng tài khoản"
+          value={accountTotals.totalAccounts ?? 0}
+          subText={`${accountTotals.totalManager ?? 0} manager`}
+        />
       </div>
 
-      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Line Chart */}
-        <div className="bg-white border rounded-2xl p-4">
-          <h2 className="font-semibold mb-2">Doanh thu 7 ngày gần nhất</h2>
-          {chartRevenue.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={chartRevenue}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#4F46E5" strokeWidth={3} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-gray-400">
-              Chưa có dữ liệu
-            </div>
-          )}
-          <p className="text-gray-400 text-xs mt-1">Đơn vị: triệu VND</p>
+        <div className="lg:col-span-2 bg-white border rounded-2xl p-4">
+          <h2 className="font-semibold mb-2">Trạng thái đội xe</h2>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={vehicleStatusData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="value" fill="#6366F1" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-
-        {/* Bar Chart */}
         <div className="bg-white border rounded-2xl p-4">
-          <h2 className="font-semibold mb-2">Xe theo chi nhánh</h2>
-          {branchStats.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={branchStats}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#6366F1" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-gray-400">
-              Chưa có dữ liệu
-            </div>
-          )}
-        </div>
-
-        {/* Pie Chart */}
-        <div className="bg-white border rounded-2xl p-4 flex flex-col items-center justify-center">
-          <h2 className="font-semibold mb-2">Tỉ lệ xe hoạt động</h2>
-          <ResponsiveContainer width="80%" height={180}>
+          <h2 className="font-semibold mb-4">Phân bổ tài khoản</h2>
+          <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie
-                data={[
-                  { name: "Hoạt động", value: activeRatio },
-                  { name: "Không hoạt động", value: 100 - activeRatio },
-                ]}
+                data={accountRoleData}
                 dataKey="value"
                 innerRadius={60}
-                outerRadius={80}
-                startAngle={90}
-                endAngle={450}
+                outerRadius={90}
+                paddingAngle={3}
               >
-                <Cell fill="#F59E0B" />
-                <Cell fill="#E5E7EB" />
+                {accountRoleData.map((_, idx) => (
+                  <Cell
+                    key={idx}
+                    fill={["#4F46E5", "#EC4899", "#10B981", "#F59E0B", "#94A3B8"][idx % 5]}
+                  />
+                ))}
               </Pie>
+              <Tooltip />
             </PieChart>
           </ResponsiveContainer>
-          <p className="text-2xl font-bold text-yellow-500">{activeRatio}%</p>
-          <p className="text-sm text-gray-500 mt-1">
-            Đang hoạt động ({activeVehicles}/{vehiclesArray.length})
-          </p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <DetailCard
+          title="Xe có tracking"
+          value={`${vehicleTotals.totalTracked ?? 0}/${vehicleTotals.totalVehicles ?? 0}`}
+          extra={`${trackedPercent}% đội xe`}
+        />
+        <DetailCard
+          title="Xe đang sửa chữa"
+          value={vehicleTotals.totalRepaired ?? 0}
+          extra={`${vehicleTotals.totalUnavailable ?? 0} xe không khả dụng`}
+        />
+        <DetailCard
+          title="Tổng doanh thu"
+          value={`${revenueInMillions.toFixed(1)} triệu`}
+          extra="Từ tất cả giao dịch"
+        />
       </div>
     </div>
   );
 }
 
-// ===================
-// Card component
-// ===================
-function Card({ title, value }: { title: string; value: string | number }) {
+function SummaryCard({
+  title,
+  value,
+  subText,
+}: {
+  title: string;
+  value: number | string;
+  subText?: string;
+}) {
   return (
     <div className="bg-white border rounded-2xl p-4 shadow-sm">
       <p className="text-gray-500 text-sm">{title}</p>
-      <p className="text-2xl font-semibold mt-1">{value}</p>
+      <p className="text-3xl font-semibold mt-2">{value}</p>
+      {subText && <p className="text-xs text-gray-400 mt-1">{subText}</p>}
+    </div>
+  );
+}
+
+function DetailCard({
+  title,
+  value,
+  extra,
+}: {
+  title: string;
+  value: string | number;
+  extra?: string;
+}) {
+  return (
+    <div className="bg-white border rounded-2xl p-4 shadow-sm">
+      <p className="text-gray-500 text-sm">{title}</p>
+      <p className="text-2xl font-semibold mt-2">{value}</p>
+      {extra && <p className="text-xs text-gray-400 mt-1">{extra}</p>}
     </div>
   );
 }

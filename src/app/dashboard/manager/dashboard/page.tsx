@@ -125,7 +125,10 @@ export default function ManagerDashboardPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Header */}
+      <h1 className="text-xl font-semibold text-gray-800">Tổng quan</h1>
+
       {/* ===== KPI Cards - Doanh thu ===== */}
       <div>
         <h2 className="text-lg font-semibold mb-3 text-gray-700">Doanh thu</h2>

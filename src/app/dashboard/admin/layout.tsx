@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import {
   LayoutDashboard,
-  Users,
   UserCog,
   Car,
   Building2,
@@ -28,7 +27,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const menuItems = [
     { label: "Dashboard", href: "/dashboard/admin/dashboard", icon: <LayoutDashboard size={18} /> },
-    { label: "Quản lí tài khoản", href: "/dashboard/admin/accounts", icon: <Users size={18} /> },
     { label: "Quản lí nhân sự", href: "/dashboard/admin/staffs", icon: <UserCog size={18} /> },
     { label: "Quản lí xe", href: "/dashboard/admin/vehicles", icon: <Car size={18} /> },
     { label: "Quản lí Model xe", href: "/dashboard/admin/vehicle-models", icon: <Car size={18} /> },
@@ -93,10 +91,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       {/* Main content */}
       <main className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-white border-b shadow-sm h-14 flex items-center justify-between px-6">
-          <h1 className="text-lg font-semibold text-gray-800">
-            {getPageTitle(pathname)}
-          </h1>
+        <header className="bg-white border-b shadow-sm h-14 flex items-center justify-end px-6">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm">
               A
@@ -112,7 +107,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 }
 
 function getPageTitle(path: string) {
-  if (path.includes("accounts")) return "Quản lí tài khoản";
   if (path.includes("staffs")) return "Quản lí nhân sự";
   if (path.includes("vehicles")) return "Quản lí xe";
   if (path.includes("vehicle-models")) return "Quản lí Model xe";
