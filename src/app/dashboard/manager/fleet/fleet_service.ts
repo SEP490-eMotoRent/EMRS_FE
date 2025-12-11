@@ -179,7 +179,7 @@ export async function getVehicleModelById(id: string) {
 
     for (const path of pathsToTry) {
       try {
-        const res = await fetch(buildUrl(path), { cache: "no-store" });
+        const res = await fetch(buildModelUrl(path), { cache: "no-store" });
 
         if (res.ok) {
           const json = await parseModelResponse(res);
@@ -219,7 +219,7 @@ export async function updateVehicle(data: any) {
     }
   });
 
-  const res = await fetch(buildUrl(""), {
+  const res = await fetch(buildVehicleUrl(""), {
     method: "PUT",
     body: form,
   });
