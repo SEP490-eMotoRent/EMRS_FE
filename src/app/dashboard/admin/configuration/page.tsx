@@ -301,17 +301,14 @@ export default function AdminConfigurationPage() {
     return baseList;
   }, [configs]);
 
-  const templateRow = useMemo(
-    () =>
-      templateConfig
-        ? {
-            ...templateConfig,
-            type: String(RENTAL_TEMPLATE_TYPE),
-            _isTemplate: true,
-          }
-        : null,
-    [templateConfig]
-  );
+  const templateRow = useMemo(() => {
+    if (!templateConfig) return null;
+    return {
+      ...templateConfig,
+      type: Number(RENTAL_TEMPLATE_TYPE) as ConfigurationType,
+      _isTemplate: true,
+    };
+  }, [templateConfig]);
 
   const hasTemplateInConfigs = useMemo(
     () => configs.some((item) => isRentalTemplateType(item.type)),
@@ -333,7 +330,7 @@ export default function AdminConfigurationPage() {
     return counts;
   }, [configs, templateRow, hasTemplateInConfigs]);
 
-  const filteredConfigs = useMemo(() => {
+  const filteredConfigs = useMemo<ConfigurationItem[]>(() => {
     if (activeType === "ALL") return configs;
 
     if (activeType === String(RENTAL_TEMPLATE_TYPE)) {
@@ -342,7 +339,7 @@ export default function AdminConfigurationPage() {
           (item) => String(item.type) === String(RENTAL_TEMPLATE_TYPE)
         );
       }
-      return templateRow ? [templateRow] : [];
+      return templateRow ? [templateRow as ConfigurationItem] : [];
     }
 
     return configs.filter((item) => String(item.type) === activeType);
