@@ -1054,18 +1054,18 @@ export default function TransferOrdersPage() {
                   {selectedRequest.staff.email || "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Chi nhánh" span={2}>
-                  {selectedRequest.staff.branch?.branchName || "-"}
+                  {(selectedRequest as any)?.staff?.branch?.branchName || "-"}
                 </Descriptions.Item>
-                {selectedRequest.staff.branch && (
+                {(selectedRequest as any)?.staff?.branch && (
                   <>
                     <Descriptions.Item label="Địa chỉ" span={2}>
-                      {selectedRequest.staff.branch.address || "-"}
+                      {(selectedRequest as any)?.staff?.branch?.address || "-"}
                     </Descriptions.Item>
                     <Descriptions.Item label="Số điện thoại">
-                      {selectedRequest.staff.branch.phone || "-"}
+                      {(selectedRequest as any)?.staff?.branch?.phone || "-"}
                     </Descriptions.Item>
                     <Descriptions.Item label="Email chi nhánh">
-                      {selectedRequest.staff.branch.email || "-"}
+                      {(selectedRequest as any)?.staff?.branch?.email || "-"}
                     </Descriptions.Item>
                   </>
                 )}
