@@ -583,7 +583,7 @@ export default function VehicleTrackingScreen({
         <div className="h-[500px] w-full rounded-lg overflow-hidden shadow relative">
           <MapContainer
             key={location ? `${location.lat}-${location.lng}` : 'default'}
-            center={location ? [location.lat, location.lng] : defaultCenter}
+            center={location ? ([location.lat, location.lng] as any) : (defaultCenter as any)}
             zoom={location ? 15 : 13}
             minZoom={3}
             maxZoom={19}
