@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import mqtt, { MqttClient } from "mqtt";
 import {
@@ -136,6 +136,7 @@ export default function VehicleTrackingScreen({
   backHref,
   backLabel = "← Quay lại danh sách xe",
 }: VehicleTrackingScreenProps) {
+  const mapRef = useRef<L.Map | null>(null);
   const [loading, setLoading] = useState(true);
   const [licensePlate, setLicensePlate] = useState<string>("");
   const [payload, setPayload] = useState<TrackingPayload | null>(null);
@@ -583,6 +584,7 @@ export default function VehicleTrackingScreen({
       ) : (
         <div className="h-[500px] w-full rounded-lg overflow-hidden shadow relative">
           <MapContainerAny
+            ref={mapRef as any}
             key={location ? `${location.lat}-${location.lng}` : 'default'}
             center={location ? ([location.lat, location.lng] as any) : (defaultCenter as any)}
             zoom={location ? 15 : 13}
