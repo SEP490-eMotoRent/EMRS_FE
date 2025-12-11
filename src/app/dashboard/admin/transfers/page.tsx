@@ -668,7 +668,7 @@ export default function TransferOrdersPage() {
 
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
         {/* Tab: Yêu cầu điều chuyển */}
-        <TabPane tab={`Yêu cầu điều chuyển (${pendingRequests.length} chờ duyệt)`} key="requests">
+        <TabPane tab="Yêu cầu điều chuyển" key="requests">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <Card>
@@ -726,7 +726,7 @@ export default function TransferOrdersPage() {
         </TabPane>
 
         {/* Tab: Lệnh điều chuyển */}
-        <TabPane tab={`Lệnh điều chuyển (${inTransitOrders.length} đang vận chuyển)`} key="orders">
+        <TabPane tab="Lệnh điều chuyển" key="orders">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <Card>

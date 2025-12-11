@@ -275,18 +275,31 @@ export default function AdminConfigurationPage() {
       .filter((opt) => opt.value !== ConfigurationType.FacePlusPlus)
       .map((opt) => ({ label: opt.label, value: String(opt.value) }));
 
-    const templateExists = baseList.some(
-      (opt) => Number(opt.value) === Number(RENTAL_TEMPLATE_TYPE)
-    );
-    if (!templateExists) {
+    const existingValues = new Set(baseList.map((o) => String(o.value)));
+
+    // Bổ sung các type phát sinh từ API (backend có thêm type mới)
+    configs.forEach((item) => {
+      const key = String(item.type);
+      if (!existingValues.has(key)) {
+        baseList.push({
+          label: getTypeLabel(item.type),
+          value: key,
+        });
+        existingValues.add(key);
+      }
+    });
+
+    // Đảm bảo có tab template
+    if (!existingValues.has(String(RENTAL_TEMPLATE_TYPE))) {
       baseList.push({
         label: "File hợp đồng thuê",
         value: String(RENTAL_TEMPLATE_TYPE),
       });
+      existingValues.add(String(RENTAL_TEMPLATE_TYPE));
     }
 
     return baseList;
-  }, []);
+  }, [configs]);
 
   const templateRow = useMemo(
     () =>
@@ -300,6 +313,11 @@ export default function AdminConfigurationPage() {
     [templateConfig]
   );
 
+  const hasTemplateInConfigs = useMemo(
+    () => configs.some((item) => isRentalTemplateType(item.type)),
+    [configs]
+  );
+
   const groupedCounts = useMemo(() => {
     const counts = configs.reduce<Record<string, number>>((acc, item) => {
       const key = String(item.type);
@@ -307,23 +325,28 @@ export default function AdminConfigurationPage() {
       return acc;
     }, {});
 
-    if (templateRow) {
-      counts[String(RENTAL_TEMPLATE_TYPE)] = 1;
-    } else {
+    if (templateRow && !hasTemplateInConfigs) {
       counts[String(RENTAL_TEMPLATE_TYPE)] =
-        counts[String(RENTAL_TEMPLATE_TYPE)] || 0;
+        (counts[String(RENTAL_TEMPLATE_TYPE)] || 0) + 1;
     }
 
     return counts;
-  }, [configs, templateRow]);
+  }, [configs, templateRow, hasTemplateInConfigs]);
 
   const filteredConfigs = useMemo(() => {
     if (activeType === "ALL") return configs;
+
     if (activeType === String(RENTAL_TEMPLATE_TYPE)) {
+      if (hasTemplateInConfigs) {
+        return configs.filter(
+          (item) => String(item.type) === String(RENTAL_TEMPLATE_TYPE)
+        );
+      }
       return templateRow ? [templateRow] : [];
     }
+
     return configs.filter((item) => String(item.type) === activeType);
-  }, [configs, templateRow, activeType]);
+  }, [configs, templateRow, activeType, hasTemplateInConfigs]);
 
   const columns: ColumnsType<ConfigurationItem> = useMemo(
     () => [
@@ -469,7 +492,8 @@ export default function AdminConfigurationPage() {
             const isActive = activeType === option.value;
             const count =
               option.value === "ALL"
-                ? configs.length + (templateRow ? 1 : 0)
+                ? configs.length +
+                  (templateRow && !hasTemplateInConfigs ? 1 : 0)
                 : groupedCounts[option.value] || 0;
             return (
               <button

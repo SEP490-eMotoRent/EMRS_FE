@@ -9,12 +9,15 @@ import {
   Input,
   InputNumber,
   Modal,
+  Select,
   Space,
   Switch,
   Table,
   Tag,
   message,
 } from "antd";
+
+const { Option } = Select;
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import {
@@ -29,6 +32,8 @@ import {
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
+  ReloadOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 
 const dateFormat = "DD/MM/YYYY";
@@ -44,6 +49,8 @@ export default function HolidayPricingPage() {
   const [deletingHoliday, setDeletingHoliday] = useState<HolidayPricing | null>(
     null
   );
+  const [searchText, setSearchText] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -151,16 +158,43 @@ export default function HolidayPricingPage() {
     }
   };
 
+  // Filter và search client-side
+  const filteredHolidays = useMemo(() => {
+    let filtered = [...holidayPricings];
+    
+    // Filter theo trạng thái
+    if (selectedStatus !== "all") {
+      const isActive = selectedStatus === "active";
+      filtered = filtered.filter((h) => h.isActive === isActive);
+    }
+    
+    // Search
+    if (searchText) {
+      const searchLower = searchText.toLowerCase();
+      filtered = filtered.filter(
+        (h) =>
+          h.holidayName.toLowerCase().includes(searchLower) ||
+          h.description?.toLowerCase().includes(searchLower) ||
+          dayjs(h.holidayDate).format(dateFormat).includes(searchLower) ||
+          h.id.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return filtered;
+  }, [holidayPricings, selectedStatus, searchText]);
+
   const columns: ColumnsType<HolidayPricing> = useMemo(
     () => [
       {
         title: "Tên ngày lễ",
         dataIndex: "holidayName",
         key: "holidayName",
+        width: 250,
+        sorter: (a, b) => a.holidayName.localeCompare(b.holidayName),
         render: (text, record) => (
           <div>
-            <p className="font-semibold text-gray-900">{text}</p>
-            <p className="text-xs text-gray-500">{record.id}</p>
+            <p className="font-semibold text-gray-900 mb-0">{text}</p>
+            <p className="text-xs text-gray-400 mt-0.5 font-mono">{record.id.slice(0, 8)}...</p>
           </div>
         ),
       },
@@ -168,9 +202,11 @@ export default function HolidayPricingPage() {
         title: "Ngày",
         dataIndex: "holidayDate",
         key: "holidayDate",
-        width: 160,
+        width: 150,
+        sorter: (a, b) => new Date(a.holidayDate).getTime() - new Date(b.holidayDate).getTime(),
+        defaultSortOrder: 'ascend' as const,
         render: (value) => (
-          <Tag icon={<CalendarOutlined />} color="blue">
+          <Tag icon={<CalendarOutlined />} color="blue" className="text-sm">
             {dayjs(value).format(dateFormat)}
           </Tag>
         ),
@@ -179,9 +215,10 @@ export default function HolidayPricingPage() {
         title: "Hệ số giá",
         dataIndex: "priceMultiplier",
         key: "priceMultiplier",
-        width: 120,
+        width: 130,
+        sorter: (a, b) => a.priceMultiplier - b.priceMultiplier,
         render: (value, record) => (
-          <Tag color={record.isActive ? "green" : "default"}>
+          <Tag color={record.isActive ? "green" : "default"} className="text-sm font-semibold">
             x{value.toFixed(2)}
           </Tag>
         ),
@@ -190,27 +227,35 @@ export default function HolidayPricingPage() {
         title: "Mô tả",
         dataIndex: "description",
         key: "description",
-        ellipsis: true,
-        render: (value) => value || "-",
+        ellipsis: { showTitle: true },
+        render: (value) => (
+          <span className="text-gray-600">{value || "-"}</span>
+        ),
       },
       {
         title: "Trạng thái",
         dataIndex: "isActive",
         key: "isActive",
-        width: 120,
+        width: 140,
         render: (value: boolean) =>
-          value ? <Tag color="green">Đang áp dụng</Tag> : <Tag>Không dùng</Tag>,
+          value ? (
+            <Tag color="green" className="text-sm">Đang áp dụng</Tag>
+          ) : (
+            <Tag color="default" className="text-sm">Không dùng</Tag>
+          ),
       },
       {
         title: "Hành động",
         key: "actions",
-        width: 180,
+        width: 150,
+        fixed: 'right' as const,
         render: (_, record) => (
-          <Space>
+          <Space size="small">
             <Button
               type="link"
               icon={<EditOutlined />}
               onClick={() => handleOpenModal(record)}
+              size="small"
             >
               Sửa
             </Button>
@@ -223,6 +268,7 @@ export default function HolidayPricingPage() {
                 e.stopPropagation();
                 handleDelete(record);
               }}
+              size="small"
             >
               Xóa
             </Button>
@@ -234,32 +280,86 @@ export default function HolidayPricingPage() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">
           Quản lý giá ngày lễ
         </h1>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => handleOpenModal()}
-          size="large"
-        >
-          Thêm ngày lễ
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="default"
+            icon={<ReloadOutlined />}
+            onClick={() => refreshList()}
+            size="large"
+            className="w-full sm:w-auto"
+          >
+            <span className="hidden sm:inline">Làm mới</span>
+            <span className="sm:hidden">Tải lại</span>
+          </Button>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => handleOpenModal()}
+            size="large"
+            className="w-full sm:w-auto"
+          >
+            <span className="hidden sm:inline">Thêm ngày lễ</span>
+            <span className="sm:hidden">Thêm mới</span>
+          </Button>
+        </div>
       </div>
+
+      {/* Search and Filters */}
+      <Card className="shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <Input
+            placeholder="Tìm kiếm theo tên, mô tả, ngày..."
+            prefix={<SearchOutlined />}
+            allowClear
+            className="w-full sm:flex-1"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <Select
+            placeholder="Trạng thái"
+            className="w-full sm:w-48"
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+          >
+            <Option value="all">Tất cả</Option>
+            <Option value="active">Đang áp dụng</Option>
+            <Option value="inactive">Không dùng</Option>
+          </Select>
+        </div>
+      </Card>
 
       {/* Table */}
       <Card className="shadow-sm">
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={holidayPricings}
-          loading={loading}
-          pagination={{ pageSize: 10 }}
-          locale={{ emptyText: "Chưa có giá ngày lễ" }}
-        />
+        <div className="overflow-x-auto">
+          <Table
+            rowKey="id"
+            columns={columns}
+            dataSource={filteredHolidays}
+            loading={loading}
+            scroll={{ x: 'max-content' }}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total, range) => {
+                if (searchText || selectedStatus !== "all") {
+                  return `Hiển thị ${range[0]}-${range[1]} của ${total} kết quả`;
+                }
+                return `Tổng ${total} ngày lễ`;
+              },
+              pageSizeOptions: ["10", "20", "50", "100"],
+              responsive: true,
+              showLessItems: true,
+            }}
+            locale={{ emptyText: "Chưa có giá ngày lễ" }}
+            size="small"
+          />
+        </div>
       </Card>
 
       <Modal

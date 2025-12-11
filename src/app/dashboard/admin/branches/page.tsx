@@ -1,10 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Table, Button, Card, Input, Space, Tag, Modal, Form, message, Descriptions, InputNumber } from "antd";
+import { useEffect, useState, useRef } from "react";
+import { Table, Button, Card, Input, Space, Tag, Modal, Form, message, Descriptions, InputNumber, AutoComplete } from "antd";
 import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, SearchOutlined } from "@ant-design/icons";
 import { getBranches, getBranchById, createBranch, updateBranch, deleteBranch, Branch } from "./branch_service";
 import type { ColumnsType } from "antd/es/table";
+
+interface NominatimResult {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  address: {
+    city?: string;
+    town?: string;
+    village?: string;
+    state?: string;
+    country?: string;
+  };
+}
 
 
 export default function BranchesPage() {
@@ -19,10 +33,176 @@ export default function BranchesPage() {
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [form] = Form.useForm();
   const [searchText, setSearchText] = useState("");
+  const [addressOptions, setAddressOptions] = useState<{ value: string; label: string; data: NominatimResult }[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadBranches();
   }, []);
+
+  // Search address using Nominatim API
+  const searchAddress = async (query: string) => {
+    if (!query || query.length < 2) {
+      setAddressOptions([]);
+      return;
+    }
+
+    setIsSearchingAddress(true);
+    try {
+      // Debounce: Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+
+      // Wait 600ms before making request (rate limit: 1 request/second)
+      searchTimeoutRef.current = setTimeout(async () => {
+        try {
+          // Search only in Ho Chi Minh City
+          // Try multiple query formats for better results
+          const searchQueries = [
+            // Strategy 1: Query with "Ho Chi Minh City" or "Hồ Chí Minh"
+            `https://nominatim.openstreetmap.org/search?` +
+            `q=${encodeURIComponent(query + ', Ho Chi Minh City, Vietnam')}&` +
+            `format=json&` +
+            `limit=10&` +
+            `countrycodes=vn&` +
+            `addressdetails=1&` +
+            `extratags=1`,
+            
+            // Strategy 2: Alternative format with Vietnamese name
+            `https://nominatim.openstreetmap.org/search?` +
+            `q=${encodeURIComponent(query + ', Hồ Chí Minh, Việt Nam')}&` +
+            `format=json&` +
+            `limit=10&` +
+            `countrycodes=vn&` +
+            `addressdetails=1&` +
+            `extratags=1`,
+          ];
+
+          // Try first query
+          let response = await fetch(searchQueries[0], {
+            headers: {
+              'User-Agent': 'EMotoRent/1.0', // Required by Nominatim
+              'Accept-Language': 'vi,en',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch address');
+          }
+
+          let data: NominatimResult[] = await response.json();
+          
+          // Filter to only Ho Chi Minh City addresses
+          data = data.filter((item) => {
+            const address = item.address || {};
+            const displayName = item.display_name.toLowerCase();
+            // Check if address is in Ho Chi Minh City
+            return (
+              displayName.includes('ho chi minh') ||
+              displayName.includes('hồ chí minh') ||
+              displayName.includes('tp. hồ chí minh') ||
+              displayName.includes('thành phố hồ chí minh') ||
+              address.state === 'Ho Chi Minh City' ||
+              address.city === 'Ho Chi Minh City' ||
+              address.city === 'Hồ Chí Minh'
+            );
+          });
+          
+          // If we got few results, try alternative query
+          if (data.length < 3) {
+            response = await fetch(searchQueries[1], {
+              headers: {
+                'User-Agent': 'EMotoRent/1.0',
+                'Accept-Language': 'vi,en',
+              },
+            });
+            
+            if (response.ok) {
+              const additionalData: NominatimResult[] = await response.json();
+              // Filter to only Ho Chi Minh City
+              const filteredAdditional = additionalData.filter((item) => {
+                const address = item.address || {};
+                const displayName = item.display_name.toLowerCase();
+                return (
+                  displayName.includes('ho chi minh') ||
+                  displayName.includes('hồ chí minh') ||
+                  displayName.includes('tp. hồ chí minh') ||
+                  displayName.includes('thành phố hồ chí minh') ||
+                  address.state === 'Ho Chi Minh City' ||
+                  address.city === 'Ho Chi Minh City' ||
+                  address.city === 'Hồ Chí Minh'
+                );
+              });
+              
+              // Merge and deduplicate by place_id
+              const existingIds = new Set(data.map(d => d.place_id));
+              const newData = filteredAdditional.filter(d => !existingIds.has(d.place_id));
+              data = [...data, ...newData].slice(0, 15); // Limit to 15 total
+            }
+          }
+
+          // Format options with better display
+          const options = data.map((item) => {
+            // Extract key address parts for better display
+            const addressParts = item.display_name.split(',');
+            const mainAddress = addressParts.slice(0, 2).join(', '); // First 2 parts
+            const detailAddress = addressParts.slice(2).join(', '); // Rest
+            
+            return {
+              value: item.display_name,
+              label: (
+                <div className="py-1">
+                  <div className="font-medium text-sm">{mainAddress}</div>
+                  {detailAddress && (
+                    <div className="text-xs text-gray-500 truncate">{detailAddress}</div>
+                  )}
+                  <div className="text-xs text-blue-500 mt-0.5">
+                    📍 {parseFloat(item.lat).toFixed(6)}, {parseFloat(item.lon).toFixed(6)}
+                  </div>
+                </div>
+              ),
+              data: item,
+            };
+          });
+
+          setAddressOptions(options);
+        } catch (error) {
+          console.error('Error searching address:', error);
+          message.error('Không thể tìm kiếm địa chỉ. Vui lòng thử lại.');
+        } finally {
+          setIsSearchingAddress(false);
+        }
+      }, 600);
+    } catch (error) {
+      setIsSearchingAddress(false);
+    }
+  };
+
+  // Handle address selection
+  const handleAddressSelect = (value: string, option: any) => {
+    const result = option.data as NominatimResult;
+    
+    if (result) {
+      // Update form with coordinates
+      form.setFieldsValue({
+        latitude: parseFloat(result.lat),
+        longitude: parseFloat(result.lon),
+        address: result.display_name,
+      });
+
+      // Try to extract city
+      const city = result.address?.city || result.address?.town || result.address?.village;
+      if (city && !form.getFieldValue('city')) {
+        form.setFieldsValue({
+          city: city,
+        });
+      }
+
+      message.success('Đã lấy tọa độ từ địa chỉ');
+    }
+  };
 
   const loadBranches = async () => {
     setLoading(true);
@@ -236,10 +416,10 @@ export default function BranchesPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
           Quản lý chi nhánh
         </h1>
         <Button
@@ -247,8 +427,10 @@ export default function BranchesPage() {
           icon={<PlusOutlined />}
           onClick={handleCreate}
           size="large"
+          className="w-full sm:w-auto"
         >
-          Tạo chi nhánh
+          <span className="hidden sm:inline">Tạo chi nhánh</span>
+          <span className="sm:hidden">Tạo mới</span>
         </Button>
       </div>
 
@@ -258,7 +440,7 @@ export default function BranchesPage() {
           placeholder="Tìm theo tên, địa chỉ, thành phố hoặc số điện thoại"
           allowClear
           prefix={<SearchOutlined />}
-          style={{ maxWidth: 400 }}
+          className="w-full"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           onPressEnter={() => setSearchText(searchText)}
@@ -267,19 +449,25 @@ export default function BranchesPage() {
 
       {/* Table */}
       <Card className="shadow-sm">
-        <Table
-          columns={columns}
-          dataSource={filteredBranches}
-          rowKey="id"
-          loading={loading}
-          scroll={{ x: 1200 }}
-          pagination={{
-            pageSize: 12,
-            showSizeChanger: true,
-            showTotal: (total) => `Tổng: ${total} chi nhánh`,
-            pageSizeOptions: ["12", "24", "48", "96"],
-          }}
-        />
+        <div className="overflow-x-auto">
+          <Table
+            columns={columns}
+            dataSource={filteredBranches}
+            rowKey="id"
+            loading={loading}
+            scroll={{ x: 'max-content' }}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total) => `Tổng: ${total} chi nhánh`,
+              pageSizeOptions: ["10", "20", "50", "100"],
+              responsive: true,
+              showLessItems: true,
+            }}
+            size="small"
+            className="min-w-full"
+          />
+        </div>
       </Card>
 
       {/* Create/Edit Modal */}
@@ -294,10 +482,12 @@ export default function BranchesPage() {
         onOk={handleSubmit}
         okText={editingBranch ? "Cập nhật" : "Tạo"}
         cancelText="Hủy"
-        width={600}
-        destroyOnHidden={true}
+        width="90%"
+        style={{ maxWidth: 600 }}
+        destroyOnClose={true}
+        centered
       >
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" className="mt-4">
           <Form.Item
             name="branchName"
             label="Tên chi nhánh"
@@ -309,8 +499,19 @@ export default function BranchesPage() {
             name="address"
             label="Địa chỉ"
             rules={[{ required: true, message: "Vui lòng nhập địa chỉ" }]}
+            help="Nhập địa chỉ ở thành phố Hồ Chí Minh để tự động lấy tọa độ (chọn từ gợi ý - OpenStreetMap)"
           >
-            <Input placeholder="Nhập địa chỉ" />
+            <AutoComplete
+              options={addressOptions}
+              onSearch={searchAddress}
+              onSelect={handleAddressSelect}
+              placeholder="Nhập địa chỉ (sẽ tự động lấy tọa độ)"
+              notFoundContent={isSearchingAddress ? "Đang tìm kiếm..." : addressOptions.length === 0 ? "Nhập ít nhất 2 ký tự để tìm kiếm" : "Không tìm thấy địa chỉ"}
+              filterOption={false}
+              style={{ width: '100%' }}
+              dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
+              allowClear
+            />
           </Form.Item>
           <Form.Item
             name="city"
@@ -336,15 +537,16 @@ export default function BranchesPage() {
           >
             <Input type="email" placeholder="Nhập email" />
           </Form.Item>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Form.Item
               name="latitude"
               label="Vĩ độ"
               rules={[{ required: true, message: "Vui lòng nhập vĩ độ" }]}
+              help="Sẽ tự động điền khi chọn địa chỉ (có thể chỉnh sửa)"
             >
               <InputNumber
                 style={{ width: "100%" }}
-                placeholder="Nhập vĩ độ"
+                placeholder="Tự động điền khi chọn địa chỉ"
                 step={0.0001}
               />
             </Form.Item>
@@ -352,15 +554,16 @@ export default function BranchesPage() {
               name="longitude"
               label="Kinh độ"
               rules={[{ required: true, message: "Vui lòng nhập kinh độ" }]}
+              help="Sẽ tự động điền khi chọn địa chỉ (có thể chỉnh sửa)"
             >
               <InputNumber
                 style={{ width: "100%" }}
-                placeholder="Nhập kinh độ"
+                placeholder="Tự động điền khi chọn địa chỉ"
                 step={0.0001}
               />
             </Form.Item>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Form.Item
               name="openingTime"
               label="Giờ mở cửa"
@@ -389,7 +592,9 @@ export default function BranchesPage() {
             Đóng
           </Button>,
         ]}
-        width={800}
+        width="90%"
+        style={{ maxWidth: 800 }}
+        centered
       >
         {selectedBranch && (
           <Descriptions title="Thông tin chi nhánh" column={2} bordered>

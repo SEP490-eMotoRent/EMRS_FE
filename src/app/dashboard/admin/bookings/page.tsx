@@ -18,7 +18,6 @@ import {
 import {
   ReloadOutlined,
   EyeOutlined,
-  CloseCircleOutlined,
   SearchOutlined,
   FileTextOutlined,
   DownloadOutlined,
@@ -27,7 +26,6 @@ import dayjs from "dayjs";
 import {
   getBookings,
   getBookingById,
-  cancelBooking,
   BookingFilters,
   BookingListResponse,
   Booking,
@@ -73,10 +71,7 @@ export default function AdminBookingsPage() {
   
   // Modal states
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-  const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     loadBookings();
@@ -91,7 +86,52 @@ export default function AdminBookingsPage() {
       };
       
       const response: BookingListResponse = await getBookings(apiFilters);
-      setBookings(response.items);
+
+      // Bổ sung chi nhánh cho từng booking (API list có thể không trả chi nhánh)
+      const enriched = await Promise.all(
+        response.items.map(async (item) => {
+          // Nếu đã có thông tin chi nhánh thì dùng luôn
+          const hasBranch =
+            item.handoverBranch ||
+            (item as any).branch ||
+            (item as any).pickupBranch ||
+            (item as any).dropoffBranch ||
+            (item as any).handoverBranchName ||
+            (item as any).returnBranchName ||
+            (item as any).branchName ||
+            (item as any).pickupBranchName ||
+            (item as any).dropoffBranchName;
+
+          if (hasBranch) return item;
+
+          // Nếu thiếu, gọi chi tiết để lấy chi nhánh
+          try {
+            const detail = await getBookingById(item.id);
+            return {
+              ...item,
+              handoverBranch:
+                detail.handoverBranch ||
+                (detail as any).branch ||
+                (detail as any).pickupBranch,
+              branchName:
+                (detail as any).handoverBranchName ||
+                (detail as any).branchName ||
+                (detail as any).pickupBranchName ||
+                detail.handoverBranch?.branchName ||
+                (detail as any).branch?.name,
+              branchCity:
+                (detail as any).branchCity ||
+                detail.handoverBranch?.city ||
+                (detail as any).branch?.city,
+            };
+          } catch (err) {
+            console.error("Error enriching booking with branch:", err);
+            return item;
+          }
+        })
+      );
+
+      setBookings(enriched);
       setPagination({
         current: response.currentPage,
         pageSize: response.pageSize,
@@ -133,26 +173,11 @@ export default function AdminBookingsPage() {
   };
 
   const handleCancel = (booking: Booking) => {
-    setBookingToCancel(booking);
-    setIsCancelModalVisible(true);
+    // Admin không hủy từ màn này; chỉ xem chi tiết
   };
 
   const confirmCancel = async () => {
-    if (!bookingToCancel) return;
-    
-    setIsCancelling(true);
-    try {
-      await cancelBooking(bookingToCancel.id);
-      message.success("Hủy đặt xe thành công");
-      setIsCancelModalVisible(false);
-      setBookingToCancel(null);
-      loadBookings();
-    } catch (error: any) {
-      console.error("Error cancelling booking:", error);
-      message.error(error.message || "Không thể hủy đặt xe");
-    } finally {
-      setIsCancelling(false);
-    }
+    // Admin không hủy từ màn này
   };
 
 
@@ -263,24 +288,46 @@ export default function AdminBookingsPage() {
       title: "Chi nhánh",
       key: "branch",
       width: 200,
-      render: (_, record) => (
-        <div>
-          {record.handoverBranch ? (
-            <>
-              <div className="font-medium">
-                {record.handoverBranch.branchName}
+      render: (_, record) => {
+        const branchObj =
+          record.handoverBranch ||
+          record.returnBranch ||
+          (record as any).branch ||
+          (record as any).pickupBranch ||
+          (record as any).dropoffBranch;
+
+        const branchNameStr =
+          (record as any).handoverBranchName ||
+          (record as any).returnBranchName ||
+          (record as any).branchName ||
+          (record as any).pickupBranchName ||
+          (record as any).dropoffBranchName;
+
+        // Nếu chỉ có tên dạng string
+        if (typeof branchObj === "string") {
+          return <span className="font-medium">{branchObj || "N/A"}</span>;
+        }
+
+        if (!branchObj && !branchNameStr) {
+          return <span className="text-gray-400">N/A</span>;
+        }
+
+        return (
+          <div>
+            <div className="font-medium">
+              {branchObj?.branchName ||
+                branchObj?.name ||
+                branchNameStr ||
+                "N/A"}
+            </div>
+            {(branchObj?.city || (record as any).branchCity) && (
+              <div className="text-xs text-gray-500">
+                {branchObj?.city || (record as any).branchCity}
               </div>
-              {record.handoverBranch.city && (
-                <div className="text-xs text-gray-500">
-                  {record.handoverBranch.city}
-                </div>
-              )}
-            </>
-          ) : (
-            <span className="text-gray-400">N/A</span>
-          )}
-        </div>
-      ),
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Thời gian",
@@ -335,12 +382,6 @@ export default function AdminBookingsPage() {
       width: 200,
       fixed: "right",
       render: (_, record) => {
-        const canCancel = 
-          record.bookingStatus !== "Cancelled" && 
-          record.bookingStatus !== "CANCELLED" &&
-          record.bookingStatus !== "Completed" &&
-          record.bookingStatus !== "COMPLETED";
-        
         return (
           <Space>
             <Button
@@ -350,16 +391,6 @@ export default function AdminBookingsPage() {
             >
               Chi tiết
             </Button>
-            {canCancel && (
-              <Button
-                type="link"
-                danger
-                icon={<CloseCircleOutlined />}
-                onClick={() => handleCancel(record)}
-              >
-                Hủy
-              </Button>
-            )}
           </Space>
         );
       },
@@ -367,10 +398,10 @@ export default function AdminBookingsPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">
           Quản lý đặt xe
         </h1>
         <Button
@@ -378,26 +409,28 @@ export default function AdminBookingsPage() {
           icon={<ReloadOutlined />}
           onClick={() => loadBookings()}
           size="large"
+          className="w-full sm:w-auto"
         >
-          Làm mới
+          <span className="hidden sm:inline">Làm mới</span>
+          <span className="sm:hidden">Tải lại</span>
         </Button>
       </div>
 
       {/* Search and Filters */}
       <Card className="shadow-sm">
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <Input
-            placeholder="Tìm kiếm theo mã, khách hàng, xe, chi nhánh..."
+            placeholder="Tìm kiếm theo mã, khách hàng, xe..."
             prefix={<SearchOutlined />}
             allowClear
-            style={{ maxWidth: 400, flex: 1, minWidth: 250 }}
+            className="w-full sm:flex-1"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             onPressEnter={() => loadBookings()}
           />
           <Select
             placeholder="Trạng thái"
-            style={{ width: 200 }}
+            className="w-full sm:w-48"
             value={selectedStatus}
             onChange={setSelectedStatus}
           >
@@ -413,29 +446,34 @@ export default function AdminBookingsPage() {
 
       {/* Table */}
       <Card className="shadow-sm">
-        <Table
-          rowKey="id"
-          loading={loading}
-          dataSource={filteredBookings}
-          columns={columns}
-          scroll={{ x: 1500 }}
-          pagination={{
-            current: pagination.current,
-            pageSize: pagination.pageSize,
-            total: searchText ? filteredBookings.length : pagination.total,
-            showSizeChanger: true,
-            showTotal: (total, range) => {
-              if (searchText) {
-                return `Hiển thị ${range[0]}-${range[1]} của ${total} kết quả tìm kiếm`;
-              }
-              return `Tổng ${total} đặt xe`;
-            },
-            pageSizeOptions: ["10", "20", "50", "100"],
-            onChange: searchText ? undefined : handleTableChange,
-            onShowSizeChange: searchText ? undefined : handleTableChange,
-          }}
-          locale={{ emptyText: "Chưa có đặt xe nào" }}
-        />
+        <div className="overflow-x-auto">
+          <Table
+            rowKey="id"
+            loading={loading}
+            dataSource={filteredBookings}
+            columns={columns}
+            scroll={{ x: 'max-content' }}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: searchText ? filteredBookings.length : pagination.total,
+              showSizeChanger: true,
+              showTotal: (total, range) => {
+                if (searchText) {
+                  return `Hiển thị ${range[0]}-${range[1]} của ${total} kết quả`;
+                }
+                return `Tổng ${total} đặt xe`;
+              },
+              pageSizeOptions: ["10", "20", "50", "100"],
+              onChange: searchText ? undefined : handleTableChange,
+              onShowSizeChange: searchText ? undefined : handleTableChange,
+              responsive: true,
+              showLessItems: true,
+            }}
+            locale={{ emptyText: "Chưa có đặt xe nào" }}
+            size="small"
+          />
+        </div>
       </Card>
 
       {/* Detail Modal */}
@@ -448,7 +486,9 @@ export default function AdminBookingsPage() {
             Đóng
           </Button>,
         ]}
-        width={900}
+        width="90%"
+        style={{ maxWidth: 1000 }}
+        centered
       >
         {selectedBooking && (
           <div className="space-y-4">
@@ -559,25 +599,72 @@ export default function AdminBookingsPage() {
             )}
 
             {/* Chi nhánh */}
-            {selectedBooking.handoverBranch && (
+            {(selectedBooking.handoverBranch ||
+              selectedBooking.returnBranch ||
+              (selectedBooking as any).branch ||
+              (selectedBooking as any).pickupBranch ||
+              (selectedBooking as any).dropoffBranch ||
+              (selectedBooking as any).handoverBranchName ||
+              (selectedBooking as any).returnBranchName ||
+              (selectedBooking as any).branchName ||
+              (selectedBooking as any).pickupBranchName ||
+              (selectedBooking as any).dropoffBranchName) && (
               <Descriptions title="Chi nhánh giao xe" column={2} bordered>
                 <Descriptions.Item label="Tên chi nhánh">
-                  {selectedBooking.handoverBranch.branchName}
+                  {(selectedBooking.handoverBranch ||
+                    selectedBooking.returnBranch ||
+                    (selectedBooking as any).branch ||
+                    (selectedBooking as any).pickupBranch ||
+                    (selectedBooking as any).dropoffBranch)?.branchName ||
+                    (selectedBooking as any).branch?.name ||
+                    (selectedBooking as any).handoverBranchName ||
+                    (selectedBooking as any).returnBranchName ||
+                    (selectedBooking as any).branchName ||
+                    (selectedBooking as any).pickupBranchName ||
+                    (selectedBooking as any).dropoffBranchName ||
+                    "N/A"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Thành phố">
-                  {selectedBooking.handoverBranch.city || "N/A"}
+                  {(selectedBooking.handoverBranch ||
+                    selectedBooking.returnBranch ||
+                    (selectedBooking as any).branch ||
+                    (selectedBooking as any).pickupBranch ||
+                    (selectedBooking as any).dropoffBranch)?.city ||
+                    (selectedBooking as any).branchCity ||
+                    "N/A"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Địa chỉ" span={2}>
-                  {selectedBooking.handoverBranch.address || "N/A"}
+                  {(selectedBooking.handoverBranch ||
+                    selectedBooking.returnBranch ||
+                    (selectedBooking as any).branch ||
+                    (selectedBooking as any).pickupBranch ||
+                    (selectedBooking as any).dropoffBranch)?.address ||
+                    "N/A"}
                 </Descriptions.Item>
-                {selectedBooking.handoverBranch.phone && (
+                {(selectedBooking.handoverBranch ||
+                  selectedBooking.returnBranch ||
+                  (selectedBooking as any).branch ||
+                  (selectedBooking as any).pickupBranch ||
+                  (selectedBooking as any).dropoffBranch)?.phone && (
                   <Descriptions.Item label="Số điện thoại">
-                    {selectedBooking.handoverBranch.phone}
+                    {(selectedBooking.handoverBranch ||
+                      selectedBooking.returnBranch ||
+                      (selectedBooking as any).branch ||
+                      (selectedBooking as any).pickupBranch ||
+                      (selectedBooking as any).dropoffBranch)?.phone}
                   </Descriptions.Item>
                 )}
-                {selectedBooking.handoverBranch.email && (
+                {(selectedBooking.handoverBranch ||
+                  selectedBooking.returnBranch ||
+                  (selectedBooking as any).branch ||
+                  (selectedBooking as any).pickupBranch ||
+                  (selectedBooking as any).dropoffBranch)?.email && (
                   <Descriptions.Item label="Email">
-                    {selectedBooking.handoverBranch.email}
+                    {(selectedBooking.handoverBranch ||
+                      selectedBooking.returnBranch ||
+                      (selectedBooking as any).branch ||
+                      (selectedBooking as any).pickupBranch ||
+                      (selectedBooking as any).dropoffBranch)?.email}
                   </Descriptions.Item>
                 )}
               </Descriptions>
@@ -806,46 +893,6 @@ export default function AdminBookingsPage() {
       </Modal>
 
       {/* Cancel Confirmation Modal */}
-      <Modal
-        title="Xác nhận hủy đặt xe"
-        open={isCancelModalVisible}
-        onOk={confirmCancel}
-        onCancel={() => {
-          setIsCancelModalVisible(false);
-          setBookingToCancel(null);
-        }}
-        okText="Hủy đặt xe"
-        okButtonProps={{ danger: true, loading: isCancelling }}
-        cancelText="Đóng"
-      >
-        {bookingToCancel && (
-          <>
-            <p>
-              Bạn có chắc muốn hủy đặt xe{" "}
-              <strong>{bookingToCancel.bookingCode || bookingToCancel.id.slice(0, 8)}</strong>?
-            </p>
-            <div className="mt-3 space-y-1 text-sm text-gray-600">
-              <p>
-                <strong>Khách hàng:</strong>{" "}
-                {bookingToCancel.renter?.account?.fullname || bookingToCancel.renter?.email || "N/A"}
-              </p>
-              <p>
-                <strong>Model xe:</strong>{" "}
-                {bookingToCancel.vehicleModel?.modelName || "N/A"}
-              </p>
-              <p>
-                <strong>Thời gian:</strong>{" "}
-                {dayjs(bookingToCancel.startDatetime).format("DD/MM/YYYY HH:mm")} -{" "}
-                {dayjs(bookingToCancel.endDatetime).format("DD/MM/YYYY HH:mm")}
-              </p>
-            </div>
-            <p className="text-red-500 text-sm mt-3 font-medium">
-              ⚠️ Hành động này không thể hoàn tác!
-            </p>
-          </>
-        )}
-      </Modal>
-
     </div>
   );
 }

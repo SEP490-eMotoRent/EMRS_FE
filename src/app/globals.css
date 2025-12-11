@@ -66,3 +66,248 @@ body {
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+
+/* Ẩn notification elements không mong muốn - Ẩn tất cả notification buttons/badges */
+div[class*="notification"],
+div[id*="notification"],
+button[class*="notification"],
+button[id*="notification"],
+a[class*="notification"],
+a[id*="notification"],
+[data-testid*="notification"],
+[aria-label*="notification"],
+[aria-label*="Notification"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Ẩn các element có icon "N" hoặc notification icon */
+div[class*="fixed"][class*="bottom"],
+div[id*="fixed"][id*="bottom"],
+button[class*="fixed"][class*="bottom"],
+a[class*="fixed"][class*="bottom"] {
+  /* Chỉ ẩn nếu có vẻ như là notification */
+}
+
+/* Ẩn các extension overlays - thử ẩn các element có z-index cao ở bottom-left */
+body > div[style*="position: fixed"][style*="bottom"],
+body > div[style*="position:fixed"][style*="bottom"],
+body > button[style*="position: fixed"][style*="bottom"],
+body > a[style*="position: fixed"][style*="bottom"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* ===== RESPONSIVE STYLES ===== */
+
+/* Tables - Responsive */
+@media (max-width: 768px) {
+  .ant-table {
+    font-size: 12px;
+  }
+  
+  .ant-table-thead > tr > th {
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+  
+  .ant-table-tbody > tr > td {
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+  
+  /* Hide less important columns on mobile */
+  .ant-table-column-hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Modals - Responsive */
+@media (max-width: 640px) {
+  .ant-modal {
+    margin: 10px !important;
+    max-width: calc(100% - 20px) !important;
+  }
+  
+  .ant-modal-content {
+    padding: 16px !important;
+  }
+  
+  .ant-modal-header {
+    padding: 12px 16px !important;
+  }
+  
+  .ant-modal-body {
+    padding: 16px !important;
+  }
+  
+  .ant-modal-footer {
+    padding: 12px 16px !important;
+  }
+}
+
+/* Forms - Responsive */
+@media (max-width: 640px) {
+  .ant-form-item-label {
+    padding-bottom: 4px !important;
+  }
+  
+  .ant-form-item-label > label {
+    font-size: 13px !important;
+  }
+  
+  .ant-input,
+  .ant-input-number,
+  .ant-select-selector {
+    font-size: 14px !important;
+    padding: 8px 12px !important;
+  }
+}
+
+/* Cards - Responsive */
+@media (max-width: 640px) {
+  .ant-card {
+    margin-bottom: 12px;
+  }
+  
+  .ant-card-head {
+    padding: 12px 16px !important;
+    min-height: 48px !important;
+  }
+  
+  .ant-card-body {
+    padding: 12px 16px !important;
+  }
+}
+
+/* Buttons - Responsive */
+@media (max-width: 640px) {
+  .ant-btn {
+    font-size: 13px;
+    padding: 6px 12px;
+    height: auto;
+  }
+  
+  .ant-btn-lg {
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+}
+
+/* Space/Gap - Responsive */
+@media (max-width: 640px) {
+  .ant-space {
+    gap: 8px !important;
+  }
+  
+  .ant-space-item {
+    margin-right: 0 !important;
+  }
+}
+
+/* Descriptions - Responsive */
+@media (max-width: 640px) {
+  .ant-descriptions-item-label {
+    width: 100px !important;
+    font-size: 12px !important;
+  }
+  
+  .ant-descriptions-item-content {
+    font-size: 12px !important;
+  }
+  
+  .ant-descriptions-row > td {
+    padding-bottom: 8px !important;
+  }
+}
+
+/* Tabs - Responsive */
+@media (max-width: 640px) {
+  .ant-tabs-tab {
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* Drawer - Responsive */
+@media (max-width: 640px) {
+  .ant-drawer-content-wrapper {
+    width: 100% !important;
+  }
+}
+
+/* Images - Responsive */
+@media (max-width: 640px) {
+  .ant-image {
+    max-width: 100%;
+  }
+  
+  .ant-image-img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Pagination - Responsive */
+@media (max-width: 640px) {
+  .ant-pagination {
+    font-size: 12px;
+  }
+  
+  .ant-pagination-item {
+    min-width: 28px;
+    height: 28px;
+    line-height: 26px;
+  }
+  
+  .ant-pagination-prev,
+  .ant-pagination-next {
+    min-width: 28px;
+    height: 28px;
+    line-height: 26px;
+  }
+  
+  .ant-pagination-options {
+    display: none !important;
+  }
+}
+
+/* AutoComplete dropdown - Responsive */
+@media (max-width: 640px) {
+  .ant-select-dropdown {
+    font-size: 13px;
+  }
+}
+
+/* Table columns - Hide on mobile using nth-child */
+@media (max-width: 640px) {
+  /* Hide columns 3, 4, 5 on mobile (Ngày bắt đầu, Ngày kết thúc, Tổng phí) */
+  .ant-table-thead > tr > th:nth-child(3),
+  .ant-table-tbody > tr > td:nth-child(3),
+  .ant-table-thead > tr > th:nth-child(4),
+  .ant-table-tbody > tr > td:nth-child(4),
+  .ant-table-thead > tr > th:nth-child(5),
+  .ant-table-tbody > tr > td:nth-child(5) {
+    display: none;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  /* Hide column 4, 5 on tablet (Ngày kết thúc, Tổng phí) */
+  .ant-table-thead > tr > th:nth-child(4),
+  .ant-table-tbody > tr > td:nth-child(4),
+  .ant-table-thead > tr > th:nth-child(5),
+  .ant-table-tbody > tr > td:nth-child(5) {
+    display: none;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Hide column 5 on small desktop (Tổng phí) */
+  .ant-table-thead > tr > th:nth-child(5),
+  .ant-table-tbody > tr > td:nth-child(5) {
+    display: none;
+  }
+}

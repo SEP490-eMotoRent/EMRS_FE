@@ -92,8 +92,41 @@ function extractLatLng(obj: any): { lat: number; lng: number } | null {
 function RecenterOnMarker({ position }: { position: LatLngExpression }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(position, map.getZoom());
+    // Giữ nguyên zoom level hiện tại khi pan đến vị trí mới
+    const currentZoom = map.getZoom();
+    map.setView(position, currentZoom, {
+      animate: true,
+      duration: 0.5,
+    });
+    // Invalidate size để đảm bảo tiles được load đúng
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
   }, [position, map]);
+  return null;
+}
+
+// Component để đảm bảo map hiển thị đúng khi zoom
+function MapZoomHandler() {
+  const map = useMap();
+  
+  useEffect(() => {
+    const handleZoom = () => {
+      // Invalidate size khi zoom để đảm bảo tiles được load
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 50);
+    };
+    
+    map.on('zoomend', handleZoom);
+    map.on('zoom', handleZoom);
+    
+    return () => {
+      map.off('zoomend', handleZoom);
+      map.off('zoom', handleZoom);
+    };
+  }, [map]);
+  
   return null;
 }
 
@@ -549,15 +582,27 @@ export default function VehicleTrackingScreen({
       ) : (
         <div className="h-[500px] w-full rounded-lg overflow-hidden shadow relative">
           <MapContainer
+            key={location ? `${location.lat}-${location.lng}` : 'default'}
             center={location ? [location.lat, location.lng] : defaultCenter}
             zoom={location ? 15 : 13}
+            minZoom={3}
+            maxZoom={19}
             style={{ height: "100%", width: "100%" }}
+            whenReady={(map) => {
+              // Đảm bảo map được render đúng khi ready
+              map.target.invalidateSize();
+            }}
           >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
+            maxNativeZoom={19}
+            tileSize={256}
+            zoomOffset={0}
           />
 
+          <MapZoomHandler />
           {location ? (
             <>
               <Marker 

@@ -151,47 +151,31 @@ function normalizeVehicle(vehicle: any) {
   // Xử lý ảnh từ nhiều nguồn: medias, fileUrl, imageFiles, mediaResponses
   let imageUrls: string[] = [];
   
-  console.log("normalizeVehicle - Raw vehicle data:", {
-    hasMedias: !!vehicle.medias,
-    mediasType: Array.isArray(vehicle.medias) ? "array" : typeof vehicle.medias,
-    mediasLength: Array.isArray(vehicle.medias) ? vehicle.medias.length : "N/A",
-    medias: vehicle.medias,
-    fileUrl: vehicle.fileUrl,
-    imageFiles: vehicle.imageFiles,
-    mediaResponses: vehicle.mediaResponses,
-  });
-  
   // Ưu tiên medias array (format mới từ API)
-  if (vehicle.medias && Array.isArray(vehicle.medias)) {
-    console.log("normalizeVehicle - Processing medias array, length:", vehicle.medias.length);
+  if (vehicle.medias && Array.isArray(vehicle.medias) && vehicle.medias.length > 0) {
     imageUrls = vehicle.medias
       .filter((media: any) => {
         const isValid = media.mediaType === "Image" && (media.fileUrl || media.url);
-        if (!isValid) {
-          console.log("normalizeVehicle - Filtered out media:", media);
-        }
         return isValid;
       })
       .map((media: any) => media.fileUrl || media.url);
-    console.log("normalizeVehicle - Extracted imageUrls from medias:", imageUrls);
-  } else if (vehicle.fileUrl && Array.isArray(vehicle.fileUrl)) {
-    console.log("normalizeVehicle - Using fileUrl array");
-    imageUrls = vehicle.fileUrl;
-  } else if (vehicle.imageFiles && Array.isArray(vehicle.imageFiles)) {
-    console.log("normalizeVehicle - Using imageFiles array");
-    imageUrls = vehicle.imageFiles;
+  } else if (vehicle.fileUrl && Array.isArray(vehicle.fileUrl) && vehicle.fileUrl.length > 0) {
+    // fileUrl là array trực tiếp từ API
+    imageUrls = vehicle.fileUrl.filter((url: any) => url && typeof url === 'string');
+  } else if (vehicle.imageFiles && Array.isArray(vehicle.imageFiles) && vehicle.imageFiles.length > 0) {
+    imageUrls = vehicle.imageFiles.filter((url: any) => url && typeof url === 'string');
   } else if (vehicle.mediaResponses && Array.isArray(vehicle.mediaResponses)) {
-    console.log("normalizeVehicle - Using mediaResponses array");
     // Extract URLs từ mediaResponses array
     imageUrls = vehicle.mediaResponses
       .filter((media: any) => media.fileUrl || media.url)
-      .map((media: any) => media.fileUrl || media.url);
+      .map((media: any) => media.fileUrl || media.url)
+      .filter((url: any) => url && typeof url === 'string');
   }
   
   const normalized = {
     ...vehicle,
-    gpsDeviceIdent: vehicle.gpsDeviceIdent || vehicle.GpsDeviceIdent || null,
-    flespiDeviceId: vehicle.flespiDeviceId || vehicle.FlespiDeviceId || null,
+    gpsDeviceIdent: vehicle.gpsDeviceIdent || vehicle.GpsDeviceIdent || vehicle.gpsDeviceId || null,
+    flespiDeviceId: vehicle.flespiDeviceId || vehicle.FlespiDeviceId || vehicle.flespiDeviceId || null,
     // Map id -> vehicleId để tương thích
     vehicleId: vehicle.id || vehicle.vehicleId,
     // Map vehicleModel.modelName -> vehicleModelName
@@ -199,8 +183,9 @@ function normalizeVehicle(vehicle: any) {
     // Map vehicleModel.id -> vehicleModelId
     vehicleModelId: vehicle.vehicleModel?.id || vehicle.vehicleModelId,
     // Map fileUrl -> imageFiles (ưu tiên medias, sau đó fileUrl, imageFiles, cuối cùng mediaResponses)
-    fileUrl: imageUrls,
-    imageFiles: imageUrls,
+    // Nếu imageUrls rỗng nhưng vehicle có fileUrl, dùng fileUrl gốc
+    fileUrl: imageUrls.length > 0 ? imageUrls : (vehicle.fileUrl || []),
+    imageFiles: imageUrls.length > 0 ? imageUrls : (vehicle.fileUrl || []),
     // Giữ nguyên medias array để có thể truy cập đầy đủ thông tin
     medias: vehicle.medias || undefined,
     // Giữ nguyên branch object nếu có
@@ -211,7 +196,7 @@ function normalizeVehicle(vehicle: any) {
     // Giữ nguyên vehicleModel object với rentalPricing
     vehicleModel: vehicle.vehicleModel ? {
       ...vehicle.vehicleModel,
-      rentalPricing: vehicle.vehicleModel.rentalPricing || undefined,
+      rentalPricing: vehicle.vehicleModel.rentalPricing || vehicle.rentalPricing || undefined,
     } : undefined,
   };
   
@@ -413,6 +398,37 @@ export async function updateMedia(mediaId: string, file: File) {
   try {
     json = text ? JSON.parse(text) : {};
   } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
+// Xóa media (ảnh) của vehicle
+export async function deleteMedia(mediaId: string) {
+  const url = `${INTERNAL_BASE}/api/media?mediaId=${encodeURIComponent(mediaId)}`;
+  
+  const res = await fetch(url, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to delete media:", res.status, errorText);
+    throw new Error(`Failed to delete media: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+  
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    // Nếu không parse được JSON nhưng status là 200, vẫn coi là thành công
+    if (res.ok) {
+      return { success: true };
+    }
     console.error("Failed to parse JSON:", text);
     throw new Error("Invalid JSON response");
   }

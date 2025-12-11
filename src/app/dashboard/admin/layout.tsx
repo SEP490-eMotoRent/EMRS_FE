@@ -19,11 +19,15 @@ import {
   Calendar,
   ClipboardCheck,
   Crown,
+  Menu,
+  X,
 } from "lucide-react";
+import { useState } from "react";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const menuItems = [
     { label: "Dashboard", href: "/dashboard/admin/dashboard", icon: <LayoutDashboard size={18} /> },
@@ -40,32 +44,60 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { label: "Giá & chính sách", href: "/dashboard/admin/policies", icon: <Wallet size={18} /> },
     { label: "Giá ngày lễ", href: "/dashboard/admin/holiday-pricing", icon: <Calendar size={18} /> },
     { label: "Membership", href: "/dashboard/admin/memberships", icon: <Crown size={18} /> },
-    { label: "Báo cáo", href: "/dashboard/admin/reports", icon: <FileText size={18} /> },
-    { label: "Settings", href: "/dashboard/admin/settings", icon: <Settings size={18} /> },
   ];
 
   const handleLogout = () => {
+    // Xóa tất cả cookies
     Cookies.remove("emoto_token");
-    router.push("/auth/login");
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "branchId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "branchName=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "fullName=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "username=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "userId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "staffId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    
+    // Sử dụng replace thay vì push để không cho phép quay lại
+    router.replace("/auth/login");
   };
 
   return (
     <div className="min-h-screen flex bg-gray-100 text-gray-800">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-[#111827] text-gray-200 flex flex-col">
-        {/* Logo */}
-        <div className="p-5 border-b border-gray-700">
+      <aside
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-[#111827] text-gray-200 flex flex-col transform transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
+        {/* Logo with close button */}
+        <div className="p-5 border-b border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">eMotoRent</h2>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden text-gray-400 hover:text-white"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Menu */}
-        <nav className="flex-1 p-3 mt-2 space-y-1">
+        <nav className="flex-1 p-3 mt-2 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const active = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   active
                     ? "bg-gray-700 text-white"
@@ -73,7 +105,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 }`}
               >
                 {item.icon}
-                {item.label}
+                <span className="truncate">{item.label}</span>
               </Link>
             );
           })}
@@ -84,23 +116,29 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           onClick={handleLogout}
           className="m-4 flex items-center gap-2 bg-red-600 hover:bg-red-700 text-sm font-medium px-3 py-2 rounded-lg transition"
         >
-          <LogOut size={16} /> Đăng xuất
+          <LogOut size={16} /> <span className="truncate">Đăng xuất</span>
         </button>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="bg-white border-b shadow-sm h-14 flex items-center justify-end px-6">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm">
+        <header className="bg-white border-b shadow-sm h-14 flex items-center justify-between px-4 lg:px-6">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden text-gray-600 hover:text-gray-900"
+          >
+            <Menu size={24} />
+          </button>
+          <div className="flex items-center gap-3 ml-auto">
+            <div className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               A
             </div>
-            <span className="text-sm text-gray-700 font-medium">Admin</span>
+            <span className="text-sm text-gray-700 font-medium hidden sm:inline">Admin</span>
           </div>
         </header>
 
-        <div className="flex-1 p-6 overflow-y-auto">{children}</div>
+        <div className="flex-1 p-4 lg:p-6 overflow-y-auto">{children}</div>
       </main>
     </div>
   );
@@ -120,7 +158,6 @@ function getPageTitle(path: string) {
   if (path.includes("insurance")) return "Sự cố & bảo hiểm";
   if (path.includes("policies")) return "Giá & chính sách";
   if (path.includes("holiday-pricing")) return "Giá ngày lễ";
-  if (path.includes("reports")) return "Báo cáo";
-  if (path.includes("settings")) return "Cài đặt hệ thống";
+  // Hidden routes (reports/settings) are removed from menu
   return "Dashboard";
 }

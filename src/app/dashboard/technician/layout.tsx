@@ -68,7 +68,8 @@ export default function TechnicianLayout({
         (document.cookie = `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`)
     );
     message.success("Đã đăng xuất");
-    router.push("/auth/login");
+    // Sử dụng replace thay vì push để không cho phép quay lại
+    router.replace("/auth/login");
   };
 
   return (

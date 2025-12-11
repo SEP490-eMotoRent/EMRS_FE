@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Table, Button, Input, Select, Space, Tag, Modal, Form, DatePicker, Upload, message, Image, Card, Descriptions, Tooltip } from "antd";
 import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, UploadOutlined, RadarChartOutlined, SearchOutlined } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
-import { getVehicles, getVehicleById, createVehicle, updateVehicle, deleteVehicle, createMedia, updateMedia, VehicleFilters, VehicleListResponse } from "./vehicle_service";
+import { getVehicles, getVehicleById, createVehicle, updateVehicle, deleteVehicle, createMedia, updateMedia, deleteMedia, VehicleFilters, VehicleListResponse } from "./vehicle_service";
 import type { ColumnsType } from "antd/es/table";
 
 const { Option } = Select;
@@ -56,6 +56,12 @@ interface Vehicle {
   flespiDeviceId?: number;
   description?: string;
   vehicleModelId?: string;
+  rentalCount?: number;
+  rentalPricing?: {
+    id: string;
+    rentalPrice: number;
+    excessKmPrice?: number;
+  };
   vehicleModel?: {
     id: string;
     modelName: string;
@@ -117,6 +123,9 @@ export default function VehiclesPage() {
   const [loadingModels, setLoadingModels] = useState(false);
   const [trackingCache, setTrackingCache] = useState<Record<string, TrackingInfo>>({});
 
+  const hasTrackingInfo = (v: { gpsDeviceIdent?: string; flespiDeviceId?: number | string }) =>
+    Boolean(v?.gpsDeviceIdent && v?.flespiDeviceId);
+
   // Load branches and models once
   useEffect(() => {
     loadBranches();
@@ -134,9 +143,11 @@ export default function VehiclesPage() {
     setLoading(true);
     try {
       // Build filters với search và status
+      const licensePlateFilter = searchText ? undefined : searchText;
+
       const apiFilters: VehicleFilters = {
         ...filters,
-        LicensePlate: searchText || undefined,
+        LicensePlate: licensePlateFilter,
         Status: selectedStatus !== "all" ? selectedStatus : undefined,
         BranchId: selectedBranch !== "all" ? selectedBranch : undefined,
         VehicleModelId: selectedModel !== "all" ? selectedModel : undefined,
@@ -177,57 +188,74 @@ export default function VehiclesPage() {
         };
       });
       
-      const trackingUpdates: Record<string, TrackingInfo> = {};
-      const vehiclesWithTracking = await Promise.all(
-        vehiclesWithBranch.map(async (vehicle) => {
-          const vehicleId = vehicle.id || vehicle.vehicleId;
-          if (!vehicleId) {
-            return vehicle;
-          }
+      // Gán tracking từ list (nhanh), sau đó sẽ bổ sung bằng detail nếu thiếu
+      const vehiclesWithTracking = vehiclesWithBranch.map((vehicle) => {
+        const vehicleId = vehicle.id || vehicle.vehicleId;
+        if (!vehicleId) return vehicle;
 
-          const cachedTracking = trackingCache[vehicleId];
-          if (cachedTracking) {
-            return {
-              ...vehicle,
-              ...cachedTracking,
-            };
-          }
+        const cachedTracking = trackingCache[vehicleId];
+        if (cachedTracking) {
+          return { ...vehicle, ...cachedTracking };
+        }
 
-          if (vehicle.gpsDeviceIdent || vehicle.flespiDeviceId) {
-            trackingUpdates[vehicleId] = {
-              gpsDeviceIdent: vehicle.gpsDeviceIdent,
-              flespiDeviceId: vehicle.flespiDeviceId,
-            };
-            return vehicle;
-          }
+        const hasTracking = hasTrackingInfo(vehicle);
+        const trackingData: TrackingInfo = hasTracking
+          ? {
+              gpsDeviceIdent: vehicle.gpsDeviceIdent || undefined,
+              flespiDeviceId: vehicle.flespiDeviceId || undefined,
+            }
+          : {};
 
-          try {
-            const detail = await getVehicleById(vehicleId);
-            const trackingData: TrackingInfo = {
-              gpsDeviceIdent: detail.gpsDeviceIdent || undefined,
-              flespiDeviceId: detail.flespiDeviceId || undefined,
-            };
-            trackingUpdates[vehicleId] = trackingData;
-            return {
-              ...vehicle,
-              ...trackingData,
-            };
-          } catch (error) {
-            console.warn("Không thể lấy tracking info cho xe", vehicleId, error);
-            trackingUpdates[vehicleId] = {};
-            return vehicle;
-          }
-        })
-      );
+        if (hasTracking) {
+          setTrackingCache((prev) => ({ ...prev, [vehicleId]: trackingData }));
+        }
 
-      if (Object.keys(trackingUpdates).length > 0) {
-        setTrackingCache((prev) => ({
-          ...prev,
-          ...trackingUpdates,
-        }));
-      }
+        return { ...vehicle, ...trackingData };
+      });
 
       setVehicles(vehiclesWithTracking);
+
+      // Bổ sung tracking bằng detail cho các xe chưa có (giới hạn để không bị chậm)
+      const missingTracking = vehiclesWithTracking
+        .filter(
+          (v) => !hasTrackingInfo(v) && (v.id || v.vehicleId)
+        )
+        .slice(0, 30); // giới hạn để tránh gọi quá nhiều
+
+      if (missingTracking.length > 0) {
+        Promise.allSettled(
+          missingTracking.map(async (v) => {
+            const vehicleId = v.id || v.vehicleId;
+            if (!vehicleId) return;
+            try {
+              const detail = await getVehicleById(vehicleId);
+              const trackingData: TrackingInfo = hasTrackingInfo(detail)
+                ? {
+                    gpsDeviceIdent: detail.gpsDeviceIdent || undefined,
+                    flespiDeviceId: detail.flespiDeviceId || undefined,
+                  }
+                : {};
+
+              if (hasTrackingInfo(trackingData)) {
+                setTrackingCache((prev) => ({
+                  ...prev,
+                  [vehicleId]: trackingData,
+                }));
+                // cập nhật ngay trong danh sách hiện tại
+                setVehicles((prev) =>
+                  prev.map((item) =>
+                    (item.id || item.vehicleId) === vehicleId
+                      ? { ...item, ...trackingData }
+                      : item
+                  )
+                );
+              }
+            } catch (error) {
+              console.warn("Không thể lấy tracking info (detail) cho xe", vehicleId, error);
+            }
+          })
+        );
+      }
       setPagination({
         current: response.currentPage,
         pageSize: response.pageSize,
@@ -252,6 +280,25 @@ export default function VehiclesPage() {
 
     return () => clearTimeout(timer);
   }, [searchText, selectedStatus, selectedBranch, selectedModel]);
+
+  // Client-side search (biển số, model, màu)
+  const filteredVehicles = useMemo(() => {
+    if (!searchText) return vehicles;
+    const s = searchText.toLowerCase();
+    return vehicles.filter((v) => {
+      const plate = v.licensePlate?.toLowerCase() || "";
+      const model =
+        v.vehicleModelName?.toLowerCase() ||
+        v.vehicleModel?.modelName?.toLowerCase() ||
+        "";
+      const color = v.color?.toLowerCase() || "";
+      return (
+        plate.includes(s) ||
+        model.includes(s) ||
+        color.includes(s)
+      );
+    });
+  }, [vehicles, searchText]);
 
   // Handle pagination change
   const handleTableChange = (page: number, pageSize: number) => {
@@ -302,10 +349,15 @@ export default function VehiclesPage() {
     }
   };
 
-  const loadVehicleModels = async () => {
+  const loadVehicleModels = async (branchId?: string) => {
     setLoadingModels(true);
     try {
-      const res = await fetch(`${INTERNAL_BASE}/api/vehicle-model/list-all`, {
+      // Nếu có branchId, load model theo chi nhánh (với pageSize lớn để lấy tất cả)
+      const url = branchId 
+        ? `${INTERNAL_BASE}/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000`
+        : `${INTERNAL_BASE}/api/vehicle-model/list-all`;
+      
+      const res = await fetch(url, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch vehicle models");
@@ -320,7 +372,7 @@ export default function VehiclesPage() {
           // API trả về { success: true, data: [...] }
           modelsData = json.data;
         } else if (json.data.items && Array.isArray(json.data.items)) {
-          // API trả về { success: true, data: { items: [...] } }
+          // API trả về { success: true, data: { items: [...] } } (có pagination)
           modelsData = json.data.items;
         }
       } else if (Array.isArray(json)) {
@@ -353,42 +405,62 @@ export default function VehiclesPage() {
     }
   };
 
+  // Load model xe theo chi nhánh
+  const loadVehicleModelsByBranch = async (branchId: string) => {
+    await loadVehicleModels(branchId);
+  };
+
   // Không cần filter client-side nữa vì đã filter ở server
 
   // Handle create/edit
-  const handleOpenModal = (vehicle?: Vehicle) => {
+  const handleOpenModal = async (vehicle?: Vehicle) => {
     if (vehicle) {
-      setEditingVehicle(vehicle);
       const vehicleId = vehicle.id || vehicle.vehicleId;
-      const vehicleModelId = vehicle.vehicleModelId || vehicle.vehicleModel?.id;
+      
+      // Load đầy đủ thông tin từ detail API để có tất cả dữ liệu
+      let fullVehicle = vehicle;
+      if (vehicleId) {
+        try {
+          const detail = await getVehicleById(vehicleId);
+          fullVehicle = detail;
+          console.log("Loaded full vehicle detail:", detail);
+        } catch (error) {
+          console.warn("Không thể load chi tiết xe, dùng dữ liệu từ list:", error);
+          // Fallback: dùng dữ liệu từ list
+        }
+      }
+      
+      setEditingVehicle(fullVehicle);
+      const vehicleModelId = fullVehicle.vehicleModelId || fullVehicle.vehicleModel?.id;
       
       // Lấy ảnh từ medias array (ưu tiên) hoặc từ fileUrl/imageFiles
       let imageFiles: string[] = [];
       let medias: Array<{ id: string; fileUrl: string }> = [];
       
-      if (vehicle.medias && Array.isArray(vehicle.medias)) {
-        const imageMedias = vehicle.medias.filter((m) => m.mediaType === "Image" && m.fileUrl);
+      if (fullVehicle.medias && Array.isArray(fullVehicle.medias)) {
+        const imageMedias = fullVehicle.medias.filter((m) => m.mediaType === "Image" && m.fileUrl);
         imageFiles = imageMedias.map((m) => m.fileUrl);
         medias = imageMedias.map((m) => ({ id: m.id, fileUrl: m.fileUrl }));
       } else {
-        imageFiles = vehicle.imageFiles || vehicle.fileUrl || [];
+        imageFiles = fullVehicle.imageFiles || fullVehicle.fileUrl || [];
       }
       
       setOriginalMedias(medias);
       
       form.setFieldsValue({
-        licensePlate: vehicle.licensePlate,
-        color: vehicle.color,
-        yearOfManufacture: vehicle.yearOfManufacture ? dayjs(vehicle.yearOfManufacture) : undefined,
-        currentOdometerKm: vehicle.currentOdometerKm,
-        batteryHealthPercentage: vehicle.batteryHealthPercentage,
-        status: vehicle.status,
-        purchaseDate: vehicle.purchaseDate ? dayjs(vehicle.purchaseDate) : undefined,
-        branchId: vehicle.branchId,
+        licensePlate: fullVehicle.licensePlate,
+        color: fullVehicle.color,
+        yearOfManufacture: fullVehicle.yearOfManufacture ? dayjs(fullVehicle.yearOfManufacture) : undefined,
+        currentOdometerKm: fullVehicle.currentOdometerKm,
+        batteryHealthPercentage: fullVehicle.batteryHealthPercentage,
+        status: fullVehicle.status,
+        purchaseDate: fullVehicle.purchaseDate ? dayjs(fullVehicle.purchaseDate) : undefined,
+        branchId: fullVehicle.branchId,
         vehicleModelId: vehicleModelId,
-        gpsDeviceIdent: vehicle.gpsDeviceIdent,
-        flespiDeviceId: vehicle.flespiDeviceId,
-        description: vehicle.description,
+        gpsDeviceIdent: fullVehicle.gpsDeviceIdent,
+        flespiDeviceId: fullVehicle.flespiDeviceId,
+        description: fullVehicle.description,
+        rentalCount: fullVehicle.rentalCount,
       });
       setFileList(imageFiles.map((url: string, index: number) => ({
         uid: `-${index}`,
@@ -419,6 +491,12 @@ export default function VehiclesPage() {
       const values = await form.validateFields();
       const formData = new FormData();
 
+      const appendIfValue = (key: string, value: any) => {
+        if (value !== undefined && value !== null && value !== "") {
+          formData.append(key, String(value));
+        }
+      };
+
       // Append all fields
       if (editingVehicle) {
         const vehicleId = editingVehicle.id || editingVehicle.vehicleId;
@@ -426,27 +504,21 @@ export default function VehiclesPage() {
           formData.append("VehicleId", vehicleId);
         }
       }
-      if (values.licensePlate) formData.append("LicensePlate", values.licensePlate);
-      if (values.color) formData.append("Color", values.color);
+      appendIfValue("LicensePlate", values.licensePlate);
+      appendIfValue("Color", values.color);
       if (values.yearOfManufacture) {
         formData.append("YearOfManufacture", dayjs(values.yearOfManufacture).toISOString());
       }
-      if (values.currentOdometerKm !== undefined) {
-        formData.append("CurrentOdometerKm", String(values.currentOdometerKm));
-      }
-      if (values.batteryHealthPercentage !== undefined) {
-        formData.append("BatteryHealthPercentage", String(values.batteryHealthPercentage));
-      }
-      if (values.status) formData.append("Status", values.status);
+      appendIfValue("CurrentOdometerKm", values.currentOdometerKm);
+      appendIfValue("BatteryHealthPercentage", values.batteryHealthPercentage);
+      appendIfValue("Status", values.status);
       if (values.purchaseDate) {
         formData.append("PurchaseDate", dayjs(values.purchaseDate).toISOString());
       }
-      if (values.branchId) formData.append("BranchId", values.branchId);
-      if (values.gpsDeviceIdent) formData.append("GpsDeviceIdent", values.gpsDeviceIdent);
-      if (values.flespiDeviceId !== undefined) {
-        formData.append("FlespiDeviceId", String(values.flespiDeviceId));
-      }
-      if (values.description) formData.append("Description", values.description);
+      appendIfValue("BranchId", values.branchId);
+      appendIfValue("GpsDeviceIdent", values.gpsDeviceIdent);
+      appendIfValue("FlespiDeviceId", values.flespiDeviceId);
+      appendIfValue("Description", values.description);
       if (values.vehicleModelId) {
         formData.append("VehicleModelId", values.vehicleModelId);
       } else if (editingVehicle?.vehicleModelId) {
@@ -463,12 +535,27 @@ export default function VehiclesPage() {
         // Update vehicle info trước (không kèm ảnh)
         await updateVehicle(formData);
         
-        // Xử lý update ảnh: nếu có file mới và có mediaId -> dùng PUT /api/Media
+        // Xử lý xóa media: tìm media nào có trong originalMedias nhưng không có trong fileList
+        const currentMediaIds = fileList
+          .map((file: any) => file.mediaId)
+          .filter((id: string) => id); // Chỉ lấy mediaId hợp lệ
+        
+        const deletedMediaIds = originalMedias
+          .map((media) => media.id)
+          .filter((id) => !currentMediaIds.includes(id));
+        
+        // Xóa các media đã bị xóa
+        const deletePromises = deletedMediaIds.map((mediaId) => {
+          console.log(`Deleting media ${mediaId}`);
+          return deleteMedia(mediaId).catch((error) => {
+            console.error(`Failed to delete media ${mediaId}:`, error);
+            // Không throw error để không block các operations khác
+          });
+        });
+        
+        // Xử lý update/thêm ảnh: nếu có file mới và có mediaId -> dùng PUT /api/Media
         // Nếu có file mới nhưng không có mediaId -> dùng POST /api/Media
         const mediaPromises: Promise<any>[] = [];
-        
-        console.log("FileList khi submit:", fileList);
-        console.log("OriginalMedias:", originalMedias);
         
         fileList.forEach((file: any) => {
           if (file.originFileObj) {
@@ -485,10 +572,11 @@ export default function VehiclesPage() {
           }
         });
         
-        // Chờ tất cả media operations hoàn thành
-        if (mediaPromises.length > 0) {
-          console.log(`Processing ${mediaPromises.length} media files...`);
-          await Promise.all(mediaPromises);
+        // Chờ tất cả media operations hoàn thành (xóa, update, tạo mới)
+        const allMediaPromises = [...deletePromises, ...mediaPromises];
+        if (allMediaPromises.length > 0) {
+          console.log(`Processing ${allMediaPromises.length} media operations...`);
+          await Promise.all(allMediaPromises);
           console.log("All media operations completed");
         }
         
@@ -499,7 +587,20 @@ export default function VehiclesPage() {
           return;
         }
         
-        // Tạo vehicle mới (không kèm ảnh, sẽ thêm sau)
+        // Kiểm tra có ít nhất 1 ảnh
+        if (!fileList || fileList.length === 0) {
+          message.error("Vui lòng chọn ít nhất 1 ảnh cho xe");
+          return;
+        }
+        
+        // Thêm ảnh vào FormData cho BE
+        fileList.forEach((file: any) => {
+          if (file.originFileObj) {
+            formData.append("ImageFiles", file.originFileObj);
+          }
+        });
+        
+        // Tạo vehicle mới (có kèm ảnh trong FormData)
         const createdVehicle = await createVehicle(formData);
         const newVehicleId = createdVehicle?.id || createdVehicle?.data?.id || createdVehicle?.vehicleId;
         
@@ -688,7 +789,7 @@ export default function VehiclesPage() {
       key: "tracking",
       width: 100,
       render: (_, record) => {
-        const hasTracking = Boolean(record.gpsDeviceIdent || record.flespiDeviceId);
+        const hasTracking = hasTrackingInfo(record);
         return (
           <Tag color={hasTracking ? "green" : "default"}>
             {hasTracking ? "Có" : "Không"}
@@ -742,10 +843,10 @@ export default function VehiclesPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">
           Quản lý xe
         </h1>
         <Button
@@ -753,37 +854,39 @@ export default function VehiclesPage() {
           icon={<PlusOutlined />}
           onClick={() => handleOpenModal()}
           size="large"
+          className="w-full sm:w-auto"
         >
-          Thêm xe mới
+          <span className="hidden sm:inline">Thêm xe mới</span>
+          <span className="sm:hidden">Thêm mới</span>
         </Button>
       </div>
 
       {/* Filters */}
       <Card className="shadow-sm">
-        <div className="flex gap-4 flex-wrap">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Input
           placeholder="Tìm theo biển số hoặc model"
           allowClear
           prefix={<SearchOutlined />}
-          style={{ width: 300 }}
+          className="w-full"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
         />
         <Select
           placeholder="Trạng thái"
-          style={{ width: 150 }}
+          className="w-full"
           value={selectedStatus}
           onChange={setSelectedStatus}
         >
           <Option value="all">Tất cả</Option>
-          <Option value="AVAILABLE">Sẵn sàng</Option>
-          <Option value="RENTED">Đang thuê</Option>
-          <Option value="MAINTENANCE">Bảo trì</Option>
-          <Option value="UNAVAILABLE">Không khả dụng</Option>
+          <Option value="Available">Sẵn sàng</Option>
+          <Option value="Rented">Đang thuê</Option>
+          <Option value="Maintenance">Bảo trì</Option>
+          <Option value="Unavailable">Không khả dụng</Option>
         </Select>
         <Select
           placeholder="Chi nhánh"
-          style={{ width: 200 }}
+          className="w-full"
           value={selectedBranch}
           onChange={setSelectedBranch}
           loading={loadingBranches}
@@ -797,7 +900,7 @@ export default function VehiclesPage() {
         </Select>
         <Select
           placeholder="Model xe"
-          style={{ width: 200 }}
+          className="w-full"
           value={selectedModel}
           onChange={setSelectedModel}
           loading={loadingModels}
@@ -819,22 +922,31 @@ export default function VehiclesPage() {
 
       {/* Table */}
       <Card className="shadow-sm">
-        <Table
-          columns={columns}
-          dataSource={vehicles}
-          rowKey={(record) => record.id || record.vehicleId || record.licensePlate}
-          loading={loading}
-          pagination={{
-            current: pagination.current,
-            pageSize: pagination.pageSize,
-            total: pagination.total,
-            showSizeChanger: true,
-            showTotal: (total) => `Tổng: ${total} xe`,
-            pageSizeOptions: ["12", "24", "48", "96"],
-            onChange: handleTableChange,
-            onShowSizeChange: handleTableChange,
-          }}
-        />
+        <div className="overflow-x-auto">
+          <Table
+            columns={columns}
+            dataSource={filteredVehicles}
+            rowKey={(record) => record.id || record.vehicleId || record.licensePlate}
+            loading={loading}
+            scroll={{ x: 'max-content' }}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: searchText ? filteredVehicles.length : pagination.total,
+              showSizeChanger: true,
+              showTotal: (total) =>
+                searchText
+                  ? `Hiển thị ${total} xe`
+                  : `Tổng: ${total} xe`,
+              pageSizeOptions: ["12", "24", "48", "96"],
+              onChange: searchText ? undefined : handleTableChange,
+              onShowSizeChange: searchText ? undefined : handleTableChange,
+              responsive: true,
+              showLessItems: true,
+            }}
+            size="small"
+          />
+        </div>
       </Card>
 
       {/* Create/Edit Modal */}
@@ -843,7 +955,9 @@ export default function VehiclesPage() {
         open={isModalVisible}
         onCancel={handleCloseModal}
         onOk={handleSubmit}
-        width={800}
+        width="90%"
+        style={{ maxWidth: 800 }}
+        centered
         okText="Lưu"
         cancelText="Hủy"
       >
@@ -889,8 +1003,33 @@ export default function VehiclesPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item name="purchaseDate" label="Ngày mua">
-            <DatePicker style={{ width: "100%" }} placeholder="Chọn ngày mua" />
+          <Form.Item 
+            name="purchaseDate" 
+            label="Ngày mua"
+            rules={[
+              {
+                validator: (_: any, value: any) => {
+                  if (!value) {
+                    return Promise.resolve();
+                  }
+                  const selectedDate = dayjs(value);
+                  const today = dayjs().startOf('day');
+                  if (selectedDate.isAfter(today)) {
+                    return Promise.reject(new Error("Ngày mua không được sau ngày hôm nay"));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
+            <DatePicker 
+              style={{ width: "100%" }} 
+              placeholder="Chọn ngày mua"
+              disabledDate={(current) => {
+                // Chỉ cho phép chọn từ hôm nay trở về trước
+                return current && current > dayjs().endOf('day');
+              }}
+            />
           </Form.Item>
 
           <Form.Item
@@ -902,6 +1041,16 @@ export default function VehiclesPage() {
               placeholder="Chọn chi nhánh" 
               disabled={!!editingVehicle}
               loading={loadingBranches}
+              onChange={(value) => {
+                // Khi chọn chi nhánh, load lại model xe của chi nhánh đó
+                if (value) {
+                  loadVehicleModelsByBranch(value);
+                } else {
+                  loadVehicleModels();
+                }
+                // Reset vehicleModelId khi đổi chi nhánh
+                form.setFieldsValue({ vehicleModelId: undefined });
+              }}
             >
               {branches.map((branch) => (
                 <Option key={branch.branchId} value={branch.branchId}>

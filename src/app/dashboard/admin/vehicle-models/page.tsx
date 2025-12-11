@@ -11,6 +11,11 @@ const { TextArea } = Input;
 const { Option } = Select;
 
 const INTERNAL_BASE = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const MAX_NAME_LENGTH = 100;
+const MIN_NAME_LENGTH = 3;
+const MAX_DESCRIPTION_LENGTH = 500;
+const MAX_IMAGE_MB = 5;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
 
 interface RentalPricing {
   id: string;
@@ -98,7 +103,7 @@ export default function VehicleModelsPage() {
 
       console.log(`Loaded ${allVehicles.length} vehicles for counting`);
 
-      // Đếm số lượng vehicles theo vehicleModelId
+      // Đếm số lượng vehicles theo vehicleModelId (case-insensitive status)
       const vehicleCountMap = new Map<string, { total: number; available: number }>();
       
       allVehicles.forEach((vehicle: any) => {
@@ -106,7 +111,8 @@ export default function VehicleModelsPage() {
         if (modelId) {
           const current = vehicleCountMap.get(modelId) || { total: 0, available: 0 };
           current.total += 1;
-          if (vehicle.status === "AVAILABLE") {
+          const status = (vehicle.status || "").toString().toUpperCase();
+          if (status === "AVAILABLE") {
             current.available += 1;
           }
           vehicleCountMap.set(modelId, current);
@@ -235,7 +241,16 @@ export default function VehicleModelsPage() {
         return;
       }
       const detail = await getVehicleModelById(modelId);
-      setSelectedModel(detail);
+
+      // Nếu API chi tiết không trả số lượng, dùng dữ liệu đang có trên bảng
+      const countTotal = detail.countTotal ?? model.countTotal ?? 0;
+      const countAvailable = detail.countAvailable ?? model.countAvailable ?? 0;
+
+      setSelectedModel({
+        ...detail,
+        countTotal,
+        countAvailable,
+      });
       setIsDetailModalVisible(true);
     } catch (error) {
       console.error("Error loading vehicle model detail:", error);
@@ -434,7 +449,7 @@ export default function VehicleModelsPage() {
             label="Tên Model"
             rules={[{ required: true, message: "Vui lòng nhập tên model" }]}
           >
-            <Input placeholder="Nhập tên model" />
+            <Input placeholder="Nhập tên model" maxLength={MAX_NAME_LENGTH} />
           </Form.Item>
 
           <Form.Item
@@ -449,7 +464,20 @@ export default function VehicleModelsPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item name="batteryCapacityKwh" label="Dung lượng pin (kWh)">
+          <Form.Item
+            name="batteryCapacityKwh"
+            label="Dung lượng pin (kWh)"
+            rules={[
+              {
+                validator: (_, value) => {
+                  if (value === undefined || value === null || value === "") return Promise.resolve();
+                  if (value <= 0) return Promise.reject(new Error("Dung lượng pin phải lớn hơn 0"));
+                  if (value > 500) return Promise.reject(new Error("Dung lượng pin không hợp lệ"));
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
             <InputNumber
               min={0}
               step={0.1}
@@ -458,7 +486,20 @@ export default function VehicleModelsPage() {
             />
           </Form.Item>
 
-          <Form.Item name="maxRangeKm" label="Quãng đường tối đa (km)">
+          <Form.Item
+            name="maxRangeKm"
+            label="Quãng đường tối đa (km)"
+            rules={[
+              {
+                validator: (_, value) => {
+                  if (value === undefined || value === null || value === "") return Promise.resolve();
+                  if (value <= 0) return Promise.reject(new Error("Quãng đường tối đa phải lớn hơn 0"));
+                  if (value > 10000) return Promise.reject(new Error("Quãng đường tối đa không hợp lệ"));
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
             <InputNumber
               min={0}
               style={{ width: "100%" }}
@@ -466,7 +507,20 @@ export default function VehicleModelsPage() {
             />
           </Form.Item>
 
-          <Form.Item name="maxSpeedKmh" label="Tốc độ tối đa (km/h)">
+          <Form.Item
+            name="maxSpeedKmh"
+            label="Tốc độ tối đa (km/h)"
+            rules={[
+              {
+                validator: (_, value) => {
+                  if (value === undefined || value === null || value === "") return Promise.resolve();
+                  if (value <= 0) return Promise.reject(new Error("Tốc độ tối đa phải lớn hơn 0"));
+                  if (value > 400) return Promise.reject(new Error("Tốc độ tối đa không hợp lệ"));
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
             <InputNumber
               min={0}
               style={{ width: "100%" }}
@@ -474,8 +528,22 @@ export default function VehicleModelsPage() {
             />
           </Form.Item>
 
-          <Form.Item name="description" label="Mô tả">
-            <TextArea rows={3} placeholder="Nhập mô tả" />
+          <Form.Item
+            name="description"
+            label="Mô tả"
+            rules={[
+              {
+                validator: (_, value) => {
+                  if (!value) return Promise.resolve();
+                  if (value.length > MAX_DESCRIPTION_LENGTH) {
+                    return Promise.reject(new Error(`Mô tả tối đa ${MAX_DESCRIPTION_LENGTH} ký tự`));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
+            <TextArea rows={3} placeholder="Nhập mô tả" maxLength={MAX_DESCRIPTION_LENGTH} />
           </Form.Item>
 
           <Form.Item 
@@ -520,7 +588,19 @@ export default function VehicleModelsPage() {
                 listType="picture-card"
                 fileList={fileList}
                 onChange={({ fileList }) => setFileList(fileList)}
-                beforeUpload={() => false}
+                beforeUpload={(file) => {
+                  const isAllowedType = ALLOWED_IMAGE_TYPES.includes(file.type);
+                  if (!isAllowedType) {
+                    message.error("Chỉ hỗ trợ ảnh JPG, PNG, WEBP");
+                    return Upload.LIST_IGNORE;
+                  }
+                  const isLtSize = file.size / 1024 / 1024 < MAX_IMAGE_MB;
+                  if (!isLtSize) {
+                    message.error(`Ảnh phải nhỏ hơn ${MAX_IMAGE_MB}MB`);
+                    return Upload.LIST_IGNORE;
+                  }
+                  return false; // prevent auto upload
+                }}
                 multiple={false}
               >
                 {fileList.length < 1 && <div><UploadOutlined /> Tải lên</div>}

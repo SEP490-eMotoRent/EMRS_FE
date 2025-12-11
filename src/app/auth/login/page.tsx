@@ -1,8 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User, Lock, Loader2 } from "lucide-react";
+
+// Hàm chuyển đổi thông báo lỗi từ BE sang tiếng Việt
+function translateErrorMessage(message: string): string {
+  if (!message) return "Đã xảy ra lỗi";
+  
+  const messageLower = message.toLowerCase();
+  
+  // Map các thông báo lỗi phổ biến
+  const errorMap: Record<string, string> = {
+    "invalid username or password": "Sai tên đăng nhập hoặc mật khẩu",
+    "invalid username": "Sai tên đăng nhập",
+    "invalid password": "Sai mật khẩu",
+    "username or password is incorrect": "Tên đăng nhập hoặc mật khẩu không đúng",
+    "username not found": "Không tìm thấy tên đăng nhập",
+    "password incorrect": "Mật khẩu không đúng",
+    "account is locked": "Tài khoản đã bị khóa",
+    "account is disabled": "Tài khoản đã bị vô hiệu hóa",
+    "unauthorized": "Không có quyền truy cập",
+    "forbidden": "Bị cấm truy cập",
+    "internal server error": "Lỗi máy chủ, vui lòng thử lại sau",
+    "network error": "Lỗi kết nối, vui lòng kiểm tra mạng",
+    "timeout": "Hết thời gian chờ, vui lòng thử lại",
+  };
+  
+  // Tìm trong map
+  for (const [key, value] of Object.entries(errorMap)) {
+    if (messageLower.includes(key)) {
+      return value;
+    }
+  }
+  
+  // Nếu không tìm thấy, trả về message gốc (có thể đã là tiếng Việt)
+  return message;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,6 +44,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // Chặn quay lại sau khi đăng xuất
+  useEffect(() => {
+    // Xóa tất cả cookies và session storage khi vào trang login
+    // Đảm bảo không còn dữ liệu từ session trước
+    if (typeof window !== "undefined") {
+      // Clear session storage
+      sessionStorage.clear();
+      
+      // Đảm bảo không có token trong cookies
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "emoto_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      
+      // Thay thế history entry để không cho phép quay lại
+      window.history.replaceState(null, "", window.location.href);
+    }
+  }, []);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,7 +93,8 @@ export default function LoginPage() {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        setErrorMsg(json.message || "Sai tài khoản hoặc mật khẩu");
+        const errorMessage = json.message || "Sai tài khoản hoặc mật khẩu";
+        setErrorMsg(translateErrorMessage(errorMessage));
         setLoading(false);
         return;
       }
@@ -141,25 +193,25 @@ export default function LoginPage() {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-md px-4">
+      <div className="relative z-10 w-full max-w-md px-4 sm:px-6">
         <form
           onSubmit={handleLogin}
-          className="bg-white/80 backdrop-blur-lg shadow-2xl p-8 rounded-2xl border border-white/20 flex flex-col gap-6"
+          className="bg-white/80 backdrop-blur-lg shadow-2xl p-6 sm:p-8 rounded-2xl border border-white/20 flex flex-col gap-4 sm:gap-6"
         >
           {/* Logo/Title Section */}
           <div className="text-center mb-2">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-2xl mb-4 shadow-lg">
-              <span className="text-white text-2xl font-bold">eM</span>
+            <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-2xl mb-3 sm:mb-4 shadow-lg">
+              <span className="text-white text-xl sm:text-2xl font-bold">eM</span>
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
               eMotoRent
             </h1>
-            <p className="text-gray-500 text-sm mt-2">Hệ thống quản lý cho thuê xe điện</p>
+            <p className="text-gray-500 text-xs sm:text-sm mt-2">Hệ thống quản lý cho thuê xe điện</p>
           </div>
 
           <div className="space-y-1">
-            <h2 className="text-2xl font-semibold text-gray-800">Đăng nhập</h2>
-            <p className="text-sm text-gray-500">Vui lòng nhập thông tin để tiếp tục</p>
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Đăng nhập</h2>
+            <p className="text-xs sm:text-sm text-gray-500">Vui lòng nhập thông tin để tiếp tục</p>
           </div>
 
           {/* Username Input */}

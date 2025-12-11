@@ -36,6 +36,7 @@ export default function StaffPage() {
   const [currentUsername, setCurrentUsername] = useState<string>("");
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [selectedCreateRole, setSelectedCreateRole] = useState<string>("");
 
   const getCookieValue = (name: string) => {
@@ -296,16 +297,28 @@ export default function StaffPage() {
 
   const handleUpdateRole = async () => {
     try {
+      setIsUpdating(true);
       const values = await form.validateFields();
-      if (!editingAccount) return;
+      if (!editingAccount) {
+        setIsUpdating(false);
+        return;
+      }
 
       await updateAccountRole(editingAccount.id, values.role);
-      message.success("Cập nhật vai trò thành công");
-      setIsModalVisible(false);
-      setEditingAccount(null);
-      form.resetFields();
-      loadStaffs();
+      
+      // Hiển thị message trước khi đóng modal
+      message.success("Cập nhật nhân sự thành công");
+      
+      // Đóng modal và reset sau một chút để message có thời gian hiển thị
+      setTimeout(() => {
+        setIsModalVisible(false);
+        setEditingAccount(null);
+        form.resetFields();
+        loadStaffs();
+        setIsUpdating(false);
+      }, 300);
     } catch (error: any) {
+      setIsUpdating(false);
       console.error("Error updating role:", error);
       if (error.errorFields) {
         return;
@@ -657,13 +670,17 @@ export default function StaffPage() {
         title="Đổi vai trò"
         open={isModalVisible}
         onCancel={() => {
-          setIsModalVisible(false);
-          setEditingAccount(null);
-          form.resetFields();
+          if (!isUpdating) {
+            setIsModalVisible(false);
+            setEditingAccount(null);
+            form.resetFields();
+          }
         }}
         onOk={handleUpdateRole}
         okText="Lưu"
         cancelText="Hủy"
+        confirmLoading={isUpdating}
+        okButtonProps={{ loading: isUpdating }}
       >
         <Form form={form} layout="vertical">
           <Form.Item
