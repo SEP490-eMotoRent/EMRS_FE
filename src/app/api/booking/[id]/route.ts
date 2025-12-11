@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
 // GET /api/booking/[id] - lấy chi tiết booking theo ID
-export async function GET(req: Request, context: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    // ⛔ BẮT BUỘC: cookies() phải await
+    // Next.js 15 typed routes yêu cầu await cookies()
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -16,8 +19,7 @@ export async function GET(req: Request, context: { params: { id: string } }) {
       );
     }
 
-    // ⛔ BẮT BUỘC: context.params phải await theo chuẩn Next.js 15
-    const { id } = await context.params;
+    const { id } = await params;
 
     const beRes = await emrsFetch(`/Booking/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
