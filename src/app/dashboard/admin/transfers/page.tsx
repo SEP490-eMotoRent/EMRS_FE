@@ -1040,7 +1040,7 @@ export default function TransferOrdersPage() {
                   {selectedRequest.vehicleModel.maxSpeedKmh ? `${selectedRequest.vehicleModel.maxSpeedKmh} km/h` : "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Mô tả" span={2}>
-                  {selectedRequest.vehicleModel.description || "-"}
+                  {(selectedRequest as any)?.vehicleModel?.description || "-"}
                 </Descriptions.Item>
               </Descriptions>
             )}
