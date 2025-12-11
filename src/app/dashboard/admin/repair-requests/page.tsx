@@ -136,7 +136,7 @@ export default function AdminRepairRequestsPage() {
                 id: technician.staff?.id || technician.id,
                 fullname: technician.fullname || (technician as any)?.staff?.fullName || (technician as any)?.staff?.account?.fullname,
                 fullName: technician.fullname || (technician as any)?.staff?.fullName || (technician as any)?.staff?.account?.fullname,
-                account: technician.staff?.account || technician.account,
+                account: (technician as any)?.staff?.account || (technician as any)?.account,
               },
               technician: {
                 id: technician.staff?.id || technician.id,
