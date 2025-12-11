@@ -258,8 +258,8 @@ export default function AdminRepairRequestsPage() {
     label:
       tech.fullname ||
       tech.username ||
-      tech.staff?.fullName ||
-      tech.staff?.account?.fullname ||
+      (tech as any)?.staff?.fullName ||
+      (tech as any)?.staff?.account?.fullname ||
       "Tech",
     value: tech.staff?.id || tech.id,
     description: tech.staff?.branch?.branchName,
