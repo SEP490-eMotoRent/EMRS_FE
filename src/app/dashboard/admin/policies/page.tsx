@@ -228,14 +228,17 @@ export default function RentalPricingPage() {
               { type: "number", min: 0, message: "Giá vượt km phải >= 0" },
             ]}
           >
-            <InputNumber
+            <InputNumber<number>
               min={0}
               step={500}
               className="w-full"
               formatter={(value) =>
                 `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
               }
-              parser={(value) => Number(value?.replace(/,/g, ""))}
+              parser={(value) => {
+                const n = Number((value || "").replace(/,/g, ""));
+                return Number.isNaN(n) ? 0 : n;
+              }}
             />
           </Form.Item>
         </Form>
