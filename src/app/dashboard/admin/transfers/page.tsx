@@ -1029,8 +1029,8 @@ export default function TransferOrdersPage() {
                   {selectedRequest.vehicleModel.category || "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Dung lượng pin">
-                  {selectedRequest.vehicleModel.batteryCapacityKwh
-                    ? `${selectedRequest.vehicleModel.batteryCapacityKwh} kWh`
+                  {(selectedRequest as any)?.vehicleModel?.batteryCapacityKwh
+                    ? `${(selectedRequest as any).vehicleModel.batteryCapacityKwh} kWh`
                     : "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Tầm hoạt động">
