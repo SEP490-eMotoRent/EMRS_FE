@@ -152,17 +152,7 @@ export default function BranchesPage() {
             
             return {
               value: item.display_name,
-              label: (
-                <div className="py-1">
-                  <div className="font-medium text-sm">{mainAddress}</div>
-                  {detailAddress && (
-                    <div className="text-xs text-gray-500 truncate">{detailAddress}</div>
-                  )}
-                  <div className="text-xs text-blue-500 mt-0.5">
-                    📍 {parseFloat(item.lat).toFixed(6)}, {parseFloat(item.lon).toFixed(6)}
-                  </div>
-                </div>
-              ),
+              label: `${mainAddress}${detailAddress ? `, ${detailAddress}` : ""}`,
               data: item,
             };
           });
