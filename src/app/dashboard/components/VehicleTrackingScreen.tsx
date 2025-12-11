@@ -16,6 +16,7 @@ import L from "leaflet";
 
 const MapContainerAny: any = MapContainer;
 const TileLayerAny: any = TileLayer;
+const MarkerAny: any = Marker;
 // Fix cho default marker icon của leaflet trong Next.js
 if (typeof window !== "undefined") {
   delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -610,7 +611,7 @@ export default function VehicleTrackingScreen({
           <MapZoomHandler />
           {location ? (
             <>
-              <Marker 
+              <MarkerAny 
                 position={[location.lat, location.lng]}
                 icon={L.icon({
                   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
@@ -643,13 +644,13 @@ export default function VehicleTrackingScreen({
                     </div>
                   </div>
                 </Popup>
-              </Marker>
+              </MarkerAny>
               {/* Pan map theo marker */}
               <RecenterOnMarker position={[location.lat, location.lng]} />
             </>
           ) : (
             // Hiển thị marker mặc định ở trung tâm bản đồ khi chưa có vị trí
-            <Marker position={defaultCenter}>
+            <MarkerAny position={defaultCenter}>
               <Popup>
                 <div className="text-sm">
                   <b>Đang chờ vị trí GPS...</b>
@@ -658,7 +659,7 @@ export default function VehicleTrackingScreen({
                   </p>
                 </div>
               </Popup>
-            </Marker>
+            </MarkerAny>
           )}
           </MapContainerAny>
         
