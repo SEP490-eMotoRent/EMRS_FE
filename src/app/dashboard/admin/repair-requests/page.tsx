@@ -305,7 +305,7 @@ export default function AdminRepairRequestsPage() {
     );
   });
 
-  const columns = [
+  const columns: ColumnsType<any> = [
     {
       title: "Mã yêu cầu",
       dataIndex: "id",
@@ -437,7 +437,7 @@ export default function AdminRepairRequestsPage() {
       title: "Hành động",
       key: "action",
       width: 180,
-      fixed: "right",
+      fixed: "right" as const,
       render: (_: any, record: any) => (
         <Space>
           <Button
