@@ -213,7 +213,7 @@ export default function RentalPricingPage() {
               formatter={(value) =>
                 `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
               }
-              parser={(value) => Number((value || "").replace(/,/g, ""))}
+              parser={(value) => (value ? value.replace(/,/g, "") : "")}
             />
           </Form.Item>
 
