@@ -55,7 +55,7 @@ export default function OperationPage() {
           ...b,
           bookingCode:
             detail?.bookingCode ||
-            detail?.code ||
+            (detail as any)?.code ||
             detail?.bookingId ||
             detail?.bookingID ||
             key,
@@ -287,10 +287,7 @@ export default function OperationPage() {
           record?.code ||
           "-";
         return (
-          <span
-            className="font-mono font-semibold text-xs sm:text-sm"
-            style={{ wordBreak: "break-all", whiteSpace: "normal" }}
-          >
+          <span className="font-mono font-semibold text-xs sm:text-sm break-words whitespace-normal">
             {value}
           </span>
         );
