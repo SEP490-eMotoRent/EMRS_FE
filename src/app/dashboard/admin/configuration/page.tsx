@@ -688,10 +688,9 @@ export default function AdminConfigurationPage() {
                           ? ""
                           : `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                       }
-                      parser={(value) => {
-                        const n = Number((value || "").replace(/,/g, ""));
-                        return Number.isNaN(n) ? 0 : n;
-                      }}
+                      parser={(value) =>
+                        value ? value.replace(/,/g, "") : ""
+                      }
                     />
                   ) : (
                     <Input placeholder="Nhập URL hoặc nội dung" />
