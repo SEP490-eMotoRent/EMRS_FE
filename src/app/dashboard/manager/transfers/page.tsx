@@ -975,8 +975,8 @@ export default function ManagerTransferPage() {
                   {selectedRequest.vehicleModel.category || "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Dung lượng pin">
-                  {selectedRequest.vehicleModel.batteryCapacityKwh
-                    ? `${selectedRequest.vehicleModel.batteryCapacityKwh} kWh`
+                  {(selectedRequest.vehicleModel as any).batteryCapacityKwh
+                    ? `${(selectedRequest.vehicleModel as any).batteryCapacityKwh} kWh`
                     : "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Tầm hoạt động">
@@ -990,7 +990,7 @@ export default function ManagerTransferPage() {
                     : "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Mô tả" span={2}>
-                  {selectedRequest.vehicleModel.description || "-"}
+                  {(selectedRequest.vehicleModel as any).description || "-"}
                 </Descriptions.Item>
               </Descriptions>
             )}
