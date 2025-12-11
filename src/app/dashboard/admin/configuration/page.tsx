@@ -684,11 +684,14 @@ export default function AdminConfigurationPage() {
                       min={0}
                       step={500}
                       formatter={(value) =>
-                        `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        value === undefined || value === null
+                          ? ""
+                          : `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                       }
-                      parser={(value) =>
-                        value ? value.replace(/,/g, "") : ""
-                      }
+                      parser={(value) => {
+                        const n = Number((value || "").replace(/,/g, ""));
+                        return Number.isNaN(n) ? 0 : n;
+                      }}
                     />
                   ) : (
                     <Input placeholder="Nhập URL hoặc nội dung" />
