@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { emrsFetch } from "@/utils/emrsApi";
 import { cookies } from "next/headers";
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -17,6 +17,8 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
+
     const body = await req.json();
     const { Status, ResolutionNote } = body;
 
@@ -27,7 +29,7 @@ export async function PUT(
       );
     }
 
-    const beRes = await emrsFetch(`/Ticket/staff/${params.id}/update`, {
+    const beRes = await emrsFetch(`/Ticket/staff/${id}/update`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
