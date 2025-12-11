@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
 // GET /api/booking/branch/[branchId]
 // Lấy danh sách bookings theo branch
 export async function GET(
-  request: Request,
-  { params }: { params: { branchId: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ branchId: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -19,7 +19,9 @@ export async function GET(
       );
     }
 
-    const { searchParams } = new URL(request.url);
+    const { branchId } = await params;
+
+    const searchParams = request.nextUrl.searchParams;
     const queryParams = new URLSearchParams();
 
     if (searchParams.get("PageNum")) {
@@ -33,7 +35,7 @@ export async function GET(
     }
 
     const queryString = queryParams.toString();
-    const url = `/Booking/branch/${params.branchId}${queryString ? `?${queryString}` : ""}`;
+    const url = `/Booking/branch/${branchId}${queryString ? `?${queryString}` : ""}`;
 
     const beRes = await emrsFetch(url, {
       headers: { Authorization: `Bearer ${token}` },
