@@ -1000,7 +1000,7 @@ export default function TransferOrdersPage() {
                 {selectedRequest.quantityRequested ?? "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Chi nhánh">
-                {selectedRequest.branchName || selectedRequest.staff?.branch?.branchName || "-"}
+                {selectedRequest.branchName || (selectedRequest as any)?.staff?.branch?.branchName || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Người yêu cầu">
                 {selectedRequest.staffName || selectedRequest.staff?.fullname || "-"}
