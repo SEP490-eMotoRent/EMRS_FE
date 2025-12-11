@@ -77,10 +77,10 @@ export default function AdminDashboardPage() {
         // Xử lý transfers
         const transferOrdersList = Array.isArray(transferOrdersData) 
           ? transferOrdersData 
-          : transferOrdersData?.data || transferOrdersData?.items || [];
+          : (transferOrdersData as any)?.data || (transferOrdersData as any)?.items || [];
         const transferRequestsList = Array.isArray(transferRequestsData) 
           ? transferRequestsData 
-          : transferRequestsData?.data || transferRequestsData?.items || [];
+          : (transferRequestsData as any)?.data || (transferRequestsData as any)?.items || [];
         setTransfers({
           orders: transferOrdersList,
           requests: transferRequestsList,
