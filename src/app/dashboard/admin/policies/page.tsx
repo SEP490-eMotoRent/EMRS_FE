@@ -206,14 +206,17 @@ export default function RentalPricingPage() {
               { type: "number", min: 1000, message: "Giá thuê phải lớn hơn 0" },
             ]}
           >
-            <InputNumber
+            <InputNumber<number>
               min={1000}
               step={1000}
               className="w-full"
               formatter={(value) =>
                 `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
               }
-              parser={(value) => (value ? value.replace(/,/g, "") : "")}
+              parser={(value) => {
+                const n = Number((value || "").replace(/,/g, ""));
+                return Number.isNaN(n) ? 0 : n;
+              }}
             />
           </Form.Item>
 
