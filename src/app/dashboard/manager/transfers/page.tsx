@@ -944,7 +944,7 @@ export default function ManagerTransferPage() {
               </Descriptions.Item>
               <Descriptions.Item label="Chi nhánh">
                 {selectedRequest.branchName ||
-                  selectedRequest.staff?.branch?.branchName ||
+                  (selectedRequest.staff as any)?.branch?.branchName ||
                   branchName ||
                   "-"}
               </Descriptions.Item>
