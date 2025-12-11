@@ -26,6 +26,7 @@ import {
   getStaffs,
 } from "../staffs/staff_service";
 import { getBranches, Branch } from "../branches/branch_service";
+import { ColumnsType } from "antd/es/table";
 
 const statusOptions = [
   "PENDING",
