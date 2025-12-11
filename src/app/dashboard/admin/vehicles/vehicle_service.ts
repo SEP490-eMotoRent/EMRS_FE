@@ -21,7 +21,7 @@ export interface VehicleFilters {
 
 // Response type cho pagination
 export interface VehicleListResponse {
-  items: Vehicle[];
+  items: any[];
   totalItems: number;
   totalPages: number;
   currentPage: number;
