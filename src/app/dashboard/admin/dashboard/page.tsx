@@ -71,7 +71,7 @@ export default function AdminDashboardPage() {
         // Xử lý memberships
         const membershipsList = Array.isArray(membershipsData) 
           ? membershipsData 
-          : membershipsData?.data || membershipsData?.items || [];
+          : (membershipsData as any)?.data || (membershipsData as any)?.items || [];
         setMemberships(membershipsList);
         
         // Xử lý transfers
