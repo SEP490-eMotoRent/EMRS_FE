@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { emrsFetch } from "@/utils/emrsApi";
 import { cookies } from "next/headers";
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -19,8 +19,10 @@ export async function PUT(
 
     const formData = await req.formData();
 
+    const { id } = await params;
+
     const beRes = await emrsFetch(
-      `/InsuranceClaim/manager/${params.id}/settlement`,
+      `/InsuranceClaim/manager/${id}/settlement`,
       {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
