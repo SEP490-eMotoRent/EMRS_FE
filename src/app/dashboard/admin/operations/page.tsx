@@ -56,8 +56,8 @@ export default function OperationPage() {
           bookingCode:
             detail?.bookingCode ||
             (detail as any)?.code ||
-            detail?.bookingId ||
-            detail?.bookingID ||
+            (detail as any)?.bookingId ||
+            (detail as any)?.bookingID ||
             key,
         };
       } catch (err) {
