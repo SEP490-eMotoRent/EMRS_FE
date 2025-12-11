@@ -1004,18 +1004,18 @@ export default function ManagerTransferPage() {
                   {selectedRequest.staff.email || "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Chi nhánh" span={2}>
-                  {selectedRequest.staff.branch?.branchName || "-"}
+                  {(selectedRequest.staff as any).branch?.branchName || "-"}
                 </Descriptions.Item>
-                {selectedRequest.staff.branch && (
+                {(selectedRequest.staff as any).branch && (
                   <>
                     <Descriptions.Item label="Địa chỉ" span={2}>
-                      {selectedRequest.staff.branch.address || "-"}
+                      {(selectedRequest.staff as any).branch.address || "-"}
                     </Descriptions.Item>
                     <Descriptions.Item label="Số điện thoại">
-                      {selectedRequest.staff.branch.phone || "-"}
+                      {(selectedRequest.staff as any).branch.phone || "-"}
                     </Descriptions.Item>
                     <Descriptions.Item label="Email chi nhánh">
-                      {selectedRequest.staff.branch.email || "-"}
+                      {(selectedRequest.staff as any).branch.email || "-"}
                     </Descriptions.Item>
                   </>
                 )}
