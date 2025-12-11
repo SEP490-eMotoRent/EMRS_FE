@@ -251,7 +251,7 @@ export default function AdminBookingsPage() {
             {record.vehicleModel?.modelName || "N/A"}
           </div>
           {record.vehicleModel?.category && (
-            <Tag size="small" color="blue">
+            <Tag color="blue">
               {record.vehicleModel.category}
             </Tag>
           )}
