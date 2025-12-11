@@ -184,15 +184,19 @@ export default function TechnicianRepairRequestsPage() {
     }
   };
 
-  const loadVehicles = async () => {
+  const loadVehicles = async (): Promise<any[]> => {
     try {
       setVehicleLoading(true);
       const data = await getBranchVehicles({ pageSize: 500 });
-      setVehicles(Array.isArray(data) ? data : []);
+      const vehiclesList = Array.isArray(data) ? data : [];
+      setVehicles(vehiclesList);
+      return vehiclesList;
     } catch (err: any) {
       console.error(err);
       message.warning("Không thể tải danh sách xe để tạo yêu cầu");
-      setVehicles([]);
+      const emptyList: any[] = [];
+      setVehicles(emptyList);
+      return emptyList;
     } finally {
       setVehicleLoading(false);
     }
