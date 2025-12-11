@@ -679,7 +679,7 @@ export default function AdminConfigurationPage() {
                   rules={[{ required: true, message: "Vui lòng nhập giá trị" }]}
                 >
                   {isNumeric ? (
-                    <InputNumber
+                    <InputNumber<number>
                       className="w-full"
                       min={0}
                       step={500}
@@ -689,7 +689,7 @@ export default function AdminConfigurationPage() {
                           : `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                       }
                       parser={(value) =>
-                        value ? value.replace(/,/g, "") : ""
+                        Number((value || "").replace(/,/g, ""))
                       }
                     />
                   ) : (
