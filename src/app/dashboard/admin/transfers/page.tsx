@@ -19,7 +19,7 @@ import {
   cancelTransferRequest,
   VehicleTransferRequest
 } from "./transfer_request_service";
-import { getVehicles, Vehicle } from "../vehicles/vehicle_service";
+import { getVehicles } from "../vehicles/vehicle_service";
 import { getBranches, Branch } from "../branches/branch_service";
 import type { ColumnsType } from "antd/es/table";
 
@@ -31,7 +31,7 @@ export default function TransferOrdersPage() {
   // Orders state
   const [orders, setOrders] = useState<VehicleTransferOrder[]>([]);
   const [inTransitOrders, setInTransitOrders] = useState<VehicleTransferOrder[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
