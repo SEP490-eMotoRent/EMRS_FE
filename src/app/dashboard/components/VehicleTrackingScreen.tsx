@@ -14,6 +14,7 @@ import type { LatLngExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
+const MapContainerAny: any = MapContainer;
 // Fix cho default marker icon của leaflet trong Next.js
 if (typeof window !== "undefined") {
   delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -581,7 +582,7 @@ export default function VehicleTrackingScreen({
         </div>
       ) : (
         <div className="h-[500px] w-full rounded-lg overflow-hidden shadow relative">
-          <MapContainer
+          <MapContainerAny
             key={location ? `${location.lat}-${location.lng}` : 'default'}
             center={location ? ([location.lat, location.lng] as any) : (defaultCenter as any)}
             zoom={location ? 15 : 13}
@@ -656,7 +657,7 @@ export default function VehicleTrackingScreen({
               </Popup>
             </Marker>
           )}
-        </MapContainer>
+          </MapContainerAny>
         
           {/* Overlay thông tin khi chưa có vị trí */}
           {!location && payload && (
