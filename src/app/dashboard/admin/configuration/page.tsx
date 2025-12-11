@@ -686,8 +686,8 @@ export default function AdminConfigurationPage() {
                       formatter={(value) =>
                         `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                       }
-                      parser={(value) =>
-                        value ? Number(String(value).replace(/,/g, "")) : 0
+                      parser={(value: string | undefined) =>
+                        value ? value.replace(/,/g, "") : ""
                       }
                     />
                   ) : (
