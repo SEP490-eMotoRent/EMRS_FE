@@ -686,7 +686,9 @@ export default function AdminConfigurationPage() {
                       formatter={(value) =>
                         `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                       }
-                      parser={(value) => (value ? String(value).replace(/,/g, "") : "")}
+                      parser={(value) =>
+                        value ? Number(String(value).replace(/,/g, "")) : 0
+                      }
                     />
                   ) : (
                     <Input placeholder="Nhập URL hoặc nội dung" />
