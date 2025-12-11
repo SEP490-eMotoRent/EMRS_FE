@@ -588,9 +588,10 @@ export default function VehicleTrackingScreen({
             minZoom={3}
             maxZoom={19}
             style={{ height: "100%", width: "100%" }}
-            whenReady={(map) => {
-              // Đảm bảo map được render đúng khi ready
-              map.target.invalidateSize();
+            whenReady={() => {
+              if (mapRef.current) {
+                mapRef.current.invalidateSize();
+              }
             }}
           >
           <TileLayer
