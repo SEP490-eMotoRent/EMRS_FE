@@ -205,6 +205,11 @@ export async function getBookings(filters?: BookingFilters): Promise<BookingList
 
 // Lấy chi tiết booking theo ID
 export async function getBookingById(bookingId: string): Promise<Booking> {
+  // Validate bookingId trước
+  if (!bookingId || bookingId.trim() === "") {
+    throw new Error("Booking ID is required");
+  }
+
   // Gọi qua Next.js API route thay vì gọi trực tiếp backend
   const res = await fetch(`/api/booking/${bookingId}`, {
     cache: "no-store",
@@ -212,14 +217,26 @@ export async function getBookingById(bookingId: string): Promise<Booking> {
 
   if (!res.ok) {
     const errorText = await res.text();
-    console.error("Failed to fetch booking:", res.status, errorText);
     
     let errorMessage = `Failed to fetch booking: ${res.statusText}`;
     try {
       const errorJson = errorText ? JSON.parse(errorText) : {};
       errorMessage = errorJson.message || errorMessage;
+      
+      // Nếu là lỗi transient failure từ backend, throw error với message rõ ràng hơn
+      if (errorMessage.includes("transient failure")) {
+        throw new Error("Backend service temporarily unavailable. Please try again later.");
+      }
     } catch (e) {
-      // Nếu không parse được, dùng message mặc định
+      // Nếu không parse được hoặc đã throw ở trên, dùng message mặc định
+      if (e instanceof Error && e.message.includes("temporarily unavailable")) {
+        throw e;
+      }
+    }
+    
+    // Chỉ log error nếu không phải là lỗi 400 (có thể là booking không tồn tại)
+    if (res.status !== 400) {
+      console.error("Failed to fetch booking:", res.status, errorText);
     }
     
     throw new Error(errorMessage);
@@ -233,6 +250,15 @@ export async function getBookingById(bookingId: string): Promise<Booking> {
   } catch (e) {
     console.error("Failed to parse JSON:", text);
     throw new Error("Invalid JSON response");
+  }
+
+  // Kiểm tra nếu response có success: false
+  if (json.success === false) {
+    const errorMessage = json.message || "Failed to fetch booking";
+    if (errorMessage.includes("transient failure")) {
+      throw new Error("Backend service temporarily unavailable. Please try again later.");
+    }
+    throw new Error(errorMessage);
   }
 
   // Trả về đầy đủ dữ liệu từ response (json.data chứa toàn bộ booking object)

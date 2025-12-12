@@ -484,6 +484,36 @@ export default function VehiclesPage() {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+      
+      // Kiểm tra các field bắt buộc trước khi tạo FormData (chỉ khi tạo mới)
+      if (!editingVehicle) {
+        if (!values.licensePlate || values.licensePlate.trim() === "") {
+          message.error("Vui lòng nhập biển số");
+          return;
+        }
+        
+        if (!values.color || values.color.trim() === "") {
+          message.error("Vui lòng nhập màu sắc");
+          return;
+        }
+        
+        if (!values.description || values.description.trim() === "") {
+          message.error("Vui lòng nhập mô tả");
+          return;
+        }
+        
+        if (!values.vehicleModelId || !values.branchId) {
+          message.error("Vui lòng chọn Model xe và Chi nhánh");
+          return;
+        }
+        
+        // Kiểm tra có ít nhất 1 ảnh
+        if (!fileList || fileList.length === 0) {
+          message.error("Vui lòng chọn ít nhất 1 ảnh cho xe");
+          return;
+        }
+      }
+      
       const formData = new FormData();
 
       const appendIfValue = (key: string, value: any) => {
@@ -499,9 +529,23 @@ export default function VehiclesPage() {
           formData.append("VehicleId", vehicleId);
         }
       }
-      // Các field bắt buộc - luôn append (đã kiểm tra ở trên)
-      formData.append("LicensePlate", values.licensePlate?.trim() || "");
-      formData.append("Color", values.color?.trim() || "");
+      
+      // Các field bắt buộc - đảm bảo có giá trị hợp lệ (đã kiểm tra ở trên)
+      if (values.licensePlate) {
+        formData.append("LicensePlate", String(values.licensePlate).trim());
+      }
+      if (values.color) {
+        formData.append("Color", String(values.color).trim());
+      }
+      if (!editingVehicle) {
+        // Description là bắt buộc khi tạo mới (đã kiểm tra ở trên)
+        if (values.description) {
+          formData.append("Description", String(values.description).trim());
+        }
+      } else {
+        appendIfValue("Description", values.description);
+      }
+      
       if (values.yearOfManufacture) {
         formData.append("YearOfManufacture", dayjs(values.yearOfManufacture).toISOString());
       }
@@ -514,12 +558,7 @@ export default function VehiclesPage() {
       appendIfValue("BranchId", values.branchId);
       appendIfValue("GpsDeviceIdent", values.gpsDeviceIdent);
       appendIfValue("FlespiDeviceId", values.flespiDeviceId);
-      // Description là bắt buộc khi tạo mới - luôn append (đã kiểm tra ở trên)
-      if (!editingVehicle) {
-        formData.append("Description", values.description?.trim() || "");
-      } else {
-        appendIfValue("Description", values.description);
-      }
+      
       if (values.vehicleModelId) {
         formData.append("VehicleModelId", values.vehicleModelId);
       } else if (editingVehicle?.vehicleModelId) {
@@ -583,33 +622,6 @@ export default function VehiclesPage() {
         
         message.success("Cập nhật xe thành công");
       } else {
-        // Kiểm tra các field bắt buộc trước khi tạo FormData
-        if (!values.licensePlate || values.licensePlate.trim() === "") {
-          message.error("Vui lòng nhập biển số");
-          return;
-        }
-        
-        if (!values.color || values.color.trim() === "") {
-          message.error("Vui lòng nhập màu sắc");
-          return;
-        }
-        
-        if (!values.description || values.description.trim() === "") {
-          message.error("Vui lòng nhập mô tả");
-          return;
-        }
-        
-        if (!values.vehicleModelId || !values.branchId) {
-          message.error("Vui lòng chọn Model xe và Chi nhánh");
-          return;
-        }
-        
-        // Kiểm tra có ít nhất 1 ảnh
-        if (!fileList || fileList.length === 0) {
-          message.error("Vui lòng chọn ít nhất 1 ảnh cho xe");
-          return;
-        }
-        
         // Thêm ảnh vào FormData cho BE
         fileList.forEach((file: any) => {
           if (file.originFileObj) {

@@ -88,48 +88,78 @@ export default function AdminBookingsPage() {
       const response: BookingListResponse = await getBookings(apiFilters);
 
       // Bổ sung chi nhánh cho từng booking (API list có thể không trả chi nhánh)
-      const enriched = await Promise.all(
-        response.items.map(async (item) => {
-          // Nếu đã có thông tin chi nhánh thì dùng luôn
-          const hasBranch =
-            item.handoverBranch ||
-            (item as any).branch ||
-            (item as any).pickupBranch ||
-            (item as any).dropoffBranch ||
-            (item as any).handoverBranchName ||
-            (item as any).returnBranchName ||
-            (item as any).branchName ||
-            (item as any).pickupBranchName ||
-            (item as any).dropoffBranchName;
+      // Chỉ enrich cho các booking không có branch info và giới hạn số lượng để tránh quá nhiều request
+      const itemsToEnrich = response.items.filter((item) => {
+        const hasBranch =
+          item.handoverBranch ||
+          (item as any).branch ||
+          (item as any).pickupBranch ||
+          (item as any).dropoffBranch ||
+          (item as any).handoverBranchName ||
+          (item as any).returnBranchName ||
+          (item as any).branchName ||
+          (item as any).pickupBranchName ||
+          (item as any).dropoffBranchName;
+        return !hasBranch && item.id; // Chỉ enrich nếu không có branch và có ID hợp lệ
+      });
 
-          if (hasBranch) return item;
+      // Giới hạn số lượng booking được enrich để tránh quá nhiều request
+      const maxEnrich = 10;
+      const itemsToEnrichLimited = itemsToEnrich.slice(0, maxEnrich);
 
-          // Nếu thiếu, gọi chi tiết để lấy chi nhánh
-          try {
-            const detail = await getBookingById(item.id);
-            return {
-              ...item,
-              handoverBranch:
-                detail.handoverBranch ||
-                (detail as any).branch ||
-                (detail as any).pickupBranch,
-              branchName:
-                (detail as any).handoverBranchName ||
-                (detail as any).branchName ||
-                (detail as any).pickupBranchName ||
-                detail.handoverBranch?.branchName ||
-                (detail as any).branch?.name,
-              branchCity:
-                (detail as any).branchCity ||
-                detail.handoverBranch?.city ||
-                (detail as any).branch?.city,
-            };
-          } catch (err) {
-            console.error("Error enriching booking with branch:", err);
-            return item;
+      // Enrich song song nhưng với error handling tốt hơn
+      const enrichedPromises = response.items.map(async (item) => {
+        // Nếu đã có thông tin chi nhánh thì dùng luôn
+        const hasBranch =
+          item.handoverBranch ||
+          (item as any).branch ||
+          (item as any).pickupBranch ||
+          (item as any).dropoffBranch ||
+          (item as any).handoverBranchName ||
+          (item as any).returnBranchName ||
+          (item as any).branchName ||
+          (item as any).pickupBranchName ||
+          (item as any).dropoffBranchName;
+
+        if (hasBranch) return item;
+
+        // Chỉ enrich nếu booking này nằm trong danh sách cần enrich và có ID hợp lệ
+        if (!item.id || !itemsToEnrichLimited.some(b => b.id === item.id)) {
+          return item;
+        }
+
+        // Nếu thiếu, gọi chi tiết để lấy chi nhánh
+        try {
+          const detail = await getBookingById(item.id);
+          return {
+            ...item,
+            handoverBranch:
+              detail.handoverBranch ||
+              (detail as any).branch ||
+              (detail as any).pickupBranch,
+            branchName:
+              (detail as any).handoverBranchName ||
+              (detail as any).branchName ||
+              (detail as any).pickupBranchName ||
+              detail.handoverBranch?.branchName ||
+              (detail as any).branch?.name,
+            branchCity:
+              (detail as any).branchCity ||
+              detail.handoverBranch?.city ||
+              (detail as any).branch?.city,
+          };
+        } catch (err: any) {
+          // Chỉ log warning, không log error để tránh spam console
+          // Nếu là lỗi 400 hoặc lỗi từ backend, có thể là booking ID không hợp lệ hoặc backend issue
+          if (err?.message && !err.message.includes("transient failure")) {
+            console.warn(`Could not enrich booking ${item.id}:`, err.message);
           }
-        })
-      );
+          // Trả về item gốc nếu không thể enrich
+          return item;
+        }
+      });
+
+      const enriched = await Promise.all(enrichedPromises);
 
       setBookings(enriched);
       setPagination({
