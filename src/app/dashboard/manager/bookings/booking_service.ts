@@ -1,6 +1,4 @@
-import { fetchBackend } from "@/utils/helpers";
-
-const API_PREFIX = "/Booking";
+const API_PREFIX = "/api/booking";
 
 export interface BookingFilters {
   VehicleModelId?: string;
@@ -25,12 +23,14 @@ export async function getBookingsByBranch(
   }
 
   const queryString = params.toString();
-  // Use /branch route if no branchId provided (will use cookie)
+  // Gọi qua Next.js API route (lấy branchId từ cookie nếu không có)
   const path = branchId
     ? `${API_PREFIX}/branch/${branchId}${queryString ? `?${queryString}` : ""}`
     : `${API_PREFIX}/branch${queryString ? `?${queryString}` : ""}`;
 
-  const res = await fetchBackend(path);
+  const res = await fetch(path, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     throw new Error(`Failed to fetch bookings: ${res.statusText}`);
@@ -55,7 +55,9 @@ export async function getBookingsByBranch(
 }
 
 export async function getBookingById(id: string) {
-  const res = await fetchBackend(`${API_PREFIX}/${id}`);
+  const res = await fetch(`${API_PREFIX}/${id}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     throw new Error(`Failed to fetch booking: ${res.statusText}`);
@@ -67,9 +69,13 @@ export async function getBookingById(id: string) {
 }
 
 export async function createBooking(data: any) {
-  const res = await fetchBackend(`${API_PREFIX}/create`, {
+  const res = await fetch(`${API_PREFIX}/create`, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(data),
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -83,8 +89,9 @@ export async function createBooking(data: any) {
 }
 
 export async function cancelBooking(id: string) {
-  const res = await fetchBackend(`${API_PREFIX}/cancel/${id}`, {
+  const res = await fetch(`${API_PREFIX}/cancel/${id}`, {
     method: "PUT",
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -98,8 +105,9 @@ export async function cancelBooking(id: string) {
 }
 
 export async function assignVehicle(bookingId: string, vehicleId: string) {
-  const res = await fetchBackend(`${API_PREFIX}/assign/${bookingId}/${vehicleId}`, {
+  const res = await fetch(`${API_PREFIX}/assign/${bookingId}/${vehicleId}`, {
     method: "PUT",
+    cache: "no-store",
   });
 
   if (!res.ok) {
