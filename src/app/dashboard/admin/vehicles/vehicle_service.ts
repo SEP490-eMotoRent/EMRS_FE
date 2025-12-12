@@ -341,7 +341,7 @@ export async function deleteVehicle(vehicleId: string) {
 
 // Tạo media (ảnh) mới cho vehicle
 export async function createMedia(docNo: string, file: File, entityType: string = "Vehicle", mediaType: string = "Image") {
-  const url = `${INTERNAL_BASE}/api/media`;
+  const url = `${getInternalApiBase()}/api/media`;
   
   const formData = new FormData();
   formData.append("DocNo", docNo);
@@ -375,7 +375,7 @@ export async function createMedia(docNo: string, file: File, entityType: string 
 
 // Cập nhật media (ảnh) của vehicle
 export async function updateMedia(mediaId: string, file: File) {
-  const url = `${INTERNAL_BASE}/api/media`;
+  const url = `${getInternalApiBase()}/api/media`;
   
   const formData = new FormData();
   formData.append("MediaId", mediaId);
@@ -407,7 +407,7 @@ export async function updateMedia(mediaId: string, file: File) {
 
 // Xóa media (ảnh) của vehicle
 export async function deleteMedia(mediaId: string) {
-  const url = `${INTERNAL_BASE}/api/media?mediaId=${encodeURIComponent(mediaId)}`;
+  const url = `${getInternalApiBase()}/api/media?mediaId=${encodeURIComponent(mediaId)}`;
   
   const res = await fetch(url, {
     method: "DELETE",

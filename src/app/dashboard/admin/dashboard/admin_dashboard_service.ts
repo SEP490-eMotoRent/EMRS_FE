@@ -1,6 +1,4 @@
-const INTERNAL_BASE =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (typeof window !== "undefined" ? window.location.origin : "");
+import { getInternalApiBase } from "@/utils/helpers";
 
 export interface AdminDashboardData {
   vehicleModel: {
@@ -34,7 +32,7 @@ export interface AdminDashboardData {
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  const res = await fetch(`${INTERNAL_BASE}/api/dashboard/admin`, {
+  const res = await fetch(`${getInternalApiBase()}/api/dashboard/admin`, {
     cache: "no-store",
   });
 
