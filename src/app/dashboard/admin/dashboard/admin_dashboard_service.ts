@@ -1,5 +1,3 @@
-import { fetchBackend } from "@/utils/helpers";
-
 export interface AdminDashboardData {
   vehicleModel: {
     totalVehicleModels: number;
@@ -32,7 +30,10 @@ export interface AdminDashboardData {
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  const res = await fetchBackend("/dashboard/admin");
+  // Gọi qua Next.js API route (tổng hợp nhiều backend endpoints)
+  const res = await fetch("/api/dashboard/admin", {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     const errorText = await res.text();
