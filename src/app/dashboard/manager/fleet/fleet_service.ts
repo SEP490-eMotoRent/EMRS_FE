@@ -164,6 +164,7 @@ export async function getVehicleModelById(id: string) {
     console.error("Error loading vehicle model by ID:", err);
     
     // Fallback: thử API detail qua Next.js API route
+    let fallbackError: any = null;
     try {
       const res = await fetch(`/api/vehicle-model/detail/${id}`, {
         cache: "no-store",
@@ -173,15 +174,26 @@ export async function getVehicleModelById(id: string) {
         const json = await parseModelResponse(res);
         return json.data || json;
       }
+      
+      fallbackError = res;
     } catch (fetchErr) {
-      // Ignore fallback errors
+      // Ignore fallback errors, nhưng lưu lại để dùng trong error message
+      fallbackError = fetchErr;
     }
 
-    throw new Error(
-      `Failed to fetch vehicle model: ${lastError?.status || ""} ${
-        lastError?.statusText || err instanceof Error ? err.message : "Unknown error"
-      }`
-    );
+    // Tạo error message từ các nguồn có sẵn
+    let errorMessage = "Unknown error";
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else if (fallbackError) {
+      if (fallbackError instanceof Response) {
+        errorMessage = `${fallbackError.status} ${fallbackError.statusText}`;
+      } else if (fallbackError instanceof Error) {
+        errorMessage = fallbackError.message;
+      }
+    }
+
+    throw new Error(`Failed to fetch vehicle model: ${errorMessage}`);
   }
 }
 
