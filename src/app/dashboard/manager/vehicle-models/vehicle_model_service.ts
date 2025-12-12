@@ -1,6 +1,4 @@
-import { fetchBackend } from "@/utils/helpers";
-
-const API_PREFIX = "/VehicleModel";
+const API_PREFIX = "/api/vehicle-model";
 
 export interface Vehicle {
   id: string;
@@ -57,8 +55,10 @@ export async function getBranchVehicleModels(params: {
     descendingOrder: String(descendingOrder),
   });
 
-  // API route: /VehicleModel/branch/{branchId}
-  const res = await fetchBackend(`${API_PREFIX}/branch/${branchId}?${search.toString()}`);
+  // Gọi qua Next.js API route (có authentication và error handling)
+  const res = await fetch(`${API_PREFIX}/branch/${branchId}?${search.toString()}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -115,7 +115,10 @@ export async function getBranchVehicleModels(params: {
 export async function getManagerVehicleModelDetail(
   id: string
 ): Promise<ManagerVehicleModel> {
-  const res = await fetchBackend(`${API_PREFIX}/detail/${id}`);
+  // Gọi qua Next.js API route
+  const res = await fetch(`${API_PREFIX}/detail/${id}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     const text = await res.text();
