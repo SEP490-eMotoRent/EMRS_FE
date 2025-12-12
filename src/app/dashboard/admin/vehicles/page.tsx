@@ -349,12 +349,12 @@ export default function VehiclesPage() {
   const loadVehicleModels = async (branchId?: string) => {
     setLoadingModels(true);
     try {
-      // Nếu có branchId, load model theo chi nhánh (với pageSize lớn để lấy tất cả)
+      // Gọi qua Next.js API route thay vì gọi trực tiếp backend
       const url = branchId 
-        ? `/VehicleModel/branch/${branchId}?pageNum=1&pageSize=1000`
-        : `/VehicleModel/list-all`;
+        ? `/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`
+        : `/api/vehicle-model/list-all`;
       
-      const res = await fetchBackend(url);
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch vehicle models");
       const text = await res.text();
       const json = text ? JSON.parse(text) : {};

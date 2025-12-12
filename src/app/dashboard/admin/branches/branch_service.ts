@@ -1,3 +1,4 @@
+
 import { fetchBackend } from "@/utils/helpers";
 
 const API_PREFIX = "/Branch";
@@ -17,10 +18,13 @@ export interface Branch {
   vehicleCount?: number;
 }
 
-// Đếm số xe trong branch từ API Vehicle/model/{branchId}
+// Đếm số xe trong branch từ API /api/vehicle-model/branch/{branchId}
 async function getVehicleCountForBranch(branchId: string): Promise<number> {
   try {
-    const res = await fetchBackend(`/VehicleModel/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`);
+    // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+    const res = await fetch(`/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`, {
+      cache: "no-store",
+    });
 
     if (!res.ok) {
       console.warn(`Failed to fetch vehicles for branch ${branchId}:`, res.status);
