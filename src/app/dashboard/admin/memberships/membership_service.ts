@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/membership";
-
-function buildUrl(path = "") {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/Membership";
 
 export interface MembershipPayload {
   id?: string;
@@ -43,7 +39,7 @@ function extractData(json: any) {
 }
 
 export async function getMemberships(): Promise<Membership[]> {
-  const res = await fetch(buildUrl(""), { cache: "no-store" });
+  const res = await fetchBackend(API_PREFIX);
 
   if (!res.ok) {
     const text = await res.text();
@@ -66,7 +62,7 @@ export async function getMemberships(): Promise<Membership[]> {
 }
 
 export async function getMembershipById(id: string): Promise<Membership> {
-  const res = await fetch(buildUrl(`/${id}`), { cache: "no-store" });
+  const res = await fetchBackend(`${API_PREFIX}/${id}`);
 
   if (!res.ok) {
     const text = await res.text();
@@ -79,9 +75,8 @@ export async function getMembershipById(id: string): Promise<Membership> {
 }
 
 export async function createMembership(payload: MembershipPayload) {
-  const res = await fetch(buildUrl(""), {
+  const res = await fetchBackend(API_PREFIX, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
@@ -96,9 +91,8 @@ export async function createMembership(payload: MembershipPayload) {
 }
 
 export async function updateMembership(id: string, payload: MembershipPayload) {
-  const res = await fetch(buildUrl(""), {
+  const res = await fetchBackend(API_PREFIX, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...payload, id }),
   });
 
@@ -113,7 +107,7 @@ export async function updateMembership(id: string, payload: MembershipPayload) {
 }
 
 export async function deleteMembership(id: string) {
-  const res = await fetch(buildUrl(`/${id}`), {
+  const res = await fetchBackend(`${API_PREFIX}/${id}`, {
     method: "DELETE",
   });
 

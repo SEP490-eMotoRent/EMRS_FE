@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/account";
-
-function buildUrl(path: string) {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/account";
 
 export interface Account {
   id: string;
@@ -40,11 +36,7 @@ export interface Account {
 
 // Lấy danh sách tất cả accounts (chỉ ADMIN, MANAGER, STAFF - không lấy RENTER)
 export async function getStaffs(): Promise<Account[]> {
-  const url = buildUrl("");
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -108,11 +100,7 @@ export async function getStaffs(): Promise<Account[]> {
 
 // Lấy chi tiết account theo ID
 export async function getAccountById(accountId: string): Promise<Account> {
-  const url = buildUrl(`/${accountId}`);
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/${accountId}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -136,13 +124,8 @@ export async function getAccountById(accountId: string): Promise<Account> {
 
 // Cập nhật role của account
 export async function updateAccountRole(accountId: string, role: string): Promise<any> {
-  const url = buildUrl("");
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({
       id: accountId,
       role: role,
@@ -170,13 +153,8 @@ export async function updateAccountRole(accountId: string, role: string): Promis
 
 // Xóa account (soft delete)
 export async function deleteAccount(accountId: string): Promise<any> {
-  const url = buildUrl("");
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}`, {
     method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({
       id: accountId,
       isDeleted: true,
@@ -215,13 +193,8 @@ export async function createAccount(data: {
   dateOfBirth?: string;
   branchId?: string;
 }): Promise<Account> {
-  const url = buildUrl("/create-account");
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/create-account`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   });
 

@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/configuration";
-
-function buildUrl(path = "") {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/Configuration";
 
 // Enum mirror from backend (EMRS.Domain.Enums.ConfigurationTypeEnum)
 // Keep names readable for UI mapping.
@@ -87,32 +83,29 @@ async function handleResponse(res: Response) {
 }
 
 export async function getConfigurations(): Promise<ConfigurationItem[]> {
-  const res = await fetch(buildUrl(""), { cache: "no-store" });
+  const res = await fetchBackend(API_PREFIX);
   return handleResponse(res);
 }
 
 export async function getConfigurationById(
   id: string
 ): Promise<ConfigurationItem> {
-  const res = await fetch(buildUrl(`/${id}`), { cache: "no-store" });
+  const res = await fetchBackend(`${API_PREFIX}/${id}`);
   return handleResponse(res);
 }
 
 export async function getConfigurationByType(
   type: string | ConfigurationType
 ): Promise<ConfigurationItem[]> {
-  const res = await fetch(buildUrl(`/type/${type}`), { cache: "no-store" });
+  const res = await fetchBackend(`${API_PREFIX}/type/${type}`);
   return handleResponse(res);
 }
 
 export async function createConfiguration(
   payload: Omit<ConfigurationItem, "id" | "createdAt" | "updatedAt">
 ) {
-  const res = await fetch(buildUrl(""), {
+  const res = await fetchBackend(API_PREFIX, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(payload),
   });
   return handleResponse(res);
@@ -122,18 +115,15 @@ export async function updateConfiguration(
   id: string,
   payload: Omit<ConfigurationItem, "id" | "createdAt" | "updatedAt">
 ) {
-  const res = await fetch(buildUrl(""), {
+  const res = await fetchBackend(API_PREFIX, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ id, ...payload }),
   });
   return handleResponse(res);
 }
 
 export async function deleteConfiguration(id: string) {
-  const res = await fetch(buildUrl(`/${id}`), {
+  const res = await fetchBackend(`${API_PREFIX}/${id}`, {
     method: "DELETE",
   });
   return handleResponse(res);
@@ -151,7 +141,7 @@ export async function createConfigurationMedia(payload: {
   formData.append("Type", String(payload.type));
   formData.append("File", payload.file);
 
-  const res = await fetch(buildUrl("/media"), {
+  const res = await fetchBackend(`${API_PREFIX}/media`, {
     method: "POST",
     body: formData,
   });
@@ -172,7 +162,7 @@ export async function updateConfigurationMedia(payload: {
   formData.append("Type", String(payload.type));
   formData.append("File", payload.file);
 
-  const res = await fetch(buildUrl("/media"), {
+  const res = await fetchBackend(`${API_PREFIX}/media`, {
     method: "PUT",
     body: formData,
   });

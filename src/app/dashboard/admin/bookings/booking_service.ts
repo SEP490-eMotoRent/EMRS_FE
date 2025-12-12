@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/booking";
-
-function buildUrl(path: string) {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/Booking";
 
 export interface BookingFilters {
   VehicleModelId?: string;
@@ -134,11 +130,8 @@ export async function getBookings(filters?: BookingFilters): Promise<BookingList
   params.append("PageSize", pageSize);
   params.append("PageNum", pageNum);
 
-  const url = `${buildUrl("")}?${params.toString()}`;
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const queryString = params.toString();
+  const res = await fetchBackend(`${API_PREFIX}${queryString ? `?${queryString}` : ""}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -212,11 +205,7 @@ export async function getBookings(filters?: BookingFilters): Promise<BookingList
 
 // Lấy chi tiết booking theo ID
 export async function getBookingById(bookingId: string): Promise<Booking> {
-  const url = buildUrl(`/${bookingId}`);
-  
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/${bookingId}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -240,13 +229,8 @@ export async function getBookingById(bookingId: string): Promise<Booking> {
 
 // Hủy booking
 export async function cancelBooking(bookingId: string) {
-  const url = buildUrl(`/cancel/${bookingId}`);
-  
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/cancel/${bookingId}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 
   if (!res.ok) {
@@ -270,13 +254,8 @@ export async function cancelBooking(bookingId: string) {
 
 // Assign vehicle cho booking
 export async function assignVehicle(bookingId: string, vehicleId: string) {
-  const url = buildUrl(`/vehicle/assign/${bookingId}/${vehicleId}`);
-  
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/vehicle/assign/${bookingId}/${vehicleId}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 
   if (!res.ok) {

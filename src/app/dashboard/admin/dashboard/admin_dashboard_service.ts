@@ -1,4 +1,4 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
 export interface AdminDashboardData {
   vehicleModel: {
@@ -32,9 +32,7 @@ export interface AdminDashboardData {
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  const res = await fetch(`${getInternalApiBase()}/api/dashboard/admin`, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend("/dashboard/admin");
 
   if (!res.ok) {
     const errorText = await res.text();

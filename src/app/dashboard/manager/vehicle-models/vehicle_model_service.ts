@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/vehicle-model";
-
-function buildUrl(path: string) {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/VehicleModel";
 
 export interface Vehicle {
   id: string;
@@ -61,10 +57,8 @@ export async function getBranchVehicleModels(params: {
     descendingOrder: String(descendingOrder),
   });
 
-  // API route: /api/vehicle-model/branch/{branchId}
-  const url = buildUrl(`/branch/${branchId}?${search.toString()}`);
-
-  const res = await fetch(url, { cache: "no-store" });
+  // API route: /VehicleModel/branch/{branchId}
+  const res = await fetchBackend(`${API_PREFIX}/branch/${branchId}?${search.toString()}`);
 
   if (!res.ok) {
     const text = await res.text();
@@ -121,9 +115,7 @@ export async function getBranchVehicleModels(params: {
 export async function getManagerVehicleModelDetail(
   id: string
 ): Promise<ManagerVehicleModel> {
-  const url = buildUrl(`/detail/${id}`);
-
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetchBackend(`${API_PREFIX}/detail/${id}`);
 
   if (!res.ok) {
     const text = await res.text();

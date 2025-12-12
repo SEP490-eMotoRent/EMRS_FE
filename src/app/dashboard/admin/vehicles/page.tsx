@@ -7,7 +7,7 @@ import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, UploadOutlined
 import dayjs, { Dayjs } from "dayjs";
 import { getVehicles, getVehicleById, createVehicle, updateVehicle, deleteVehicle, createMedia, updateMedia, deleteMedia, VehicleFilters, VehicleListResponse } from "./vehicle_service";
 import type { ColumnsType } from "antd/es/table";
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
 const { Option } = Select;
 
@@ -311,9 +311,7 @@ export default function VehiclesPage() {
   const loadBranches = async () => {
     setLoadingBranches(true);
     try {
-      const res = await fetch(`${getInternalApiBase()}/api/branch/list`, {
-        cache: "no-store",
-      });
+      const res = await fetchBackend("/Branch");
       if (!res.ok) throw new Error("Failed to fetch branches");
       const text = await res.text();
       const json = text ? JSON.parse(text) : {};
@@ -353,12 +351,10 @@ export default function VehiclesPage() {
     try {
       // Nếu có branchId, load model theo chi nhánh (với pageSize lớn để lấy tất cả)
       const url = branchId 
-        ? `${getInternalApiBase()}/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000`
-        : `${getInternalApiBase()}/api/vehicle-model/list-all`;
+        ? `/VehicleModel/branch/${branchId}?pageNum=1&pageSize=1000`
+        : `/VehicleModel/list-all`;
       
-      const res = await fetch(url, {
-        cache: "no-store",
-      });
+      const res = await fetchBackend(url);
       if (!res.ok) throw new Error("Failed to fetch vehicle models");
       const text = await res.text();
       const json = text ? JSON.parse(text) : {};

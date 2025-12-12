@@ -6,7 +6,7 @@ import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, SearchOutlined
 import { getStaffs, getAccountById, updateAccountRole, deleteAccount, createAccount, Account } from "./staff_service";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
 const { Option } = Select;
 
@@ -78,9 +78,7 @@ export default function StaffPage() {
   const loadBranches = async () => {
     setLoadingBranches(true);
     try {
-      const res = await fetch(`${getInternalApiBase()}/api/branch/list`, {
-        cache: "no-store",
-      });
+      const res = await fetchBackend("/Branch");
       
       if (!res.ok) {
         const errorText = await res.text();

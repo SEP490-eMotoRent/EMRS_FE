@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/vehicle-transfer-order";
-
-function buildUrl(path: string) {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/VehicleTransferOrder";
 
 export interface VehicleTransferOrder {
   id: string;
@@ -44,11 +40,7 @@ export interface VehicleTransferOrder {
 
 // Lấy tất cả transfer orders
 export async function getTransferOrders(): Promise<VehicleTransferOrder[]> {
-  const url = buildUrl("");
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(API_PREFIX);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -80,11 +72,7 @@ export async function getTransferOrders(): Promise<VehicleTransferOrder[]> {
 
 // Lấy chi tiết order
 export async function getTransferOrderById(orderId: string): Promise<VehicleTransferOrder> {
-  const url = buildUrl(`/${orderId}`);
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/${orderId}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -148,17 +136,11 @@ export async function createTransferOrder(data: {
   toBranchId: string;
   notes?: string;
 }): Promise<VehicleTransferOrder> {
-  const url = buildUrl("/create");
-  console.log("[Create Order Service] Calling URL:", url);
   console.log("[Create Order Service] Request data:", JSON.stringify(data, null, 2));
 
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/create`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
-    cache: "no-store",
   });
 
   console.log("[Create Order Service] Response status:", res.status, res.statusText);
@@ -204,13 +186,8 @@ export async function createTransferOrder(data: {
 
 // Hủy transfer order
 export async function cancelTransferOrder(orderId: string): Promise<VehicleTransferOrder> {
-  const url = buildUrl(`/${orderId}/cancel`);
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${orderId}/cancel`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 
   if (!res.ok) {
@@ -234,14 +211,8 @@ export async function cancelTransferOrder(orderId: string): Promise<VehicleTrans
 
 // Manager xác nhận xuất xe (from branch)
 export async function dispatchTransferOrder(orderId: string): Promise<VehicleTransferOrder> {
-  const url = buildUrl(`/${orderId}/dispatch`);
-  console.log("[Dispatch Service] Calling URL:", url);
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${orderId}/dispatch`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 
   if (!res.ok) {
@@ -278,13 +249,8 @@ export async function dispatchTransferOrder(orderId: string): Promise<VehicleTra
 
 // Manager xác nhận nhận xe (to branch)
 export async function receiveTransferOrder(orderId: string): Promise<VehicleTransferOrder> {
-  const url = buildUrl(`/${orderId}/receive`);
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${orderId}/receive`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 
   if (!res.ok) {
@@ -328,10 +294,7 @@ export async function receiveTransferOrder(orderId: string): Promise<VehicleTran
 // Lấy orders theo branch (Manager)
 export async function getTransferOrdersByBranch(branchId: string): Promise<VehicleTransferOrder[]> {
   // Add timestamp to prevent caching
-  const url = buildUrl(`/branch/${branchId}?t=${Date.now()}`);
-
-  const res = await fetch(url, {
-    cache: "no-store",
+  const res = await fetchBackend(`${API_PREFIX}/branch/${branchId}?t=${Date.now()}`, {
     headers: {
       "Cache-Control": "no-cache, no-store, must-revalidate",
       "Pragma": "no-cache",
@@ -393,10 +356,7 @@ export async function getTransferOrdersByBranch(branchId: string): Promise<Vehic
 // Lấy pending orders theo branch (Manager)
 export async function getPendingTransferOrdersByBranch(branchId: string): Promise<VehicleTransferOrder[]> {
   // Add timestamp to prevent caching
-  const url = buildUrl(`/branch/${branchId}/pending?t=${Date.now()}`);
-
-  const res = await fetch(url, {
-    cache: "no-store",
+  const res = await fetchBackend(`${API_PREFIX}/branch/${branchId}/pending?t=${Date.now()}`, {
     headers: {
       "Cache-Control": "no-cache, no-store, must-revalidate",
       "Pragma": "no-cache",

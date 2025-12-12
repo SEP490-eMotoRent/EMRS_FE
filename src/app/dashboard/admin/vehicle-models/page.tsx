@@ -6,7 +6,7 @@ import { EditOutlined, PlusOutlined, EyeOutlined, UploadOutlined, DeleteOutlined
 import { getVehicleModels, getVehicleModelById, createVehicleModel, updateVehicleModel, deleteVehicleModel, VehicleModel } from "./vehicle_model_service";
 import { getVehicles } from "../vehicles/vehicle_service";
 import type { ColumnsType } from "antd/es/table";
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -45,7 +45,7 @@ export default function VehicleModelsPage() {
   const loadRentalPricings = async () => {
     setLoadingPricings(true);
     try {
-      const res = await fetch(`${getInternalApiBase()}/api/rental/pricing`, {
+      const res = await fetchBackend(`/Rental/Pricing`, {
         cache: "no-store",
       });
       

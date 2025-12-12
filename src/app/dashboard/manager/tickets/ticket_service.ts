@@ -187,13 +187,10 @@ export async function getStaffById(staffId: string) {
   }
   
   try {
-    const { getInternalApiBase } = await import("@/utils/helpers");
-    const apiBase = getInternalApiBase();
+    const { fetchBackend } = await import("@/utils/helpers");
     
     // Lấy tất cả accounts để tìm account có staff.id = staffId
-    const res = await fetch(`${apiBase}/api/account`, {
-      cache: "no-store",
-    });
+    const res = await fetchBackend("/account");
     
     if (!res.ok) {
       console.warn(`Failed to fetch accounts for staff ${staffId}:`, res.status);
@@ -213,10 +210,8 @@ export async function getStaffById(staffId: string) {
     
     // Nếu có account.id, gọi GET /api/account/{id} để lấy đầy đủ thông tin
     if (account.id) {
-      try {
-        const detailRes = await fetch(`${apiBase}/api/account/${account.id}`, {
-          cache: "no-store",
-        });
+        try {
+          const detailRes = await fetchBackend(`/account/${account.id}`);
         
         if (detailRes.ok) {
           const detailJson = await detailRes.json();
@@ -237,13 +232,10 @@ export async function getStaffById(staffId: string) {
 // Get list of staff in the branch for assignment
 export async function getBranchStaff() {
   try {
-    const { getInternalApiBase } = await import("@/utils/helpers");
-    const apiBase = getInternalApiBase();
+    const { fetchBackend } = await import("@/utils/helpers");
     
-    // Bước 1: Gọi GET /api/account để lấy tất cả accounts
-    const res = await fetch(`${apiBase}/api/account`, {
-      cache: "no-store",
-    });
+    // Bước 1: Gọi GET /account để lấy tất cả accounts
+    const res = await fetchBackend("/account");
 
     if (!res.ok) {
       throw new Error("Failed to fetch accounts");
@@ -262,9 +254,7 @@ export async function getBranchStaff() {
         if (!account.id) return null;
         
         try {
-          const detailRes = await fetch(`${apiBase}/api/account/${account.id}`, {
-            cache: "no-store",
-          });
+          const detailRes = await fetchBackend(`/account/${account.id}`);
           
           if (detailRes.ok) {
             const detailJson = await detailRes.json();

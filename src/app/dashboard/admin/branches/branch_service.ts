@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/branch";
-
-function buildUrl(path: string) {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/Branch";
 
 export interface Branch {
   id: string;
@@ -24,11 +20,7 @@ export interface Branch {
 // Đếm số xe trong branch từ API Vehicle/model/{branchId}
 async function getVehicleCountForBranch(branchId: string): Promise<number> {
   try {
-    const url = `${getInternalApiBase()}/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`;
-
-    const res = await fetch(url, {
-      cache: "no-store",
-    });
+    const res = await fetchBackend(`/VehicleModel/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`);
 
     if (!res.ok) {
       console.warn(`Failed to fetch vehicles for branch ${branchId}:`, res.status);
@@ -69,11 +61,7 @@ async function getVehicleCountForBranch(branchId: string): Promise<number> {
 
 // Lấy danh sách tất cả branches
 export async function getBranches(): Promise<Branch[]> {
-  const url = buildUrl("/list");
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(API_PREFIX);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -130,11 +118,7 @@ export async function getBranches(): Promise<Branch[]> {
 
 // Lấy chi tiết branch theo ID
 export async function getBranchById(branchId: string): Promise<Branch> {
-  const url = buildUrl(`/${branchId}`);
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/${branchId}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -181,13 +165,9 @@ export async function createBranch(data: {
   openingTime: string;
   closingTime: string;
 }): Promise<Branch> {
-  const url = buildUrl("/create");
 
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/create`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   });
 
@@ -282,15 +262,10 @@ export async function updateBranch(
 
 // Xóa branch
 export async function deleteBranch(branchId: string): Promise<any> {
-  const url = buildUrl(`/${branchId}`);
+  console.log("Deleting branch:", branchId);
 
-  console.log("Deleting branch:", branchId, "URL:", url);
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${branchId}`, {
     method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 
   const text = await res.text();

@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/vehicle-transfer-request";
-
-function buildUrl(path: string) {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/VehicleTransferRequest";
 
 export interface VehicleTransferRequest {
   id: string;
@@ -42,11 +38,7 @@ export interface VehicleTransferRequest {
 
 // Lấy tất cả transfer requests
 export async function getTransferRequests(): Promise<VehicleTransferRequest[]> {
-  const url = buildUrl("");
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(API_PREFIX);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -78,11 +70,7 @@ export async function getTransferRequests(): Promise<VehicleTransferRequest[]> {
 
 // Lấy pending requests (Admin only)
 export async function getPendingRequests(): Promise<VehicleTransferRequest[]> {
-  const url = buildUrl("/pending");
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/pending`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -114,11 +102,7 @@ export async function getPendingRequests(): Promise<VehicleTransferRequest[]> {
 
 // Lấy chi tiết request
 export async function getTransferRequestById(requestId: string): Promise<VehicleTransferRequest> {
-  const url = buildUrl(`/${requestId}`);
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/${requestId}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -158,15 +142,8 @@ export async function getTransferRequestById(requestId: string): Promise<Vehicle
 
 // Duyệt request (Admin only)
 export async function approveTransferRequest(requestId: string): Promise<VehicleTransferRequest> {
-  const url = buildUrl(`/${requestId}/approve`);
-  console.log("[Approve Service] Calling URL:", url);
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${requestId}/approve`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    cache: "no-store", // Đảm bảo không cache response
   });
 
   console.log("[Approve Service] Response status:", res.status, res.statusText);
@@ -217,15 +194,8 @@ export async function approveTransferRequest(requestId: string): Promise<Vehicle
 
 // Hủy request
 export async function cancelTransferRequest(requestId: string): Promise<VehicleTransferRequest> {
-  const url = buildUrl(`/${requestId}/cancel`);
-  console.log("[Cancel Service] Calling URL:", url);
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${requestId}/cancel`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    cache: "no-store", // Đảm bảo không cache response
   });
 
   console.log("[Cancel Service] Response status:", res.status, res.statusText);
@@ -280,15 +250,10 @@ export async function createTransferRequest(data: {
   quantityRequested: number;
   description: string;
 }): Promise<VehicleTransferRequest> {
-  const url = buildUrl("/create");
-  console.log("[Create Request Service] Calling URL:", url);
   console.log("[Create Request Service] Request data:", JSON.stringify(data, null, 2));
 
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/create`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   });
 
@@ -329,11 +294,7 @@ export async function createTransferRequest(data: {
 
 // Lấy requests theo branch (Manager)
 export async function getTransferRequestsByBranch(branchId: string): Promise<VehicleTransferRequest[]> {
-  const url = buildUrl(`/branch/${branchId}`);
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/branch/${branchId}`);
 
   const text = await res.text();
   let json: any;

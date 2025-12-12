@@ -1,16 +1,7 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const VEHICLE_MODEL_PREFIX = "/api/vehicle-model";
-const VEHICLE_PREFIX = "/api/vehicle";
-
-// Helper build URL tuyệt đối cho fetch phía server
-function buildModelUrl(path: string) {
-  return `${getInternalApiBase()}${VEHICLE_MODEL_PREFIX}${path}`;
-}
-
-function buildVehicleUrl(path: string) {
-  return `${getInternalApiBase()}${VEHICLE_PREFIX}${path}`;
-}
+const VEHICLE_MODEL_PREFIX = "/VehicleModel";
+const VEHICLE_PREFIX = "/Vehicle";
 
 export interface VehicleFilters {
   LicensePlate?: string;
@@ -40,11 +31,7 @@ export async function getVehicleModels(options?: {
     descendingOrder: String(descendingOrder),
   });
 
-  const url = `${buildModelUrl("/list")}?${queryParams.toString()}`;
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${VEHICLE_MODEL_PREFIX}/list?${queryParams.toString()}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -179,7 +166,7 @@ export async function getVehicleModelById(id: string) {
 
     for (const path of pathsToTry) {
       try {
-        const res = await fetch(buildModelUrl(path), { cache: "no-store" });
+        const res = await fetchBackend(`${VEHICLE_MODEL_PREFIX}${path}`);
 
         if (res.ok) {
           const json = await parseModelResponse(res);
@@ -219,7 +206,7 @@ export async function updateVehicle(data: any) {
     }
   });
 
-  const res = await fetch(buildVehicleUrl(""), {
+  const res = await fetchBackend(VEHICLE_PREFIX, {
     method: "PUT",
     body: form,
   });
@@ -293,9 +280,7 @@ export async function getVehiclesByBranch(options: {
     params.append("Status", options.status);
   }
 
-  const url = `${buildVehicleUrl("")}?${params.toString()}`;
-
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetchBackend(`${VEHICLE_PREFIX}?${params.toString()}`);
 
   if (!res.ok) {
     const text = await res.text();
@@ -346,7 +331,7 @@ export async function getVehiclesByBranch(options: {
 }
 
 export async function getVehicleById(id: string) {
-  const res = await fetch(buildVehicleUrl(`/${id}`), { cache: "no-store" });
+  const res = await fetchBackend(`${VEHICLE_PREFIX}/${id}`);
 
   if (!res.ok) {
     const text = await res.text();

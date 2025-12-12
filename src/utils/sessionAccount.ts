@@ -1,4 +1,4 @@
-import { getInternalApiBase } from "./helpers";
+import { fetchBackend } from "./helpers";
 
 export type AccountDetail = {
   id?: string;
@@ -28,7 +28,7 @@ export function readBrowserCookies(): Record<string, string> {
 async function fetchAccountDetailById(accountId: string | undefined | null) {
   if (!accountId) return null;
   try {
-    const res = await fetch(`${getInternalApiBase()}/api/account/${accountId}`, { cache: "no-store" });
+    const res = await fetchBackend(`/account/${accountId}`);
     if (!res.ok) return null;
     const json = await res.json();
     return (json.data || json) as AccountDetail;
@@ -40,7 +40,7 @@ async function fetchAccountDetailById(accountId: string | undefined | null) {
 
 async function fetchAccountList() {
   try {
-    const res = await fetch(`${getInternalApiBase()}/api/account`, { cache: "no-store" });
+    const res = await fetchBackend("/account");
     if (!res.ok) return [];
     const json = await res.json();
     const data = json.data ?? json;

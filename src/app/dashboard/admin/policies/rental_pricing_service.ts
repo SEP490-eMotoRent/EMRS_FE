@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/rental/pricing";
-
-function buildUrl(path = "") {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/rental/pricing";
 
 export interface RentalPricing {
   id: string;
@@ -13,7 +9,7 @@ export interface RentalPricing {
 }
 
 export async function getRentalPricings(): Promise<RentalPricing[]> {
-  const res = await fetch(buildUrl(""), { cache: "no-store" });
+  const res = await fetchBackend(API_PREFIX);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -43,13 +39,9 @@ export async function createRentalPricing(payload: {
   rentalPrice: number;
   excessKmPrice: number;
 }): Promise<RentalPricing> {
-  const res = await fetch(buildUrl(""), {
+  const res = await fetchBackend(API_PREFIX, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(payload),
-    cache: "no-store",
   });
 
   const text = await res.text();
@@ -71,13 +63,9 @@ export async function updateRentalPricing(
     excessKmPrice: number;
   }
 ): Promise<RentalPricing> {
-  const res = await fetch(buildUrl(`/${id}`), {
+  const res = await fetchBackend(`${API_PREFIX}/${id}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ id, ...payload }),
-    cache: "no-store",
   });
 
   const text = await res.text();
@@ -93,9 +81,8 @@ export async function updateRentalPricing(
 }
 
 export async function deleteRentalPricing(id: string): Promise<void> {
-  const res = await fetch(buildUrl(`/${id}`), {
+  const res = await fetchBackend(`${API_PREFIX}/${id}`, {
     method: "DELETE",
-    cache: "no-store",
   });
 
   const text = await res.text();
