@@ -1,15 +1,15 @@
-const INTERNAL_BASE =
-  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+import { getInternalApiBase } from "@/utils/helpers";
+
 const VEHICLE_MODEL_PREFIX = "/api/vehicle-model";
 const VEHICLE_PREFIX = "/api/vehicle";
 
 // Helper build URL tuyệt đối cho fetch phía server
 function buildModelUrl(path: string) {
-  return `${INTERNAL_BASE}${VEHICLE_MODEL_PREFIX}${path}`;
+  return `${getInternalApiBase()}${VEHICLE_MODEL_PREFIX}${path}`;
 }
 
 function buildVehicleUrl(path: string) {
-  return `${INTERNAL_BASE}${VEHICLE_PREFIX}${path}`;
+  return `${getInternalApiBase()}${VEHICLE_PREFIX}${path}`;
 }
 
 export interface VehicleFilters {

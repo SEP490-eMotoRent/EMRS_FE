@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getInternalApiBase } from "@/utils/helpers";
 
 export async function loginAction(formData: FormData) {
   const username = formData.get("username")?.toString();
@@ -11,7 +12,8 @@ export async function loginAction(formData: FormData) {
   }
 
   // FE gọi vào BFF
-  const res = await fetch("http://localhost:3000/api/auth/login", {
+  const API_BASE = getInternalApiBase();
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),

@@ -1,9 +1,9 @@
-const INTERNAL_BASE =
-  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+import { getInternalApiBase } from "@/utils/helpers";
+
 const API_PREFIX = "/api/branch";
 
 function buildUrl(path: string) {
-  return `${INTERNAL_BASE}${API_PREFIX}${path}`;
+  return `${getInternalApiBase()}${API_PREFIX}${path}`;
 }
 
 export interface Branch {
@@ -24,8 +24,7 @@ export interface Branch {
 // Đếm số xe trong branch từ API Vehicle/model/{branchId}
 async function getVehicleCountForBranch(branchId: string): Promise<number> {
   try {
-    const INTERNAL_BASE = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const url = `${INTERNAL_BASE}/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`;
+    const url = `${getInternalApiBase()}/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`;
 
     const res = await fetch(url, {
       cache: "no-store",

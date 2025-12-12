@@ -6,11 +6,10 @@ import { EditOutlined, PlusOutlined, EyeOutlined, UploadOutlined, DeleteOutlined
 import { getVehicleModels, getVehicleModelById, createVehicleModel, updateVehicleModel, deleteVehicleModel, VehicleModel } from "./vehicle_model_service";
 import { getVehicles } from "../vehicles/vehicle_service";
 import type { ColumnsType } from "antd/es/table";
+import { getInternalApiBase } from "@/utils/helpers";
 
 const { TextArea } = Input;
 const { Option } = Select;
-
-const INTERNAL_BASE = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const MAX_NAME_LENGTH = 100;
 const MIN_NAME_LENGTH = 3;
 const MAX_DESCRIPTION_LENGTH = 500;
@@ -46,7 +45,7 @@ export default function VehicleModelsPage() {
   const loadRentalPricings = async () => {
     setLoadingPricings(true);
     try {
-      const res = await fetch(`${INTERNAL_BASE}/api/rental/pricing`, {
+      const res = await fetch(`${getInternalApiBase()}/api/rental/pricing`, {
         cache: "no-store",
       });
       

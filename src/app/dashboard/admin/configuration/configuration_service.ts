@@ -1,9 +1,9 @@
-const INTERNAL_BASE =
-  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+import { getInternalApiBase } from "@/utils/helpers";
+
 const API_PREFIX = "/api/configuration";
 
 function buildUrl(path = "") {
-  return `${INTERNAL_BASE}${API_PREFIX}${path}`;
+  return `${getInternalApiBase()}${API_PREFIX}${path}`;
 }
 
 // Enum mirror from backend (EMRS.Domain.Enums.ConfigurationTypeEnum)
