@@ -1,11 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/vehicle";
-
-// Helper build URL tuyệt đối cho fetch phía server
-function buildUrl(path: string) {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/Vehicle";
 
 export interface VehicleFilters {
   LicensePlate?: string;
@@ -64,11 +59,7 @@ export async function getVehicles(filters?: VehicleFilters): Promise<VehicleList
   params.append("PageNum", pageNum);
   params.append("pageNum", pageNum);
 
-  const url = `${buildUrl("")}?${params.toString()}`;
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}?${params.toString()}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -213,11 +204,7 @@ function normalizeVehicle(vehicle: any) {
 
 // Lấy chi tiết vehicle theo ID
 export async function getVehicleById(vehicleId: string) {
-  const url = buildUrl(`/${vehicleId}`);
-  
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/${vehicleId}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -242,9 +229,7 @@ export async function getVehicleById(vehicleId: string) {
 
 // Tạo vehicle mới
 export async function createVehicle(formData: FormData) {
-  const url = buildUrl("/create");
-  
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/create`, {
     method: "POST",
     body: formData,
   });
@@ -270,9 +255,7 @@ export async function createVehicle(formData: FormData) {
 
 // Cập nhật vehicle
 export async function updateVehicle(formData: FormData) {
-  const url = buildUrl("");
-  
-  const res = await fetch(url, {
+  const res = await fetchBackend(API_PREFIX, {
     method: "PUT",
     body: formData,
   });
@@ -298,15 +281,10 @@ export async function updateVehicle(formData: FormData) {
 
 // Xóa vehicle
 export async function deleteVehicle(vehicleId: string) {
-  const url = buildUrl(`/${vehicleId}`);
-  
-  console.log("Deleting vehicle:", vehicleId, "URL:", url);
+  console.log("Deleting vehicle:", vehicleId);
 
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${vehicleId}`, {
     method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 
   const text = await res.text();
@@ -341,15 +319,14 @@ export async function deleteVehicle(vehicleId: string) {
 
 // Tạo media (ảnh) mới cho vehicle
 export async function createMedia(docNo: string, file: File, entityType: string = "Vehicle", mediaType: string = "Image") {
-  const url = `${getInternalApiBase()}/api/media`;
-  
   const formData = new FormData();
   formData.append("DocNo", docNo);
   formData.append("File", file);
   formData.append("MediaType", mediaType);
   formData.append("EntityType", entityType);
   
-  const res = await fetch(url, {
+  // Media API vẫn đi qua Next.js route
+  const res = await fetch("/api/media", {
     method: "POST",
     body: formData,
   });
@@ -375,13 +352,12 @@ export async function createMedia(docNo: string, file: File, entityType: string 
 
 // Cập nhật media (ảnh) của vehicle
 export async function updateMedia(mediaId: string, file: File) {
-  const url = `${getInternalApiBase()}/api/media`;
-  
   const formData = new FormData();
   formData.append("MediaId", mediaId);
   formData.append("File", file);
   
-  const res = await fetch(url, {
+  // Media API vẫn đi qua Next.js route
+  const res = await fetch("/api/media", {
     method: "PUT",
     body: formData,
   });
@@ -407,9 +383,8 @@ export async function updateMedia(mediaId: string, file: File) {
 
 // Xóa media (ảnh) của vehicle
 export async function deleteMedia(mediaId: string) {
-  const url = `${getInternalApiBase()}/api/media?mediaId=${encodeURIComponent(mediaId)}`;
-  
-  const res = await fetch(url, {
+  // Media API vẫn đi qua Next.js route
+  const res = await fetch(`/api/media?mediaId=${encodeURIComponent(mediaId)}`, {
     method: "DELETE",
   });
 

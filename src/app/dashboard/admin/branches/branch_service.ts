@@ -218,13 +218,8 @@ export async function updateBranch(
     closingTime: string;
   }
 ): Promise<Branch> {
-  const url = buildUrl(`/${branchId}`);
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${branchId}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   });
 

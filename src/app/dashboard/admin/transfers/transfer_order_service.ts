@@ -95,11 +95,7 @@ export async function getTransferOrderById(orderId: string): Promise<VehicleTran
 
 // Lấy orders đang vận chuyển
 export async function getInTransitOrders(): Promise<VehicleTransferOrder[]> {
-  const url = buildUrl("/intransit");
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/intransit`);
 
   if (!res.ok) {
     const errorText = await res.text();

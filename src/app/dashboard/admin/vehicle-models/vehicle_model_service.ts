@@ -1,10 +1,6 @@
-import { getInternalApiBase } from "@/utils/helpers";
+import { fetchBackend } from "@/utils/helpers";
 
-const API_PREFIX = "/api/vehicle-model";
-
-function buildUrl(path: string) {
-  return `${getInternalApiBase()}${API_PREFIX}${path}`;
-}
+const API_PREFIX = "/Vehicle/model";
 
 export interface VehicleModel {
   vehicleModelId?: string;
@@ -33,11 +29,7 @@ export interface VehicleModel {
 
 // Lấy danh sách tất cả vehicle models (cho admin)
 export async function getVehicleModels(): Promise<VehicleModel[]> {
-  const url = buildUrl("/list-all");
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/list`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -74,11 +66,7 @@ export async function getVehicleModels(): Promise<VehicleModel[]> {
 
 // Lấy chi tiết vehicle model theo ID
 export async function getVehicleModelById(modelId: string): Promise<VehicleModel> {
-  const url = buildUrl(`/${modelId}`);
-
-  const res = await fetch(url, {
-    cache: "no-store",
-  });
+  const res = await fetchBackend(`${API_PREFIX}/detail/${modelId}`);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -102,9 +90,7 @@ export async function getVehicleModelById(modelId: string): Promise<VehicleModel
 
 // Tạo vehicle model mới
 export async function createVehicleModel(formData: FormData): Promise<any> {
-  const url = buildUrl("/create");
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/create`, {
     method: "POST",
     body: formData,
   });
@@ -130,13 +116,8 @@ export async function createVehicleModel(formData: FormData): Promise<any> {
 
 // Cập nhật vehicle model
 export async function updateVehicleModel(modelId: string, data: Partial<VehicleModel>): Promise<any> {
-  const url = buildUrl(`/${modelId}`);
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${modelId}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({
       id: modelId,
       modelName: data.modelName,
@@ -170,13 +151,8 @@ export async function updateVehicleModel(modelId: string, data: Partial<VehicleM
 
 // Xóa vehicle model
 export async function deleteVehicleModel(modelId: string): Promise<any> {
-  const url = buildUrl(`/${modelId}`);
-
-  const res = await fetch(url, {
+  const res = await fetchBackend(`${API_PREFIX}/${modelId}`, {
     method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 
   if (!res.ok) {

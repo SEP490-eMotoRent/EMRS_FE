@@ -1,7 +1,6 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getInternalApiBase } from "@/utils/helpers";
 
 export async function loginAction(formData: FormData) {
   const username = formData.get("username")?.toString();
@@ -11,9 +10,12 @@ export async function loginAction(formData: FormData) {
     throw new Error("Vui lòng nhập đầy đủ thông tin đăng nhập");
   }
 
-  // FE gọi vào BFF
-  const API_BASE = getInternalApiBase();
-  const res = await fetch(`${API_BASE}/api/auth/login`, {
+  // Server action gọi Next.js API route (relative path)
+  // Next.js sẽ tự resolve thành đúng URL
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+  
+  const res = await fetch(`${baseUrl}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
