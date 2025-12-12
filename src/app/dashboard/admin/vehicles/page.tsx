@@ -1036,6 +1036,15 @@ export default function VehiclesPage() {
               placeholder="Chọn chi nhánh" 
               disabled={!!editingVehicle}
               loading={loadingBranches}
+              showSearch
+              allowClear
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+              options={branches.map((branch) => ({
+                value: branch.branchId,
+                label: branch.branchName,
+              }))}
               onChange={(value) => {
                 // Khi chọn chi nhánh, load lại model xe của chi nhánh đó
                 if (value) {
@@ -1046,13 +1055,7 @@ export default function VehiclesPage() {
                 // Reset vehicleModelId khi đổi chi nhánh
                 form.setFieldsValue({ vehicleModelId: undefined });
               }}
-            >
-              {branches.map((branch) => (
-                <Option key={branch.branchId} value={branch.branchId}>
-                  {branch.branchName}
-                </Option>
-              ))}
-            </Select>
+            />
           </Form.Item>
 
           <Form.Item

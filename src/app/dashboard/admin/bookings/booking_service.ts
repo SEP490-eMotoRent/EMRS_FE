@@ -205,12 +205,24 @@ export async function getBookings(filters?: BookingFilters): Promise<BookingList
 
 // Lấy chi tiết booking theo ID
 export async function getBookingById(bookingId: string): Promise<Booking> {
-  const res = await fetchBackend(`${API_PREFIX}/${bookingId}`);
+  // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+  const res = await fetch(`/api/booking/${bookingId}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     const errorText = await res.text();
     console.error("Failed to fetch booking:", res.status, errorText);
-    throw new Error(`Failed to fetch booking: ${res.statusText}`);
+    
+    let errorMessage = `Failed to fetch booking: ${res.statusText}`;
+    try {
+      const errorJson = errorText ? JSON.parse(errorText) : {};
+      errorMessage = errorJson.message || errorMessage;
+    } catch (e) {
+      // Nếu không parse được, dùng message mặc định
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const text = await res.text();
@@ -223,6 +235,9 @@ export async function getBookingById(bookingId: string): Promise<Booking> {
     throw new Error("Invalid JSON response");
   }
 
+  // Trả về đầy đủ dữ liệu từ response (json.data chứa toàn bộ booking object)
+  // Đảm bảo trả về tất cả các field: handoverBranch, returnBranch, insurancePackage, 
+  // vehicle, vehicleModel, renter, rentalContract, rentalReceipt, additionalFees, etc.
   const booking = json.data || json;
   return booking;
 }

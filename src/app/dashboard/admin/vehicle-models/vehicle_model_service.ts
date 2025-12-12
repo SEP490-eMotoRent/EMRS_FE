@@ -98,6 +98,29 @@ export async function createVehicleModel(formData: FormData): Promise<any> {
   if (!res.ok) {
     const errorText = await res.text();
     console.error("Failed to create vehicle model:", res.status, errorText);
+    
+    // Cố gắng parse error message từ response
+    try {
+      const errorJson = errorText ? JSON.parse(errorText) : {};
+      if (errorJson.errors) {
+        // Nếu có validation errors, trả về message chi tiết
+        const errorMessages = Object.entries(errorJson.errors)
+          .map(([field, messages]: [string, any]) => {
+            const fieldName = field === "ModelName" ? "Tên model" : 
+                            field === "ImageFiles" ? "Hình ảnh" : 
+                            field === "Description" ? "Mô tả" : field;
+            return `${fieldName}: ${Array.isArray(messages) ? messages.join(", ") : messages}`;
+          })
+          .join("\n");
+        throw new Error(errorMessages || errorJson.message || `Failed to create vehicle model: ${res.statusText}`);
+      }
+      if (errorJson.message) {
+        throw new Error(errorJson.message);
+      }
+    } catch (parseError) {
+      // Nếu không parse được, dùng error text gốc
+    }
+    
     throw new Error(`Failed to create vehicle model: ${res.statusText}`);
   }
 

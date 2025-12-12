@@ -31,7 +31,10 @@ export async function getVehicleModels(options?: {
     descendingOrder: String(descendingOrder),
   });
 
-  const res = await fetchBackend(`${VEHICLE_MODEL_PREFIX}/list?${queryParams.toString()}`);
+  // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+  const res = await fetch(`/api/vehicle-model/list?${queryParams.toString()}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -160,33 +163,18 @@ export async function getVehicleModelById(id: string) {
   } catch (err) {
     console.error("Error loading vehicle model by ID:", err);
     
-    // Fallback: thử API detail cũ nếu có
-    const pathsToTry = [`/detail/${id}`, `/${id}`];
-    let lastError: { status?: number; statusText?: string } | null = null;
+    // Fallback: thử API detail qua Next.js API route
+    try {
+      const res = await fetch(`/api/vehicle-model/detail/${id}`, {
+        cache: "no-store",
+      });
 
-    for (const path of pathsToTry) {
-      try {
-        const res = await fetchBackend(`${VEHICLE_MODEL_PREFIX}${path}`);
-
-        if (res.ok) {
-          const json = await parseModelResponse(res);
-          return json.data || json;
-        }
-
-        lastError = { status: res.status, statusText: res.statusText };
-
-        if (res.status === 404) {
-          continue;
-        }
-
-        throw new Error(`Failed to fetch vehicle model: ${res.statusText}`);
-      } catch (fetchErr) {
-        lastError = {
-          status: lastError?.status,
-          statusText:
-            fetchErr instanceof Error ? fetchErr.message : "Unknown vehicle model error",
-        };
+      if (res.ok) {
+        const json = await parseModelResponse(res);
+        return json.data || json;
       }
+    } catch (fetchErr) {
+      // Ignore fallback errors
     }
 
     throw new Error(

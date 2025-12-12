@@ -1,7 +1,3 @@
-import { fetchBackend } from "@/utils/helpers";
-
-const API_PREFIX = "/Membership";
-
 export interface MembershipPayload {
   id?: string;
   tierName: string;
@@ -39,7 +35,10 @@ function extractData(json: any) {
 }
 
 export async function getMemberships(): Promise<Membership[]> {
-  const res = await fetchBackend(API_PREFIX);
+  // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+  const res = await fetch("/api/membership", {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -62,7 +61,10 @@ export async function getMemberships(): Promise<Membership[]> {
 }
 
 export async function getMembershipById(id: string): Promise<Membership> {
-  const res = await fetchBackend(`${API_PREFIX}/${id}`);
+  // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+  const res = await fetch(`/api/membership/${id}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -75,15 +77,29 @@ export async function getMembershipById(id: string): Promise<Membership> {
 }
 
 export async function createMembership(payload: MembershipPayload) {
-  const res = await fetchBackend(API_PREFIX, {
+  // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+  const res = await fetch("/api/membership", {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(payload),
+    cache: "no-store",
   });
 
   if (!res.ok) {
     const text = await res.text();
     console.error("Failed to create membership:", res.status, text);
-    throw new Error("Không thể tạo hạng thành viên");
+    
+    let errorMessage = "Không thể tạo hạng thành viên";
+    try {
+      const errorJson = text ? JSON.parse(text) : {};
+      errorMessage = errorJson.message || errorMessage;
+    } catch (e) {
+      // Nếu không parse được, dùng message mặc định
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const json = await parseJsonResponse(res);
@@ -91,15 +107,29 @@ export async function createMembership(payload: MembershipPayload) {
 }
 
 export async function updateMembership(id: string, payload: MembershipPayload) {
-  const res = await fetchBackend(API_PREFIX, {
+  // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+  const res = await fetch("/api/membership", {
     method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ ...payload, id }),
+    cache: "no-store",
   });
 
   if (!res.ok) {
     const text = await res.text();
     console.error("Failed to update membership:", res.status, text);
-    throw new Error("Không thể cập nhật hạng thành viên");
+    
+    let errorMessage = "Không thể cập nhật hạng thành viên";
+    try {
+      const errorJson = text ? JSON.parse(text) : {};
+      errorMessage = errorJson.message || errorMessage;
+    } catch (e) {
+      // Nếu không parse được, dùng message mặc định
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const json = await parseJsonResponse(res);
@@ -107,14 +137,25 @@ export async function updateMembership(id: string, payload: MembershipPayload) {
 }
 
 export async function deleteMembership(id: string) {
-  const res = await fetchBackend(`${API_PREFIX}/${id}`, {
+  // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+  const res = await fetch(`/api/membership/${id}`, {
     method: "DELETE",
+    cache: "no-store",
   });
 
   if (!res.ok) {
     const text = await res.text();
     console.error("Failed to delete membership:", res.status, text);
-    throw new Error("Không thể xóa hạng thành viên");
+    
+    let errorMessage = "Không thể xóa hạng thành viên";
+    try {
+      const errorJson = text ? JSON.parse(text) : {};
+      errorMessage = errorJson.message || errorMessage;
+    } catch (e) {
+      // Nếu không parse được, dùng message mặc định
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const json = await parseJsonResponse(res);

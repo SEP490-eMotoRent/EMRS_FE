@@ -22,12 +22,19 @@ export interface Branch {
 async function getVehicleCountForBranch(branchId: string): Promise<number> {
   try {
     // Gọi qua Next.js API route thay vì gọi trực tiếp backend
-    const res = await fetch(`/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`, {
+    // Sử dụng absolute URL nếu đang ở server-side, relative nếu ở client-side
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+    const url = `${baseUrl}/api/vehicle-model/branch/${branchId}?pageNum=1&pageSize=1000&descendingOrder=false`;
+    
+    const res = await fetch(url, {
       cache: "no-store",
     });
 
     if (!res.ok) {
-      console.warn(`Failed to fetch vehicles for branch ${branchId}:`, res.status);
+      // Chỉ log warning, không throw error để không làm gián đoạn việc load branches
+      if (res.status !== 404) {
+        console.warn(`Failed to fetch vehicles for branch ${branchId}:`, res.status);
+      }
       return 0;
     }
 
@@ -58,6 +65,7 @@ async function getVehicleCountForBranch(branchId: string): Promise<number> {
 
     return totalCount;
   } catch (error) {
+    // Chỉ log warning, không throw error
     console.warn(`Error counting vehicles for branch ${branchId}:`, error);
     return 0;
   }

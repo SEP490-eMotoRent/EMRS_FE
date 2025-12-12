@@ -187,9 +187,35 @@ export default function VehicleModelsPage() {
         message.success("Cập nhật model thành công");
       } else {
         // Create
+        // Kiểm tra các field bắt buộc trước khi tạo FormData
+        if (!values.modelName || values.modelName.trim() === "") {
+          message.error("Vui lòng nhập tên model");
+          return;
+        }
+        
+        if (!values.description || values.description.trim() === "") {
+          message.error("Vui lòng nhập mô tả");
+          return;
+        }
+        
+        // Kiểm tra có ít nhất 1 ảnh
+        const hasImage = fileList.some((file) => file.originFileObj);
+        if (!hasImage) {
+          message.error("Vui lòng chọn ít nhất 1 hình ảnh");
+          return;
+        }
+        
+        if (!values.rentalPricingId) {
+          message.error("Vui lòng chọn bảng giá thuê");
+          return;
+        }
+        
         const formData = new FormData();
-        formData.append("ModelName", values.modelName);
+        formData.append("ModelName", values.modelName.trim());
         formData.append("Category", values.category);
+        formData.append("Description", values.description.trim());
+        formData.append("RentalPricingId", values.rentalPricingId);
+        
         if (values.batteryCapacityKwh) {
           formData.append("BatteryCapacityKwh", String(values.batteryCapacityKwh));
         }
@@ -199,18 +225,8 @@ export default function VehicleModelsPage() {
         if (values.maxSpeedKmh) {
           formData.append("MaxSpeedKmh", String(values.maxSpeedKmh));
         }
-        if (values.description) {
-          formData.append("Description", values.description);
-        }
-        // RentalPricingId là bắt buộc
-        if (values.rentalPricingId) {
-          formData.append("RentalPricingId", values.rentalPricingId);
-        } else {
-          message.error("Vui lòng chọn bảng giá thuê");
-          return;
-        }
         
-        // Append image files
+        // Append image files (đã kiểm tra ở trên)
         fileList.forEach((file) => {
           if (file.originFileObj) {
             formData.append("ImageFiles", file.originFileObj);
@@ -531,10 +547,13 @@ export default function VehicleModelsPage() {
             name="description"
             label="Mô tả"
             rules={[
+              { required: !editingModel, message: "Vui lòng nhập mô tả" },
               {
                 validator: (_, value) => {
-                  if (!value) return Promise.resolve();
-                  if (value.length > MAX_DESCRIPTION_LENGTH) {
+                  if (!value && !editingModel) {
+                    return Promise.reject(new Error("Vui lòng nhập mô tả"));
+                  }
+                  if (value && value.length > MAX_DESCRIPTION_LENGTH) {
                     return Promise.reject(new Error(`Mô tả tối đa ${MAX_DESCRIPTION_LENGTH} ký tự`));
                   }
                   return Promise.resolve();
@@ -582,7 +601,14 @@ export default function VehicleModelsPage() {
           </Form.Item>
 
           {!editingModel && (
-            <Form.Item label="Hình ảnh">
+            <Form.Item 
+              label={
+                <span>
+                  Hình ảnh <span className="text-red-500">*</span>
+                </span>
+              }
+              required
+            >
               <Upload
                 listType="picture-card"
                 fileList={fileList}

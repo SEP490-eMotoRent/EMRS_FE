@@ -60,11 +60,33 @@ export async function getBookingById(id: string) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to fetch booking: ${res.statusText}`);
+    const errorText = await res.text();
+    console.error("Failed to fetch booking:", res.status, errorText);
+    
+    let errorMessage = `Failed to fetch booking: ${res.statusText}`;
+    try {
+      const errorJson = errorText ? JSON.parse(errorText) : {};
+      errorMessage = errorJson.message || errorMessage;
+    } catch (e) {
+      // Nếu không parse được, dùng message mặc định
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const text = await res.text();
-  const json = text ? JSON.parse(text) : {};
+  let json: any;
+  
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  // Trả về đầy đủ dữ liệu từ response (json.data chứa toàn bộ booking object)
+  // Đảm bảo trả về tất cả các field: handoverBranch, returnBranch, insurancePackage, 
+  // vehicle, vehicleModel, renter, rentalContract, rentalReceipt, additionalFees, etc.
   return json.data || json;
 }
 

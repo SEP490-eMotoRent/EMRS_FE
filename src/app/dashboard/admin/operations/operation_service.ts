@@ -20,17 +20,40 @@ export async function getRentalReceipts() {
 
 // Lấy chi tiết một rental receipt
 export async function getRentalReceiptById(id: string) {
-  const res = await fetchBackend(`/Rental/Receipt/${id}`);
+  // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+  const res = await fetch(`/api/rental/receipt/${id}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
-    throw new Error("Không thể tải chi tiết biên bản");
+    const errorText = await res.text();
+    let errorMessage = "Không thể tải chi tiết biên bản";
+    
+    try {
+      const errorJson = errorText ? JSON.parse(errorText) : {};
+      errorMessage = errorJson.message || errorMessage;
+    } catch (e) {
+      // Nếu không parse được, dùng message mặc định
+    }
+    
+    throw new Error(errorMessage);
   }
 
-  const json = await res.json();
-  if (!json.success) {
+  const text = await res.text();
+  let json: any;
+  
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+  
+  // Handle different response structures
+  if (json.success === false) {
     throw new Error(json.message || "Không thể tải chi tiết biên bản");
   }
 
-  return json.data;
+  return json.data || json;
 }
 

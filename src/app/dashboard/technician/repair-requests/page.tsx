@@ -267,42 +267,80 @@ export default function TechnicianRepairRequestsPage() {
       setUpdateOpen(true);
       // Load chi tiết từ API để có đầy đủ thông tin
       const detail = await getRepairRequestById(record.id);
-      setUpdatingRequest(detail);
-      const normalized = normalizeStatus(detail.status || record.status || "ASSIGNED");
+      
+      // Enrich với vehicle licensePlate từ danh sách vehicles
+      let enrichedDetail = { ...detail };
+      if (detail.vehicleId && vehicles.length > 0) {
+        const vehicleFromList = vehicles.find((v: any) => 
+          v.id === detail.vehicleId || 
+          v.vehicleId === detail.vehicleId
+        );
+        if (vehicleFromList?.licensePlate) {
+          enrichedDetail = {
+            ...enrichedDetail,
+            vehicleLicensePlate: vehicleFromList.licensePlate,
+            vehicle: {
+              ...enrichedDetail.vehicle,
+              licensePlate: vehicleFromList.licensePlate,
+            },
+          };
+        }
+      }
+      
+      setUpdatingRequest(enrichedDetail);
+      const normalized = normalizeStatus(enrichedDetail.status || record.status || "ASSIGNED");
       
       // Set form values cho status và checklist
       statusForm.setFieldsValue({
         status: normalized,
-        checklist_battery: detail.checklist?.battery || "",
-        checklist_motor: detail.checklist?.motor || "",
-        checklist_brake: detail.checklist?.brake || "",
-        checklist_lighting: detail.checklist?.lighting || "",
-        checklist_controller: detail.checklist?.controller !== undefined ? detail.checklist.controller : false,
-        checklist_tires: detail.checklist?.tires || "",
-        checklist_notes: detail.checklist?.notes 
-          ? (Array.isArray(detail.checklist.notes) 
-              ? detail.checklist.notes.join("\n") 
-              : detail.checklist.notes)
+        checklist_battery: enrichedDetail.checklist?.battery || "",
+        checklist_motor: enrichedDetail.checklist?.motor || "",
+        checklist_brake: enrichedDetail.checklist?.brake || "",
+        checklist_lighting: enrichedDetail.checklist?.lighting || "",
+        checklist_controller: enrichedDetail.checklist?.controller !== undefined ? enrichedDetail.checklist.controller : false,
+        checklist_tires: enrichedDetail.checklist?.tires || "",
+        checklist_notes: enrichedDetail.checklist?.notes 
+          ? (Array.isArray(enrichedDetail.checklist.notes) 
+              ? enrichedDetail.checklist.notes.join("\n") 
+              : enrichedDetail.checklist.notes)
           : "",
       });
     } catch (err: any) {
       console.error("Error loading repair request for update:", err);
       message.error(err.message || "Không thể tải thông tin yêu cầu");
-      // Fallback: dùng data từ table
-      setUpdatingRequest(record);
-      const normalized = normalizeStatus(record.status || "ASSIGNED");
+      // Fallback: dùng data từ table và enrich với vehicle data
+      let enrichedRecord = { ...record };
+      if (record.vehicleId && vehicles.length > 0) {
+        const vehicleFromList = vehicles.find((v: any) => 
+          v.id === record.vehicleId || 
+          v.vehicleId === record.vehicleId
+        );
+        if (vehicleFromList?.licensePlate) {
+          enrichedRecord = {
+            ...enrichedRecord,
+            vehicleLicensePlate: vehicleFromList.licensePlate,
+            vehicle: {
+              ...enrichedRecord.vehicle,
+              licensePlate: vehicleFromList.licensePlate,
+            },
+          };
+        }
+      }
+      
+      setUpdatingRequest(enrichedRecord);
+      const normalized = normalizeStatus(enrichedRecord.status || "ASSIGNED");
       statusForm.setFieldsValue({
         status: normalized,
-        checklist_battery: record.checklist?.battery || "",
-        checklist_motor: record.checklist?.motor || "",
-        checklist_brake: record.checklist?.brake || "",
-        checklist_lighting: record.checklist?.lighting || "",
-        checklist_controller: record.checklist?.controller !== undefined ? record.checklist.controller : false,
-        checklist_tires: record.checklist?.tires || "",
-        checklist_notes: record.checklist?.notes 
-          ? (Array.isArray(record.checklist.notes) 
-              ? record.checklist.notes.join("\n") 
-              : record.checklist.notes)
+        checklist_battery: enrichedRecord.checklist?.battery || "",
+        checklist_motor: enrichedRecord.checklist?.motor || "",
+        checklist_brake: enrichedRecord.checklist?.brake || "",
+        checklist_lighting: enrichedRecord.checklist?.lighting || "",
+        checklist_controller: enrichedRecord.checklist?.controller !== undefined ? enrichedRecord.checklist.controller : false,
+        checklist_tires: enrichedRecord.checklist?.tires || "",
+        checklist_notes: enrichedRecord.checklist?.notes 
+          ? (Array.isArray(enrichedRecord.checklist.notes) 
+              ? enrichedRecord.checklist.notes.join("\n") 
+              : enrichedRecord.checklist.notes)
           : "",
       });
     }
@@ -1004,10 +1042,32 @@ export default function TechnicianRepairRequestsPage() {
               </p>
               <p className="text-sm text-gray-600">
                 <span className="font-semibold">Xe:</span>{" "}
-                {updatingRequest.vehicle?.licensePlate ||
-                  updatingRequest.assignedVehicle?.licensePlate ||
-                  updatingRequest.vehicleLicensePlate ||
-                  "N/A"}
+                {(() => {
+                  // Ưu tiên lấy licensePlate từ nhiều nguồn
+                  let licensePlate = 
+                    updatingRequest.vehicleLicensePlate ||
+                    updatingRequest.vehicle?.licensePlate ||
+                    updatingRequest.assignedVehicle?.licensePlate ||
+                    updatingRequest.licensePlate;
+                  
+                  // Nếu không có, tìm trong danh sách vehicles dựa trên vehicleId
+                  if ((!licensePlate || licensePlate.length > 20) && updatingRequest.vehicleId && vehicles.length > 0) {
+                    const vehicleFromList = vehicles.find((v: any) => 
+                      v.id === updatingRequest.vehicleId || 
+                      v.vehicleId === updatingRequest.vehicleId
+                    );
+                    if (vehicleFromList?.licensePlate) {
+                      licensePlate = vehicleFromList.licensePlate;
+                    }
+                  }
+                  
+                  // Nếu vẫn không có hoặc là UUID, hiển thị N/A
+                  if (!licensePlate || licensePlate.length > 20) {
+                    return <span className="text-gray-400 italic">N/A</span>;
+                  }
+                  
+                  return <span className="font-semibold text-green-600">{licensePlate}</span>;
+                })()}
               </p>
             </div>
 
