@@ -499,8 +499,9 @@ export default function VehiclesPage() {
           formData.append("VehicleId", vehicleId);
         }
       }
-      appendIfValue("LicensePlate", values.licensePlate);
-      appendIfValue("Color", values.color);
+      // Các field bắt buộc - luôn append (đã kiểm tra ở trên)
+      formData.append("LicensePlate", values.licensePlate?.trim() || "");
+      formData.append("Color", values.color?.trim() || "");
       if (values.yearOfManufacture) {
         formData.append("YearOfManufacture", dayjs(values.yearOfManufacture).toISOString());
       }
@@ -513,7 +514,12 @@ export default function VehiclesPage() {
       appendIfValue("BranchId", values.branchId);
       appendIfValue("GpsDeviceIdent", values.gpsDeviceIdent);
       appendIfValue("FlespiDeviceId", values.flespiDeviceId);
-      appendIfValue("Description", values.description);
+      // Description là bắt buộc khi tạo mới - luôn append (đã kiểm tra ở trên)
+      if (!editingVehicle) {
+        formData.append("Description", values.description?.trim() || "");
+      } else {
+        appendIfValue("Description", values.description);
+      }
       if (values.vehicleModelId) {
         formData.append("VehicleModelId", values.vehicleModelId);
       } else if (editingVehicle?.vehicleModelId) {
@@ -577,6 +583,22 @@ export default function VehiclesPage() {
         
         message.success("Cập nhật xe thành công");
       } else {
+        // Kiểm tra các field bắt buộc trước khi tạo FormData
+        if (!values.licensePlate || values.licensePlate.trim() === "") {
+          message.error("Vui lòng nhập biển số");
+          return;
+        }
+        
+        if (!values.color || values.color.trim() === "") {
+          message.error("Vui lòng nhập màu sắc");
+          return;
+        }
+        
+        if (!values.description || values.description.trim() === "") {
+          message.error("Vui lòng nhập mô tả");
+          return;
+        }
+        
         if (!values.vehicleModelId || !values.branchId) {
           message.error("Vui lòng chọn Model xe và Chi nhánh");
           return;
@@ -965,7 +987,11 @@ export default function VehiclesPage() {
             <Input placeholder="Nhập biển số" />
           </Form.Item>
 
-          <Form.Item name="color" label="Màu sắc">
+          <Form.Item 
+            name="color" 
+            label="Màu sắc"
+            rules={[{ required: !editingVehicle, message: "Vui lòng nhập màu sắc" }]}
+          >
             <Input placeholder="Nhập màu sắc" />
           </Form.Item>
 
@@ -1089,7 +1115,11 @@ export default function VehiclesPage() {
             <Input type="number" placeholder="Nhập Flespi Device ID" />
           </Form.Item>
 
-          <Form.Item name="description" label="Mô tả">
+          <Form.Item 
+            name="description" 
+            label="Mô tả"
+            rules={[{ required: !editingVehicle, message: "Vui lòng nhập mô tả" }]}
+          >
             <Input.TextArea rows={3} placeholder="Nhập mô tả" />
           </Form.Item>
 
