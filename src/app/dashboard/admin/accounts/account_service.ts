@@ -1,13 +1,15 @@
+import { getInternalApiBase } from "@/utils/helpers";
+
 // 🔹 Lấy tất cả tài khoản
 export async function getAccounts() {
-  const res = await fetch("/api/account");
+  const res = await fetch(`${getInternalApiBase()}/api/account`);
   if (!res.ok) throw new Error("Failed to fetch accounts");
   return res.json();
 }
 
 // 🔹 Thêm tài khoản
 export async function createAccount(data: any) {
-  const res = await fetch("/api/account/create-account", {
+  const res = await fetch(`${getInternalApiBase()}/api/account/create-account`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -21,7 +23,7 @@ export async function createAccount(data: any) {
 
 // 🔹 Cập nhật tài khoản
 export async function updateAccount(id: number, data: any) {
-  const res = await fetch(`/api/account/${id}`, {
+  const res = await fetch(`${getInternalApiBase()}/api/account/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -35,7 +37,7 @@ export async function updateAccount(id: number, data: any) {
 
 // 🔹 Xóa tài khoản
 export async function deleteAccount(id: number) {
-  const res = await fetch(`/api/account/${id}`, {
+  const res = await fetch(`${getInternalApiBase()}/api/account/${id}`, {
     method: "DELETE",
   });
   if (!res.ok) {

@@ -78,8 +78,11 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
         // Nếu có username, gọi API để lấy đầy đủ thông tin
         if (username) {
           try {
+            const { getInternalApiBase } = await import("@/utils/helpers");
+            const apiBase = getInternalApiBase();
+            
             // Bước 1: Gọi GET /api/account để lấy tất cả accounts
-            const allAccountsRes = await fetch("/api/account", { cache: "no-store" });
+            const allAccountsRes = await fetch(`${apiBase}/api/account`, { cache: "no-store" });
             if (!allAccountsRes.ok) {
               console.warn("Failed to fetch accounts:", allAccountsRes.status);
               return;
@@ -112,7 +115,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
             }
             
             // Bước 4: Gọi GET /api/account/{accountId} để lấy đầy đủ thông tin
-            const accountRes = await fetch(`/api/account/${accountId}`, { cache: "no-store" });
+            const accountRes = await fetch(`${apiBase}/api/account/${accountId}`, { cache: "no-store" });
             if (!accountRes.ok) {
               console.warn("Failed to fetch account details:", accountRes.status);
               return;

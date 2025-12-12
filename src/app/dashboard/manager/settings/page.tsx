@@ -34,7 +34,9 @@ export default function SettingsPage() {
       
       // Bước 1: Gọi GET /api/account để lấy tất cả accounts
       try {
-        const allAccountsRes = await fetch("/api/account", { cache: "no-store" });
+        const { getInternalApiBase } = await import("@/utils/helpers");
+        const apiBase = getInternalApiBase();
+        const allAccountsRes = await fetch(`${apiBase}/api/account`, { cache: "no-store" });
         if (!allAccountsRes.ok) {
           throw new Error(`Failed to fetch accounts: ${allAccountsRes.status}`);
         }
@@ -97,7 +99,7 @@ export default function SettingsPage() {
         console.log("Fetching account details with account ID:", accountId);
         
         // Bước 4: Gọi GET /api/account/{accountId} để lấy đầy đủ thông tin
-        const accountRes = await fetch(`/api/account/${accountId}`, { cache: "no-store" });
+        const accountRes = await fetch(`${apiBase}/api/account/${accountId}`, { cache: "no-store" });
         
         if (accountRes.ok) {
           const accountJson = await accountRes.json();

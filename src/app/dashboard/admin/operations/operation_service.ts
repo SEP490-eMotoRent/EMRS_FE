@@ -1,8 +1,10 @@
 // app/dashboard/admin/operations/operation_service.ts
 
+import { getInternalApiBase } from "@/utils/helpers";
+
 // Lấy danh sách tất cả rental receipts (bao gồm cả giao và trả)
 export async function getRentalReceipts() {
-  const res = await fetch("/api/rental/receipt", {
+  const res = await fetch(`${getInternalApiBase()}/api/rental/receipt`, {
     cache: "no-store",
   });
 
@@ -20,7 +22,7 @@ export async function getRentalReceipts() {
 
 // Lấy chi tiết một rental receipt
 export async function getRentalReceiptById(id: string) {
-  const res = await fetch(`/api/rental/receipt/${id}`, {
+  const res = await fetch(`${getInternalApiBase()}/api/rental/receipt/${id}`, {
     cache: "no-store",
   });
 
