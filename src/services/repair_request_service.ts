@@ -237,19 +237,22 @@ export async function createTechnicianRepairRequest(
 
 export async function updateTechnicianRepairRequest(
   repairRequestId: string,
-  payload: { status?: string; checklist?: any }
+  payload: { checklist?: any }
 ) {
   if (!repairRequestId) throw new Error("Thiếu repairRequestId");
 
+  if (!payload.checklist) {
+    throw new Error("Checklist là bắt buộc");
+  }
+
   // Theo API spec: PUT /api/RepairRequest/technician
   // Body: { repairRequestId, checklist: "string" }
+  // NOTE: Technician chỉ có thể cập nhật checklist, KHÔNG thể cập nhật status
   const requestBody = {
     repairRequestId,
-    checklist: payload.checklist 
-      ? (typeof payload.checklist === 'string' 
-          ? payload.checklist 
-          : JSON.stringify(payload.checklist))
-      : JSON.stringify({ status: payload.status || "" })
+    checklist: typeof payload.checklist === 'string' 
+      ? payload.checklist 
+      : JSON.stringify(payload.checklist)
   };
 
   const res = await fetch(`${API_PREFIX}/technician`, {
@@ -260,7 +263,7 @@ export async function updateTechnicianRepairRequest(
 
   const json = await parseJson(res);
   if (!res.ok) {
-    throw new Error(json?.message || "Không thể cập nhật yêu cầu (technician)");
+    throw new Error(json?.message || "Không thể cập nhật checklist");
   }
 
   return json?.data ?? json;

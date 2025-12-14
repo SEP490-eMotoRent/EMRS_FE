@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
-// GET /api/insurance-claim/admin/list
-// Lấy danh sách tất cả insurance claims (cho admin)
-export async function GET() {
+// GET /api/insurance-claim/admin/[id]
+// Lấy chi tiết một insurance claim theo ID (cho admin)
+export async function GET(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
@@ -16,8 +19,17 @@ export async function GET() {
       );
     }
 
-    // Gọi endpoint /InsuranceClaim/admin để lấy danh sách claims cho admin
-    const beRes = await emrsFetch("/InsuranceClaim/admin", {
+    const { id } = await context.params;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "Claim ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Gọi endpoint /InsuranceClaim/admin/{id} để lấy chi tiết claim
+    const beRes = await emrsFetch(`/InsuranceClaim/admin/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -27,7 +39,7 @@ export async function GET() {
     try {
       json = text ? JSON.parse(text) : {};
     } catch (e) {
-      console.error("Failed to parse insurance claims response:", e);
+      console.error("Failed to parse insurance claim detail response:", e);
       return NextResponse.json(
         { success: false, message: "Invalid JSON from backend" },
         { status: 500 }
@@ -36,7 +48,7 @@ export async function GET() {
 
     return NextResponse.json(json, { status: beRes.status });
   } catch (err) {
-    console.error("Insurance claims API error:", err);
+    console.error("Insurance claim detail API error:", err);
     return NextResponse.json(
       { success: false, message: "Internal BFF Error" },
       { status: 500 }
