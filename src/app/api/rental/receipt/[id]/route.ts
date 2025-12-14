@@ -20,6 +20,13 @@ export async function GET(
       );
     }
 
+    if (!id || id.trim() === "") {
+      return NextResponse.json(
+        { success: false, message: "ID biên bản không hợp lệ" },
+        { status: 400 }
+      );
+    }
+
     const beRes = await emrsFetch(`/Rental/receipt/by/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -28,11 +35,24 @@ export async function GET(
     let json;
 
     try {
-      json = JSON.parse(text);
+      json = text ? JSON.parse(text) : {};
     } catch (e) {
+      console.error("Failed to parse JSON from backend:", text);
       return NextResponse.json(
-        { success: false, message: "Invalid JSON from BE" },
+        { success: false, message: "Invalid JSON from BE", error: text },
         { status: 500 }
+      );
+    }
+
+    // Nếu backend trả về lỗi, forward lại
+    if (!beRes.ok) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: json.message || `Backend error: ${beRes.statusText}`,
+          errors: json.errors 
+        },
+        { status: beRes.status }
       );
     }
 

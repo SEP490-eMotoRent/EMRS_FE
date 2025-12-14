@@ -1,17 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
 // GET /api/vehicle-model/detail/[id]
 // Lấy chi tiết vehicle model theo ID
-export async function GET(req: Request, context: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    // ⛔ BẮT BUỘC: params phải await
-    const { id } = await context.params;
+    const { id } = await params;
 
     console.log("Vehicle model detail API - ID:", id);
 
-    // ⛔ BẮT BUỘC: cookies() phải await
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 

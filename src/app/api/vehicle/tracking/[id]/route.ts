@@ -6,7 +6,7 @@ import { emrsFetch } from "@/utils/emrsApi";
 // Lấy tmpToken + deviceId từ BE để tracking real-time
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();

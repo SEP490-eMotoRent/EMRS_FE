@@ -34,7 +34,8 @@ export default function SettingsPage() {
       
       // Bước 1: Gọi GET /api/account để lấy tất cả accounts
       try {
-        const allAccountsRes = await fetch("/api/account", { cache: "no-store" });
+        const { fetchBackend } = await import("@/utils/helpers");
+        const allAccountsRes = await fetchBackend("/account");
         if (!allAccountsRes.ok) {
           throw new Error(`Failed to fetch accounts: ${allAccountsRes.status}`);
         }
@@ -96,8 +97,8 @@ export default function SettingsPage() {
         
         console.log("Fetching account details with account ID:", accountId);
         
-        // Bước 4: Gọi GET /api/account/{accountId} để lấy đầy đủ thông tin
-        const accountRes = await fetch(`/api/account/${accountId}`, { cache: "no-store" });
+        // Bước 4: Gọi GET /account/{accountId} để lấy đầy đủ thông tin
+        const accountRes = await fetchBackend(`/account/${accountId}`);
         
         if (accountRes.ok) {
           const accountJson = await accountRes.json();
@@ -156,8 +157,8 @@ export default function SettingsPage() {
   const staff = Array.isArray(accountData?.staff) ? accountData.staff[0] : accountData?.staff;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Cài đặt</h1>
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold text-gray-800">Cài đặt</h1>
 
       {/* Thông tin tài khoản */}
       <Card title="Thông tin tài khoản" className="shadow-sm">

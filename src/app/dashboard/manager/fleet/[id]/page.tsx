@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Tag } from "lucide-react";
-import { Button, Card, Descriptions, Spin, Tag as AntTag } from "antd";
+import { Button, Card, Descriptions, Spin, Tag as AntTag, Image } from "antd";
 import dayjs from "dayjs";
 
-import { getVehicleModelById } from "../fleet_service";
+import { getVehicleById } from "../fleet_service";
 
 const getStatusInfo = (status: string) => {
   const statusMap: Record<string, { label: string; color: string }> = {
@@ -40,7 +40,7 @@ export default function VehicleDetailPage() {
   const loadVehicle = async () => {
     try {
       setLoading(true);
-      const data = await getVehicleModelById(params.id as string);
+      const data = await getVehicleById(params.id as string);
       setVehicle(data);
     } catch (err) {
       console.error("Error loading vehicle:", err);
@@ -117,6 +117,23 @@ export default function VehicleDetailPage() {
             </Descriptions.Item>
           </Descriptions>
         </Card>
+
+        {Array.isArray(vehicle.fileUrl) && vehicle.fileUrl.length > 0 && (
+          <Card title="Hình ảnh xe" className="shadow-sm">
+            <Image.PreviewGroup>
+              <div className="grid grid-cols-2 gap-3">
+                {vehicle.fileUrl.map((img: string, idx: number) => (
+                  <Image
+                    key={idx}
+                    src={img}
+                    alt={`Vehicle image ${idx + 1}`}
+                    className="rounded"
+                  />
+                ))}
+              </div>
+            </Image.PreviewGroup>
+          </Card>
+        )}
 
         <Card title="Thông tin kỹ thuật" className="shadow-sm">
           <Descriptions column={1} bordered>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Table, Tag, message } from "antd";
+import { Table, Tag, message, Card } from "antd";
 import dayjs from "dayjs";
 import type { ColumnsType } from "antd/es/table";
 
@@ -164,12 +164,12 @@ export default function InsurancePage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold">Danh sách yêu cầu bảo hiểm</h1>
-      </div>
+    <div className="space-y-4">
+      {/* Header */}
+      <h1 className="text-xl font-semibold text-gray-800">Sự cố & Bảo hiểm</h1>
 
-      <div className="bg-white shadow rounded-lg p-4">
+      {/* Table */}
+      <Card className="shadow-sm border-0">
         <Table
           rowKey="id"
           loading={loading}
@@ -182,8 +182,9 @@ export default function InsurancePage() {
             showSizeChanger: true,
             showTotal: (total) => `Tổng ${total} yêu cầu`,
           }}
+          size="middle"
         />
-      </div>
+      </Card>
     </div>
   );
 }

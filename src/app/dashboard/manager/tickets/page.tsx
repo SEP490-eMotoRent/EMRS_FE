@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Table, Tag, message, Button, Space, Select } from "antd";
+import { Table, Tag, message, Button, Space, Select, Card } from "antd";
 import dayjs from "dayjs";
 import type { ColumnsType } from "antd/es/table";
 import { UserOutlined, PhoneOutlined, EnvironmentOutlined } from "@ant-design/icons";
@@ -372,15 +372,17 @@ export default function TicketsPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold">Quản lý Tickets - Hỗ trợ kỹ thuật</h1>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <h1 className="text-xl font-semibold text-gray-800">Tickets - Hỗ trợ kỹ thuật</h1>
         <Button onClick={() => loadTickets(pagination.currentPage, pagination.pageSize)} loading={loading}>
           Làm mới
         </Button>
       </div>
 
-      <div className="mb-4">
+      {/* Filters */}
+      <Card className="shadow-sm border-0">
         <Space>
           <span className="text-sm text-gray-600">Lọc theo trạng thái:</span>
           <Select
@@ -396,9 +398,10 @@ export default function TicketsPage() {
             <Select.Option value="Resolved">Đã giải quyết</Select.Option>
           </Select>
         </Space>
-      </div>
+      </Card>
 
-      <div className="bg-white shadow rounded-lg p-4">
+      {/* Table */}
+      <Card className="shadow-sm border-0">
         <Table
           rowKey="id"
           loading={loading}
@@ -406,7 +409,7 @@ export default function TicketsPage() {
           dataSource={filteredTickets}
           locale={{ emptyText: "Không có ticket nào" }}
           scroll={{ x: 1000 }}
-          size="small"
+          size="middle"
           pagination={{
             current: pagination.currentPage,
             pageSize: pagination.pageSize,
@@ -421,7 +424,7 @@ export default function TicketsPage() {
             },
           }}
         />
-      </div>
+      </Card>
     </div>
   );
 }

@@ -10,8 +10,12 @@ export async function loginAction(formData: FormData) {
     throw new Error("Vui lòng nhập đầy đủ thông tin đăng nhập");
   }
 
-  // FE gọi vào BFF
-  const res = await fetch("http://localhost:3000/api/auth/login", {
+  // Server action gọi Next.js API route (relative path)
+  // Next.js sẽ tự resolve thành đúng URL
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+  
+  const res = await fetch(`${baseUrl}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),

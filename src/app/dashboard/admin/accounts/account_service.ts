@@ -1,40 +1,47 @@
-import { API_BASE_URL } from "../index";
+import { fetchBackend } from "@/utils/helpers";
 
 // 🔹 Lấy tất cả tài khoản
 export async function getAccounts() {
-  const res = await fetch(`${API_BASE_URL}/accounts`);
+  const res = await fetchBackend("/account");
   if (!res.ok) throw new Error("Failed to fetch accounts");
   return res.json();
 }
 
 // 🔹 Thêm tài khoản
 export async function createAccount(data: any) {
-  const res = await fetch(`${API_BASE_URL}/accounts`, {
+  const res = await fetchBackend("/account/create-account", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Failed to create account");
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: "Failed to create account" }));
+    throw new Error(error.message || "Failed to create account");
+  }
   return res.json();
 }
 
 // 🔹 Cập nhật tài khoản
 export async function updateAccount(id: number, data: any) {
-  const res = await fetch(`${API_BASE_URL}/accounts/${id}`, {
+  const res = await fetchBackend(`/account/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Failed to update account");
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: "Failed to update account" }));
+    throw new Error(error.message || "Failed to update account");
+  }
   return res.json();
 }
 
 // 🔹 Xóa tài khoản
 export async function deleteAccount(id: number) {
-  const res = await fetch(`${API_BASE_URL}/accounts/${id}`, {
+  const res = await fetchBackend(`/account/${id}`, {
     method: "DELETE",
   });
-  if (!res.ok) throw new Error("Failed to delete account");
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: "Failed to delete account" }));
+    throw new Error(error.message || "Failed to delete account");
+  }
   return true;
 }
 

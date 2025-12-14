@@ -1,389 +1,653 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getBranches } from "@/app/dashboard/admin/branches/branch_service";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Table, Button, Card, Input, Space, Tag, Modal, Form, message, Descriptions, InputNumber, AutoComplete } from "antd";
+import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined, SearchOutlined } from "@ant-design/icons";
+import { getBranches, getBranchById, createBranch, updateBranch, deleteBranch, Branch } from "./branch_service";
+import type { ColumnsType } from "antd/es/table";
+
+interface NominatimResult {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  address: {
+    city?: string;
+    town?: string;
+    village?: string;
+    state?: string;
+    country?: string;
+  };
+}
+
 
 export default function BranchesPage() {
-  const [branches, setBranches] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [editingBranch, setEditingBranch] = useState<any | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [branchToDelete, setBranchToDelete] = useState<any | null>(null);
-
-  const [form, setForm] = useState({
-    branchCode: "",
-    branchName: "",
-    address: "",
-    city: "HCM",
-    managerName: "",
-    phone: "",
-    capacity: "",
-    openHours: "08:00-21:00",
-    totalVehicles: "",
-    note: "",
-  });
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  const [form] = Form.useForm();
+  const [searchText, setSearchText] = useState("");
+  const [addressOptions, setAddressOptions] = useState<{ value: string; label: string; data: NominatimResult }[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    async function fetchBranches() {
-      try {
-        setLoading(true);
-        const data = await getBranches();
-        setBranches(data || []);
-      } catch (err: any) {
-        console.error("Lỗi khi tải chi nhánh:", err);
-        setError("Không thể tải dữ liệu chi nhánh!");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchBranches();
+    loadBranches();
   }, []);
 
-  // ========== Thêm hoặc cập nhật ==========
-  const handleSave = () => {
-    if (!form.branchName || !form.address) {
-      alert("Vui lòng nhập đầy đủ Tên và Địa chỉ chi nhánh!");
+  // Search address using Nominatim API
+  const searchAddress = async (query: string) => {
+    if (!query || query.length < 2) {
+      setAddressOptions([]);
       return;
     }
 
-    const updatedBranch = {
-      branchCode: form.branchCode || `CN${branches.length + 1}`,
-      branchName: form.branchName,
-      address: form.address,
-      city: form.city,
-      managerName: form.managerName,
-      phone: form.phone,
-      capacity: Number(form.capacity) || 0,
-      openHours: form.openHours,
-      totalVehicles: Number(form.totalVehicles) || 0,
-      note: form.note,
-    };
+    setIsSearchingAddress(true);
+    try {
+      // Debounce: Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
 
-    if (editingBranch) {
-      // Sửa
-      setBranches((prev) =>
-        prev.map((b) =>
-          b.branchCode === editingBranch.branchCode ? updatedBranch : b
-        )
-      );
-    } else {
-      // Thêm mới
-      setBranches([...branches, updatedBranch]);
+      // Wait 600ms before making request (rate limit: 1 request/second)
+      searchTimeoutRef.current = setTimeout(async () => {
+        try {
+          // Search only in Ho Chi Minh City
+          // Try multiple query formats for better results
+          const searchQueries = [
+            // Strategy 1: Query with "Ho Chi Minh City" or "Hồ Chí Minh"
+            `https://nominatim.openstreetmap.org/search?` +
+            `q=${encodeURIComponent(query + ', Ho Chi Minh City, Vietnam')}&` +
+            `format=json&` +
+            `limit=10&` +
+            `countrycodes=vn&` +
+            `addressdetails=1&` +
+            `extratags=1`,
+            
+            // Strategy 2: Alternative format with Vietnamese name
+            `https://nominatim.openstreetmap.org/search?` +
+            `q=${encodeURIComponent(query + ', Hồ Chí Minh, Việt Nam')}&` +
+            `format=json&` +
+            `limit=10&` +
+            `countrycodes=vn&` +
+            `addressdetails=1&` +
+            `extratags=1`,
+          ];
+
+          // Try first query
+          let response = await fetch(searchQueries[0], {
+            headers: {
+              'User-Agent': 'EMotoRent/1.0', // Required by Nominatim
+              'Accept-Language': 'vi,en',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch address');
+          }
+
+          let data: NominatimResult[] = await response.json();
+          
+          // Filter to only Ho Chi Minh City addresses
+          data = data.filter((item) => {
+            const address = item.address || {};
+            const displayName = item.display_name.toLowerCase();
+            // Check if address is in Ho Chi Minh City
+            return (
+              displayName.includes('ho chi minh') ||
+              displayName.includes('hồ chí minh') ||
+              displayName.includes('tp. hồ chí minh') ||
+              displayName.includes('thành phố hồ chí minh') ||
+              address.state === 'Ho Chi Minh City' ||
+              address.city === 'Ho Chi Minh City' ||
+              address.city === 'Hồ Chí Minh'
+            );
+          });
+          
+          // If we got few results, try alternative query
+          if (data.length < 3) {
+            response = await fetch(searchQueries[1], {
+              headers: {
+                'User-Agent': 'EMotoRent/1.0',
+                'Accept-Language': 'vi,en',
+              },
+            });
+            
+            if (response.ok) {
+              const additionalData: NominatimResult[] = await response.json();
+              // Filter to only Ho Chi Minh City
+              const filteredAdditional = additionalData.filter((item) => {
+                const address = item.address || {};
+                const displayName = item.display_name.toLowerCase();
+                return (
+                  displayName.includes('ho chi minh') ||
+                  displayName.includes('hồ chí minh') ||
+                  displayName.includes('tp. hồ chí minh') ||
+                  displayName.includes('thành phố hồ chí minh') ||
+                  address.state === 'Ho Chi Minh City' ||
+                  address.city === 'Ho Chi Minh City' ||
+                  address.city === 'Hồ Chí Minh'
+                );
+              });
+              
+              // Merge and deduplicate by place_id
+              const existingIds = new Set(data.map(d => d.place_id));
+              const newData = filteredAdditional.filter(d => !existingIds.has(d.place_id));
+              data = [...data, ...newData].slice(0, 15); // Limit to 15 total
+            }
+          }
+
+          // Format options with better display
+          const options = data.map((item) => {
+            // Extract key address parts for better display
+            const addressParts = item.display_name.split(',');
+            const mainAddress = addressParts.slice(0, 2).join(', '); // First 2 parts
+            const detailAddress = addressParts.slice(2).join(', '); // Rest
+            
+            return {
+              value: item.display_name,
+              label: `${mainAddress}${detailAddress ? `, ${detailAddress}` : ""}`,
+              data: item,
+            };
+          });
+
+          setAddressOptions(options);
+        } catch (error) {
+          console.error('Error searching address:', error);
+          message.error('Không thể tìm kiếm địa chỉ. Vui lòng thử lại.');
+        } finally {
+          setIsSearchingAddress(false);
+        }
+      }, 600);
+    } catch (error) {
+      setIsSearchingAddress(false);
+    }
+  };
+
+  // Handle address selection
+  const handleAddressSelect = (value: string, option: any) => {
+    const result = option.data as NominatimResult;
+    
+    if (result) {
+      // Update form with coordinates
+      form.setFieldsValue({
+        latitude: parseFloat(result.lat),
+        longitude: parseFloat(result.lon),
+        address: result.display_name,
+      });
+
+      // Try to extract city
+      const city = result.address?.city || result.address?.town || result.address?.village;
+      if (city && !form.getFieldValue('city')) {
+        form.setFieldsValue({
+          city: city,
+        });
+      }
+
+      message.success('Đã lấy tọa độ từ địa chỉ');
+    }
+  };
+
+  const loadBranches = async () => {
+    setLoading(true);
+    try {
+      const data = await getBranches();
+      setBranches(data);
+    } catch (error) {
+      console.error("Error loading branches:", error);
+      message.error("Không thể tải danh sách chi nhánh");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter branches
+  const filteredBranches = branches.filter((branch) => {
+    return (
+      !searchText ||
+      branch.branchName?.toLowerCase().includes(searchText.toLowerCase()) ||
+      branch.address?.toLowerCase().includes(searchText.toLowerCase()) ||
+      branch.city?.toLowerCase().includes(searchText.toLowerCase()) ||
+      branch.phone?.toLowerCase().includes(searchText.toLowerCase())
+    );
+  });
+
+  const handleViewDetail = async (branch: Branch) => {
+    try {
+      const detail = await getBranchById(branch.id);
+      setSelectedBranch(detail);
+      setIsDetailModalVisible(true);
+    } catch (error) {
+      console.error("Error loading branch detail:", error);
+      message.error("Không thể tải chi tiết chi nhánh");
+    }
+  };
+
+  const handleCreate = () => {
+    setEditingBranch(null);
+    form.resetFields();
+    form.setFieldsValue({
+      openingTime: "06:00",
+      closingTime: "22:00",
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleEdit = (branch: Branch) => {
+    setEditingBranch(branch);
+    form.setFieldsValue({
+      branchName: branch.branchName,
+      address: branch.address,
+      city: branch.city,
+      phone: branch.phone,
+      email: branch.email,
+      latitude: branch.latitude,
+      longitude: branch.longitude,
+      openingTime: branch.openingTime,
+      closingTime: branch.closingTime,
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      
+      if (editingBranch) {
+        await updateBranch(editingBranch.id, values);
+        message.success("Cập nhật chi nhánh thành công");
+      } else {
+        await createBranch(values);
+        message.success("Tạo chi nhánh thành công");
+      }
+      
+      setIsModalVisible(false);
+      setEditingBranch(null);
+      form.resetFields();
+      loadBranches();
+    } catch (error: any) {
+      console.error("Error saving branch:", error);
+      if (error.errorFields) {
+        return;
+      }
+      message.error(error.message || "Không thể lưu chi nhánh");
+    }
+  };
+
+  const handleDelete = (branch: Branch) => {
+    console.log("handleDelete called with branch:", branch);
+    setBranchToDelete(branch);
+    setIsDeleteModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!branchToDelete) return;
+    
+    const branchId = branchToDelete.id || branchToDelete.branchId;
+    
+    if (!branchId) {
+      console.error("No branchId found:", branchToDelete);
+      message.error("Không tìm thấy ID chi nhánh");
+      setIsDeleteModalVisible(false);
+      setBranchToDelete(null);
+      return;
     }
 
-    setShowModal(false);
-    setEditingBranch(null);
-    resetForm();
+    setIsDeleting(true);
+    try {
+      console.log("Delete confirmed. Deleting branch with ID:", branchId);
+      await deleteBranch(branchId);
+      console.log("Branch deleted successfully");
+      message.success("Xóa chi nhánh thành công");
+      setIsDeleteModalVisible(false);
+      setBranchToDelete(null);
+      loadBranches();
+    } catch (error: any) {
+      console.error("Error deleting branch:", error);
+      message.error(error.message || "Không thể xóa chi nhánh");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
-  const resetForm = () => {
-    setForm({
-      branchCode: "",
-      branchName: "",
-      address: "",
-      city: "HCM",
-      managerName: "",
-      phone: "",
-      capacity: "",
-      openHours: "08:00-21:00",
-      totalVehicles: "",
-      note: "",
-    });
-  };
-
-  // ========== Xóa ==========
-  const confirmDelete = (branch: any) => {
-    setBranchToDelete(branch);
-    setShowDeleteModal(true);
-  };
-
-  const handleDelete = () => {
-    setBranches(branches.filter((b) => b !== branchToDelete));
-    setShowDeleteModal(false);
-    setBranchToDelete(null);
-  };
-
-  // ========== Thống kê ==========
-  const totalBranches = branches.length;
-  const totalVehicles = branches.reduce(
-    (sum, b) => sum + (b.totalVehicles || 0),
-    0
-  );
-  const maxBranch =
-    branches.length > 0
-      ? branches.reduce((a, b) =>
-          (a.totalVehicles || 0) > (b.totalVehicles || 0) ? a : b
-        )
-      : null;
+  const columns: ColumnsType<Branch> = [
+    {
+      title: "Tên chi nhánh",
+      dataIndex: "branchName",
+      key: "branchName",
+      width: 200,
+    },
+    {
+      title: "Địa chỉ",
+      dataIndex: "address",
+      key: "address",
+      width: 250,
+    },
+    {
+      title: "Thành phố",
+      dataIndex: "city",
+      key: "city",
+      width: 120,
+    },
+    {
+      title: "Số điện thoại",
+      dataIndex: "phone",
+      key: "phone",
+      width: 150,
+    },
+    {
+      title: "Email",
+      dataIndex: "email",
+      key: "email",
+      width: 200,
+    },
+    {
+      title: "Giờ mở cửa",
+      key: "openingHours",
+      width: 150,
+      render: (_, record) => {
+        return record.openingTime && record.closingTime
+          ? `${record.openingTime} - ${record.closingTime}`
+          : "-";
+      },
+    },
+    {
+      title: "Số xe",
+      dataIndex: "vehicleCount",
+      key: "vehicleCount",
+      width: 100,
+      render: (count) => count ?? "-",
+    },
+    {
+      title: "Hành động",
+      key: "action",
+      width: 200,
+      fixed: "right",
+      render: (_, record) => {
+        return (
+          <Space>
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewDetail(record)}
+            >
+              Xem
+            </Button>
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+            >
+              Sửa
+            </Button>
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log("Delete button clicked for branch:", record);
+                handleDelete(record);
+              }}
+            >
+              Xóa
+            </Button>
+          </Space>
+        );
+      },
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* ===== Header ===== */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Quản lí chi nhánh</h1>
-        <button
-          onClick={() => {
-            resetForm();
-            setEditingBranch(null);
-            setShowModal(true);
-          }}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-md text-sm"
-        >
-          <Plus size={16} /> Thêm chi nhánh
-        </button>
-      </div>
-
-      {/* ===== 3 Cards thống kê ===== */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card title="Tổng chi nhánh" value={totalBranches} />
-        <Card title="Tổng số xe" value={totalVehicles} />
-        <Card
-          title="CN nhiều xe nhất"
-          value={maxBranch ? maxBranch.branchName : "—"}
-          sub={
-            maxBranch
-              ? `${maxBranch.totalVehicles} / ${maxBranch.capacity || 0} xe`
-              : ""
-          }
-        />
-      </div>
-
-      {/* ===== Bảng danh sách ===== */}
-      <div className="bg-white border rounded-2xl p-4 shadow-sm">
-        {loading ? (
-          <p className="text-gray-500">Đang tải dữ liệu...</p>
-        ) : error ? (
-          <p className="text-red-600">{error}</p>
-        ) : branches.length === 0 ? (
-          <p className="text-gray-500">Không có chi nhánh nào.</p>
-        ) : (
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
-              <tr>
-                <th className="p-2 border-b text-left">Mã</th>
-                <th className="p-2 border-b text-left">Tên</th>
-                <th className="p-2 border-b text-left">Địa chỉ</th>
-                <th className="p-2 border-b text-left">TP</th>
-                <th className="p-2 border-b text-left">Quản lý</th>
-                <th className="p-2 border-b text-left">Liên hệ</th>
-                <th className="p-2 border-b text-left">Sức chứa</th>
-                <th className="p-2 border-b text-left">Giờ mở cửa</th>
-                <th className="p-2 border-b text-left">Số xe</th>
-                <th className="p-2 border-b text-left">Ghi chú</th>
-                <th className="p-2 border-b text-center">Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {branches.map((b, idx) => (
-                <tr key={idx} className="odd:bg-white even:bg-gray-50">
-                  <td className="p-2 border-b">{b.branchCode}</td>
-                  <td className="p-2 border-b">{b.branchName}</td>
-                  <td className="p-2 border-b">{b.address}</td>
-                  <td className="p-2 border-b">{b.city}</td>
-                  <td className="p-2 border-b">{b.managerName}</td>
-                  <td className="p-2 border-b">{b.phone}</td>
-                  <td className="p-2 border-b">{b.capacity}</td>
-                  <td className="p-2 border-b">{b.openHours}</td>
-                  <td className="p-2 border-b">{b.totalVehicles}</td>
-                  <td className="p-2 border-b">{b.note}</td>
-                  <td className="p-2 border-b text-center flex justify-center gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingBranch(b);
-                        setForm(b);
-                        setShowModal(true);
-                      }}
-                      className="flex items-center gap-1 px-2 py-1 text-blue-600 hover:bg-blue-50 rounded-md"
-                    >
-                      <Pencil size={14} /> Sửa
-                    </button>
-                    <button
-                      onClick={() => confirmDelete(b)}
-                      className="flex items-center gap-1 px-2 py-1 text-red-600 hover:bg-red-50 rounded-md"
-                    >
-                      <Trash2 size={14} /> Xóa
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <div className="text-sm text-gray-500 mt-3">
-          Tổng {branches.length} CN
-        </div>
-      </div>
-
-      {/* ===== Modal Thêm / Sửa ===== */}
-{showModal && (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-2xl w-[460px] shadow-lg">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">
-          {editingBranch ? "Sửa chi nhánh" : "Thêm chi nhánh mới"}
-        </h2>
-        <button onClick={() => setShowModal(false)}>
-          <X size={20} className="text-gray-400 hover:text-gray-600" />
-        </button>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+          Quản lý chi nhánh
+        </h1>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={handleCreate}
+          size="large"
+          className="w-full sm:w-auto"
+        >
+          <span className="hidden sm:inline">Tạo chi nhánh</span>
+          <span className="sm:hidden">Tạo mới</span>
+        </Button>
       </div>
 
-      {/* Form */}
-      <div className="space-y-3">
-        <FormField
-          label="Mã chi nhánh"
-          value={form.branchCode}
-          onChange={(v) => setForm({ ...form, branchCode: v })}
-          placeholder="VD: CN6"
+      {/* Search */}
+      <Card className="shadow-sm">
+        <Input
+          placeholder="Tìm theo tên, địa chỉ, thành phố hoặc số điện thoại"
+          allowClear
+          prefix={<SearchOutlined />}
+          className="w-full"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          onPressEnter={() => setSearchText(searchText)}
         />
-        <FormField
-          label="Tên chi nhánh"
-          value={form.branchName}
-          onChange={(v) => setForm({ ...form, branchName: v })}
-          placeholder="VD: CN6 - Quận 7"
-        />
-        <FormField
-          label="Địa chỉ"
-          value={form.address}
-          onChange={(v) => setForm({ ...form, address: v })}
-          placeholder="VD: 123 Lý Thường Kiệt, Quận 10, TP.HCM"
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <FormField
+      </Card>
+
+      {/* Table */}
+      <Card className="shadow-sm">
+        <div className="overflow-x-auto">
+          <Table
+            columns={columns}
+            dataSource={filteredBranches}
+            rowKey="id"
+            loading={loading}
+            scroll={{ x: 'max-content' }}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total) => `Tổng: ${total} chi nhánh`,
+              pageSizeOptions: ["10", "20", "50", "100"],
+              responsive: true,
+              showLessItems: true,
+            }}
+            size="small"
+            className="min-w-full"
+          />
+        </div>
+      </Card>
+
+      {/* Create/Edit Modal */}
+      <Modal
+        title={editingBranch ? "Cập nhật chi nhánh" : "Tạo chi nhánh mới"}
+        open={isModalVisible}
+        onCancel={() => {
+          setIsModalVisible(false);
+          setEditingBranch(null);
+          form.resetFields();
+        }}
+        onOk={handleSubmit}
+        okText={editingBranch ? "Cập nhật" : "Tạo"}
+        cancelText="Hủy"
+        width="90%"
+        style={{ maxWidth: 600 }}
+        destroyOnClose={true}
+        centered
+      >
+        <Form form={form} layout="vertical" className="mt-4">
+          <Form.Item
+            name="branchName"
+            label="Tên chi nhánh"
+            rules={[{ required: true, message: "Vui lòng nhập tên chi nhánh" }]}
+          >
+            <Input placeholder="Nhập tên chi nhánh" />
+          </Form.Item>
+          <Form.Item
+            name="address"
+            label="Địa chỉ"
+            rules={[{ required: true, message: "Vui lòng nhập địa chỉ" }]}
+            help="Nhập địa chỉ ở thành phố Hồ Chí Minh để tự động lấy tọa độ (chọn từ gợi ý - OpenStreetMap)"
+          >
+            <AutoComplete
+              options={addressOptions}
+              onSearch={searchAddress}
+              onSelect={handleAddressSelect}
+              placeholder="Nhập địa chỉ (sẽ tự động lấy tọa độ)"
+              notFoundContent={isSearchingAddress ? "Đang tìm kiếm..." : addressOptions.length === 0 ? "Nhập ít nhất 2 ký tự để tìm kiếm" : "Không tìm thấy địa chỉ"}
+              filterOption={false}
+              style={{ width: '100%' }}
+              dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
+              allowClear
+            />
+          </Form.Item>
+          <Form.Item
+            name="city"
             label="Thành phố"
-            value={form.city}
-            onChange={(v) => setForm({ ...form, city: v })}
-            placeholder="VD: HCM"
-          />
-          <FormField
-            label="Quản lý"
-            value={form.managerName}
-            onChange={(v) => setForm({ ...form, managerName: v })}
-            placeholder="VD: Nguyễn Văn A"
-          />
-        </div>
-        <FormField
-          label="Số điện thoại"
-          value={form.phone}
-          onChange={(v) => setForm({ ...form, phone: v })}
-          placeholder="VD: 0909123456"
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <FormField
-            label="Sức chứa"
-            value={form.capacity}
-            onChange={(v) => setForm({ ...form, capacity: v })}
-            placeholder="VD: 60"
-          />
-          <FormField
-            label="Số xe hiện có"
-            value={form.totalVehicles}
-            onChange={(v) => setForm({ ...form, totalVehicles: v })}
-            placeholder="VD: 25"
-          />
-        </div>
-        <FormField
-          label="Ghi chú"
-          value={form.note}
-          onChange={(v) => setForm({ ...form, note: v })}
-          placeholder="VD: CN trung tâm"
-        />
-      </div>
-
-      {/* Action buttons */}
-      <div className="mt-5 flex justify-end gap-3">
-        <button
-          onClick={() => setShowModal(false)}
-          className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50"
-        >
-          Hủy
-        </button>
-        <button
-          onClick={handleSave}
-          className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
-        >
-          Lưu
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-
-      {/* ===== Modal xác nhận Xóa ===== */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-lg w-[360px] text-center">
-            <p className="text-gray-800 mb-4">
-              Bạn có chắc muốn xóa{" "}
-              <strong>{branchToDelete.branchName}</strong> không?
-            </p>
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 text-sm border rounded-md hover:bg-gray-50"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
-              >
-                Xóa
-              </button>
-            </div>
+            rules={[{ required: true, message: "Vui lòng nhập thành phố" }]}
+          >
+            <Input placeholder="Nhập thành phố" />
+          </Form.Item>
+          <Form.Item
+            name="phone"
+            label="Số điện thoại"
+            rules={[{ required: true, message: "Vui lòng nhập số điện thoại" }]}
+          >
+            <Input placeholder="Nhập số điện thoại" />
+          </Form.Item>
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: "Vui lòng nhập email" },
+              { type: "email", message: "Email không hợp lệ" },
+            ]}
+          >
+            <Input type="email" placeholder="Nhập email" />
+          </Form.Item>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Form.Item
+              name="latitude"
+              label="Vĩ độ"
+              rules={[{ required: true, message: "Vui lòng nhập vĩ độ" }]}
+              help="Sẽ tự động điền khi chọn địa chỉ (có thể chỉnh sửa)"
+            >
+              <InputNumber
+                style={{ width: "100%" }}
+                placeholder="Tự động điền khi chọn địa chỉ"
+                step={0.0001}
+              />
+            </Form.Item>
+            <Form.Item
+              name="longitude"
+              label="Kinh độ"
+              rules={[{ required: true, message: "Vui lòng nhập kinh độ" }]}
+              help="Sẽ tự động điền khi chọn địa chỉ (có thể chỉnh sửa)"
+            >
+              <InputNumber
+                style={{ width: "100%" }}
+                placeholder="Tự động điền khi chọn địa chỉ"
+                step={0.0001}
+              />
+            </Form.Item>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Form.Item
+              name="openingTime"
+              label="Giờ mở cửa"
+              rules={[{ required: true, message: "Vui lòng nhập giờ mở cửa" }]}
+            >
+              <Input placeholder="VD: 06:00" />
+            </Form.Item>
+            <Form.Item
+              name="closingTime"
+              label="Giờ đóng cửa"
+              rules={[{ required: true, message: "Vui lòng nhập giờ đóng cửa" }]}
+            >
+              <Input placeholder="VD: 22:00" />
+            </Form.Item>
+          </div>
+        </Form>
+      </Modal>
 
-// ===== Card component =====
-function Card({
-  title,
-  value,
-  sub,
-}: {
-  title: string;
-  value: string | number;
-  sub?: string;
-}) {
-  return (
-    <div className="bg-white border rounded-2xl p-4 shadow-sm">
-      <p className="text-gray-500 text-sm">{title}</p>
-      <p className="text-2xl font-semibold mt-1">{value}</p>
-      {sub && <p className="text-gray-400 text-sm mt-1">{sub}</p>}
-    </div>
-  );
-}
-// ===== Input field component có label =====
-function FormField({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string | number;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-600 mb-1">
-        {label}
-      </label>
-      <input
-        type="text"
-        className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
+      {/* Detail Modal */}
+      <Modal
+        title="Chi tiết chi nhánh"
+        open={isDetailModalVisible}
+        onCancel={() => setIsDetailModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setIsDetailModalVisible(false)}>
+            Đóng
+          </Button>,
+        ]}
+        width="90%"
+        style={{ maxWidth: 800 }}
+        centered
+      >
+        {selectedBranch && (
+          <Descriptions title="Thông tin chi nhánh" column={2} bordered>
+            <Descriptions.Item label="ID">
+              {selectedBranch.id}
+            </Descriptions.Item>
+            <Descriptions.Item label="Tên chi nhánh">
+              {selectedBranch.branchName}
+            </Descriptions.Item>
+            <Descriptions.Item label="Địa chỉ" span={2}>
+              {selectedBranch.address || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Thành phố">
+              {selectedBranch.city || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Số điện thoại">
+              {selectedBranch.phone || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Email">
+              {selectedBranch.email || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Vĩ độ">
+              {selectedBranch.latitude || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Kinh độ">
+              {selectedBranch.longitude || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Giờ mở cửa">
+              {selectedBranch.openingTime || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Giờ đóng cửa">
+              {selectedBranch.closingTime || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Số xe">
+              {selectedBranch.vehicleCount ?? "-"}
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title="Xác nhận xóa"
+        open={isDeleteModalVisible}
+        onOk={confirmDelete}
+        onCancel={() => {
+          setIsDeleteModalVisible(false);
+          setBranchToDelete(null);
+        }}
+        okText="Xóa"
+        okButtonProps={{ danger: true, loading: isDeleting }}
+        cancelText="Hủy"
+      >
+        <p>
+          Bạn có chắc muốn xóa chi nhánh{" "}
+          <strong>{branchToDelete?.branchName}</strong>?
+        </p>
+        {branchToDelete && (
+          <p className="text-sm text-gray-500 mt-2">
+            ID: {branchToDelete.id || branchToDelete.branchId}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

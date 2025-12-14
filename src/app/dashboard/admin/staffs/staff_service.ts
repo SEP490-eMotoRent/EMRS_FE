@@ -1,39 +1,236 @@
-import { API_BASE_URL } from "../index";
+import { fetchBackend } from "@/utils/helpers";
 
-// 🔹 Lấy danh sách nhân sự
-export async function getStaffs() {
-  const res = await fetch(`${API_BASE_URL}/staffs`);
-  if (!res.ok) throw new Error("Failed to fetch staffs");
-  return res.json();
+const API_PREFIX = "/account";
+
+export interface Account {
+  id: string;
+  username: string;
+  role: string;
+  fullname: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  staff?: {
+    id: string;
+    email?: string;
+    phone?: string;
+    branch?: {
+      id: string;
+      branchName: string;
+      address?: string;
+      city?: string;
+      phone?: string;
+      email?: string;
+    };
+  };
+  renter?: {
+    id: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    dateOfBirth?: string;
+    isVerified?: boolean;
+  };
 }
 
-// 🔹 Thêm nhân sự
-export async function createStaff(data: any) {
-  const res = await fetch(`${API_BASE_URL}/staffs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+// Lấy danh sách tất cả accounts (chỉ ADMIN, MANAGER, STAFF - không lấy RENTER)
+export async function getStaffs(): Promise<Account[]> {
+  const res = await fetchBackend(`${API_PREFIX}`);
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to fetch accounts:", res.status, errorText);
+    throw new Error(`Failed to fetch accounts: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  // Handle response structure: { success: true, data: [...] }
+  let accounts: any[] = [];
+  if (json.success && json.data && Array.isArray(json.data)) {
+    accounts = json.data;
+  } else if (Array.isArray(json)) {
+    accounts = json;
+  } else if (Array.isArray(json.data)) {
+    accounts = json.data;
+  }
+
+  // Lọc chỉ lấy ADMIN, MANAGER, STAFF, TECHNICIAN (không lấy RENTER)
+  const staffAccounts = accounts.filter(
+    (account) => account.role && ["ADMIN", "MANAGER", "STAFF", "TECHNICIAN"].includes(account.role.toUpperCase())
+  );
+
+  // Một số bản ghi từ API tổng hợp không chứa đủ thông tin chi nhánh/email/phone.
+  // Với các bản ghi thiếu dữ liệu, gọi thêm API chi tiết để bổ sung.
+  const enrichedAccounts = await Promise.all(
+    staffAccounts.map(async (account) => {
+      const hasBranchInfo = !!account.staff?.branch?.branchName;
+      const hasContactInfo = !!account.email || !!account.phone;
+
+      if (hasBranchInfo && hasContactInfo) {
+        return account;
+      }
+
+      try {
+        const detail = await getAccountById(account.id);
+        return {
+          ...account,
+          ...detail,
+          staff: detail.staff || account.staff,
+          renter: detail.renter || account.renter,
+        };
+      } catch (error) {
+        console.warn("[getStaffs] Could not enrich account detail", account.id, error);
+        return account;
+      }
+    })
+  );
+
+  return enrichedAccounts;
+}
+
+// Lấy chi tiết account theo ID
+export async function getAccountById(accountId: string): Promise<Account> {
+  const res = await fetchBackend(`${API_PREFIX}/${accountId}`);
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to fetch account:", res.status, errorText);
+    throw new Error(`Failed to fetch account: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  const account = json.data || json;
+  return account;
+}
+
+// Cập nhật role của account
+export async function updateAccountRole(accountId: string, role: string): Promise<any> {
+  const res = await fetchBackend(`${API_PREFIX}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      id: accountId,
+      role: role,
+    }),
   });
-  if (!res.ok) throw new Error("Failed to create staff");
-  return res.json();
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to update account role:", res.status, errorText);
+    throw new Error(`Failed to update account role: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
 }
 
-// 🔹 Cập nhật nhân sự
-export async function updateStaff(id: number, data: any) {
-  const res = await fetch(`${API_BASE_URL}/staffs/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error("Failed to update staff");
-  return res.json();
-}
-
-// 🔹 Xóa nhân sự
-export async function deleteStaff(id: number) {
-  const res = await fetch(`${API_BASE_URL}/staffs/${id}`, {
+// Xóa account (soft delete)
+export async function deleteAccount(accountId: string): Promise<any> {
+  const res = await fetchBackend(`${API_PREFIX}`, {
     method: "DELETE",
+    body: JSON.stringify({
+      id: accountId,
+      isDeleted: true,
+      isdeleted: true,
+    }),
   });
-  if (!res.ok) throw new Error("Failed to delete staff");
-  return true;
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to delete account:", res.status, errorText);
+    throw new Error(`Failed to delete account: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
+// Tạo account mới
+export async function createAccount(data: {
+  username: string;
+  password: string;
+  role: string;
+  fullname?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  branchId?: string;
+}): Promise<Account> {
+  const res = await fetchBackend(`${API_PREFIX}/create-account`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to create account:", res.status, errorText);
+    throw new Error(`Failed to create account: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
+// Legacy functions để tương thích với code cũ
+export async function createStaff(data: any) {
+  return await createAccount(data);
+}
+
+export async function updateStaff(id: string, data: any) {
+  // Nếu có role trong data, dùng updateAccountRole
+  if (data.role) {
+    return await updateAccountRole(id, data.role);
+  }
+  // TODO: Implement update staff API nếu có các field khác
+  throw new Error("Update staff API chưa được implement đầy đủ");
+}
+
+export async function deleteStaff(id: string) {
+  return await deleteAccount(id);
 }

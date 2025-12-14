@@ -1,10 +1,4 @@
-const INTERNAL_BASE =
-  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const API_PREFIX = "/api/booking";
-
-function buildUrl(path: string) {
-  return `${INTERNAL_BASE}${API_PREFIX}${path}`;
-}
 
 export interface BookingFilters {
   VehicleModelId?: string;
@@ -29,12 +23,12 @@ export async function getBookingsByBranch(
   }
 
   const queryString = params.toString();
-  // Use /branch route if no branchId provided (will use cookie)
-  const url = branchId
-    ? `${buildUrl(`/branch/${branchId}`)}${queryString ? `?${queryString}` : ""}`
-    : `${buildUrl("/branch")}${queryString ? `?${queryString}` : ""}`;
+  // Gọi qua Next.js API route (lấy branchId từ cookie nếu không có)
+  const path = branchId
+    ? `${API_PREFIX}/branch/${branchId}${queryString ? `?${queryString}` : ""}`
+    : `${API_PREFIX}/branch${queryString ? `?${queryString}` : ""}`;
 
-  const res = await fetch(url, {
+  const res = await fetch(path, {
     cache: "no-store",
   });
 
@@ -61,22 +55,49 @@ export async function getBookingsByBranch(
 }
 
 export async function getBookingById(id: string) {
-  const res = await fetch(buildUrl(`/${id}`), { cache: "no-store" });
+  const res = await fetch(`${API_PREFIX}/${id}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
-    throw new Error(`Failed to fetch booking: ${res.statusText}`);
+    const errorText = await res.text();
+    console.error("Failed to fetch booking:", res.status, errorText);
+    
+    let errorMessage = `Failed to fetch booking: ${res.statusText}`;
+    try {
+      const errorJson = errorText ? JSON.parse(errorText) : {};
+      errorMessage = errorJson.message || errorMessage;
+    } catch (e) {
+      // Nếu không parse được, dùng message mặc định
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const text = await res.text();
-  const json = text ? JSON.parse(text) : {};
+  let json: any;
+  
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  // Trả về đầy đủ dữ liệu từ response (json.data chứa toàn bộ booking object)
+  // Đảm bảo trả về tất cả các field: handoverBranch, returnBranch, insurancePackage, 
+  // vehicle, vehicleModel, renter, rentalContract, rentalReceipt, additionalFees, etc.
   return json.data || json;
 }
 
 export async function createBooking(data: any) {
-  const res = await fetch(buildUrl("/create"), {
+  const res = await fetch(`${API_PREFIX}/create`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(data),
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -90,8 +111,9 @@ export async function createBooking(data: any) {
 }
 
 export async function cancelBooking(id: string) {
-  const res = await fetch(buildUrl(`/cancel/${id}`), {
+  const res = await fetch(`${API_PREFIX}/cancel/${id}`, {
     method: "PUT",
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -105,8 +127,9 @@ export async function cancelBooking(id: string) {
 }
 
 export async function assignVehicle(bookingId: string, vehicleId: string) {
-  const res = await fetch(buildUrl(`/assign/${bookingId}/${vehicleId}`), {
+  const res = await fetch(`${API_PREFIX}/assign/${bookingId}/${vehicleId}`, {
     method: "PUT",
+    cache: "no-store",
   });
 
   if (!res.ok) {

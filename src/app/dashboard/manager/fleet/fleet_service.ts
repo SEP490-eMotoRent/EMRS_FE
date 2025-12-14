@@ -1,11 +1,7 @@
-const INTERNAL_BASE =
-  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const API_PREFIX = "/api/vehicle-model";
+import { fetchBackend } from "@/utils/helpers";
 
-// Helper build URL tuyệt đối cho fetch phía server
-function buildUrl(path: string) {
-  return `${INTERNAL_BASE}${API_PREFIX}${path}`;
-}
+const VEHICLE_MODEL_PREFIX = "/VehicleModel";
+const VEHICLE_PREFIX = "/Vehicle";
 
 export interface VehicleFilters {
   LicensePlate?: string;
@@ -35,9 +31,8 @@ export async function getVehicleModels(options?: {
     descendingOrder: String(descendingOrder),
   });
 
-  const url = `${buildUrl("/list")}?${queryParams.toString()}`;
-
-  const res = await fetch(url, {
+  // Gọi qua Next.js API route thay vì gọi trực tiếp backend
+  const res = await fetch(`/api/vehicle-model/list?${queryParams.toString()}`, {
     cache: "no-store",
   });
 
@@ -168,40 +163,37 @@ export async function getVehicleModelById(id: string) {
   } catch (err) {
     console.error("Error loading vehicle model by ID:", err);
     
-    // Fallback: thử API detail cũ nếu có
-    const pathsToTry = [`/detail/${id}`, `/${id}`];
-    let lastError: { status?: number; statusText?: string } | null = null;
+    // Fallback: thử API detail qua Next.js API route
+    let fallbackError: any = null;
+    try {
+      const res = await fetch(`/api/vehicle-model/detail/${id}`, {
+        cache: "no-store",
+      });
 
-    for (const path of pathsToTry) {
-      try {
-        const res = await fetch(buildUrl(path), { cache: "no-store" });
+      if (res.ok) {
+        const json = await parseModelResponse(res);
+        return json.data || json;
+      }
+      
+      fallbackError = res;
+    } catch (fetchErr) {
+      // Ignore fallback errors, nhưng lưu lại để dùng trong error message
+      fallbackError = fetchErr;
+    }
 
-        if (res.ok) {
-          const json = await parseModelResponse(res);
-          return json.data || json;
-        }
-
-        lastError = { status: res.status, statusText: res.statusText };
-
-        if (res.status === 404) {
-          continue;
-        }
-
-        throw new Error(`Failed to fetch vehicle model: ${res.statusText}`);
-      } catch (fetchErr) {
-        lastError = {
-          status: lastError?.status,
-          statusText:
-            fetchErr instanceof Error ? fetchErr.message : "Unknown vehicle model error",
-        };
+    // Tạo error message từ các nguồn có sẵn
+    let errorMessage = "Unknown error";
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else if (fallbackError) {
+      if (fallbackError instanceof Response) {
+        errorMessage = `${fallbackError.status} ${fallbackError.statusText}`;
+      } else if (fallbackError instanceof Error) {
+        errorMessage = fallbackError.message;
       }
     }
 
-    throw new Error(
-      `Failed to fetch vehicle model: ${lastError?.status || ""} ${
-        lastError?.statusText || err instanceof Error ? err.message : "Unknown error"
-      }`
-    );
+    throw new Error(`Failed to fetch vehicle model: ${errorMessage}`);
   }
 }
 
@@ -214,7 +206,7 @@ export async function updateVehicle(data: any) {
     }
   });
 
-  const res = await fetch(buildUrl(""), {
+  const res = await fetchBackend(VEHICLE_PREFIX, {
     method: "PUT",
     body: form,
   });
@@ -225,5 +217,132 @@ export async function updateVehicle(data: any) {
 
   const text = await res.text();
   return text ? JSON.parse(text) : {};
+}
+
+export interface ManagerVehicle {
+  id?: string;
+  vehicleId?: string;
+  licensePlate: string;
+  color?: string;
+  status?: string;
+  currentOdometerKm?: number;
+  batteryHealthPercentage?: number;
+  branchId?: string;
+  branchName?: string;
+  gpsDeviceIdent?: string;
+  flespiDeviceId?: number;
+  purchaseDate?: string;
+  vehicleModel?: {
+    id?: string;
+    modelName?: string;
+  };
+}
+
+export interface ManagerVehicleListResponse {
+  items: ManagerVehicle[];
+  totalItems: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+}
+
+const normalizeVehicle = (vehicle: any): ManagerVehicle => {
+  return {
+    ...vehicle,
+    id: vehicle.id || vehicle.vehicleId,
+    vehicleId: vehicle.vehicleId || vehicle.id,
+    branchName: vehicle.branch?.branchName || vehicle.branchName,
+    branchId: vehicle.branch?.id || vehicle.branchId,
+    gpsDeviceIdent: vehicle.gpsDeviceIdent || vehicle.GpsDeviceIdent || undefined,
+    flespiDeviceId:
+      vehicle.flespiDeviceId || vehicle.FlespiDeviceId || undefined,
+    vehicleModel: vehicle.vehicleModel || undefined,
+  };
+};
+
+export async function getVehiclesByBranch(options: {
+  branchId: string;
+  licensePlate?: string;
+  status?: string;
+  pageNum?: number;
+  pageSize?: number;
+}) {
+  const params = new URLSearchParams();
+
+  params.append("BranchId", options.branchId);
+  params.append("PageSize", String(options.pageSize || 100));
+  params.append("PageNum", String(options.pageNum || 1));
+
+  if (options.licensePlate) {
+    params.append("LicensePlate", options.licensePlate);
+  }
+  if (options.status && options.status !== "all") {
+    params.append("Status", options.status);
+  }
+
+  const res = await fetchBackend(`${VEHICLE_PREFIX}?${params.toString()}`);
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Failed to fetch branch vehicles:", res.status, text);
+    throw new Error(res.statusText || "Failed to fetch branch vehicles");
+  }
+
+  const text = await res.text();
+  const json = text ? JSON.parse(text) : {};
+
+  if (json.success && json.data?.items) {
+    return {
+      items: json.data.items.map(normalizeVehicle),
+      totalItems: json.data.totalItems || 0,
+      totalPages: json.data.totalPages || 1,
+      currentPage: json.data.currentPage || 1,
+      pageSize: json.data.pageSize || options.pageSize || 100,
+    } as ManagerVehicleListResponse;
+  }
+
+  if (Array.isArray(json.data)) {
+    return {
+      items: json.data.map(normalizeVehicle),
+      totalItems: json.data.length,
+      totalPages: 1,
+      currentPage: 1,
+      pageSize: json.data.length,
+    } as ManagerVehicleListResponse;
+  }
+
+  if (Array.isArray(json)) {
+    return {
+      items: json.map(normalizeVehicle),
+      totalItems: json.length,
+      totalPages: 1,
+      currentPage: 1,
+      pageSize: json.length,
+    } as ManagerVehicleListResponse;
+  }
+
+  return {
+    items: [],
+    totalItems: 0,
+    totalPages: 0,
+    currentPage: 1,
+    pageSize: options.pageSize || 100,
+  } as ManagerVehicleListResponse;
+}
+
+export async function getVehicleById(id: string) {
+  const res = await fetchBackend(`${VEHICLE_PREFIX}/${id}`);
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Failed to fetch vehicle detail:", res.status, text);
+    throw new Error(res.statusText || "Failed to fetch vehicle detail");
+  }
+
+  const text = await res.text();
+  const json = text ? JSON.parse(text) : {};
+  const data = json.data || json;
+
+  return normalizeVehicle(data);
 }
 

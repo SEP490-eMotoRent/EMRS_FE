@@ -23,7 +23,31 @@ export async function GET(request: Request) {
     });
 
     const text = await beRes.text();
-    return new NextResponse(text, { status: beRes.status });
+    let data: any;
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (parseErr) {
+      console.error("Failed to parse branch response as JSON:", text);
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: "Invalid response from server",
+          error: "Failed to parse JSON response"
+        },
+        { status: 500 }
+      );
+    }
+
+    // Nếu BE trả về lỗi, forward status code
+    if (!beRes.ok) {
+      return NextResponse.json(
+        data || { success: false, message: "Backend error" },
+        { status: beRes.status }
+      );
+    }
+
+    return NextResponse.json(data, { status: beRes.status });
   } catch (err) {
     console.error("Branch list error:", err);
     return NextResponse.json(
