@@ -16,8 +16,8 @@ export async function GET() {
       );
     }
 
-    // Gọi endpoint /InsuranceClaim/admin để lấy danh sách claims cho admin
-    const beRes = await emrsFetch("/InsuranceClaim/admin", {
+    // Thử endpoint /InsuranceClaim (admin có thể xem tất cả)
+    const beRes = await emrsFetch("/InsuranceClaim", {
       headers: { Authorization: `Bearer ${token}` },
     });
 

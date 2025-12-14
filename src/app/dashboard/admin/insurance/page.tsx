@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Table, Tag, Button, Select, Space, Modal, Descriptions, Image, message } from "antd";
-import { getInsuranceClaims, getInsuranceClaimById } from "./insurance_service";
+import { Table, Tag, Button, Select, Space, Modal, Descriptions, Image } from "antd";
+import { getInsuranceClaims } from "./insurance_service";
 import dayjs from "dayjs";
 
 // 🔹 Map trạng thái sang tiếng Việt + màu
@@ -22,7 +22,6 @@ export default function InsurancePage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedClaim, setSelectedClaim] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
     async function fetchClaims() {
@@ -41,27 +40,8 @@ export default function InsurancePage() {
   const filteredClaims =
     filterStatus === "all" ? claims : claims.filter((c) => c.status === filterStatus);
 
-  const handleViewDetail = async (claim: any) => {
-    setDetailLoading(true);
-    setModalOpen(true);
-    try {
-      const detail = await getInsuranceClaimById(claim.id);
-      setSelectedClaim(detail);
-    } catch (err: any) {
-      message.error("Không thể tải chi tiết sự cố: " + (err.message || "Lỗi không xác định"));
-      setSelectedClaim(claim); // Fallback to list data
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
   const columns = [
-    { 
-      title: "Mã sự cố", 
-      dataIndex: "id", 
-      key: "id",
-      render: (id: string) => id?.substring(0, 8) + "..." || id
-    },
+    { title: "Mã sự cố", dataIndex: "id", key: "id" },
     {
       title: "Trạng thái",
       dataIndex: "status",
@@ -70,37 +50,20 @@ export default function InsurancePage() {
         <Tag color={statusMap[s]?.color}>{statusMap[s]?.label || s}</Tag>
       ),
     },
-    { 
-      title: "Người thuê", 
-      dataIndex: "renterName", 
-      key: "renterName" 
-    },
-    { 
-      title: "Xe", 
-      dataIndex: "vehicleModelName", 
-      key: "vehicleModelName" 
-    },
-    { 
-      title: "Biển số", 
-      dataIndex: "licensePlate", 
-      key: "licensePlate" 
-    },
-    { 
-      title: "Chi nhánh", 
-      dataIndex: "handoverBranchName", 
-      key: "handoverBranchName" 
-    },
+    { title: "Người thuê", dataIndex: "renter_name", key: "renter_name" },
+    { title: "Xe", dataIndex: "vehicle_model_name", key: "vehicle_model_name" },
+    { title: "Chi nhánh", dataIndex: "handover_branch_name", key: "handover_branch_name" },
     {
       title: "Ngày xảy ra",
-      dataIndex: "incidentDate",
-      key: "incidentDate",
-      render: (d: string) => d ? dayjs(d).format("DD/MM/YYYY HH:mm") : "-",
+      dataIndex: "incident_date",
+      key: "incident_date",
+      render: (d: string) => dayjs(d).format("DD/MM/YYYY HH:mm"),
     },
     {
       title: "Thao tác",
       key: "actions",
       render: (_: any, record: any) => (
-        <Button type="link" onClick={() => handleViewDetail(record)}>
+        <Button type="link" onClick={() => { setSelectedClaim(record); setModalOpen(true); }}>
           Xem chi tiết
         </Button>
       ),
@@ -136,216 +99,118 @@ export default function InsurancePage() {
 
      {selectedClaim && (
   <Modal
-    title={`Chi tiết sự cố - ${selectedClaim.id?.substring(0, 8)}...`}
+    title={`Chi tiết sự cố - ${selectedClaim.id}`}
     open={modalOpen}
-    onCancel={() => {
-      setModalOpen(false);
-      setSelectedClaim(null);
-    }}
+    onCancel={() => setModalOpen(false)}
     footer={null}
-    width={900}
-    confirmLoading={detailLoading}
+    width={850}
   >
-    {detailLoading ? (
-      <div className="text-center py-8">Đang tải...</div>
-    ) : (
-      <>
    <div className="overflow-x-auto">
   <table className="min-w-full border border-gray-200 rounded-xl text-sm shadow-sm">
     <tbody>
-      {/* Hàng 1 - Trạng thái và Ngày xảy ra */}
+      {/* Hàng 1 */}
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 w-1/4 text-gray-600">Trạng thái</td>
         <td className="p-3 w-1/4">
           <Tag color={statusMap[selectedClaim.status]?.color}>
-            {statusMap[selectedClaim.status]?.label || selectedClaim.status}
+            {statusMap[selectedClaim.status]?.label}
           </Tag>
         </td>
-        <td className="font-semibold bg-gray-50 p-3 w-1/4 text-gray-600">Ngày xảy ra</td>
-        <td className="p-3">
-          {selectedClaim.incidentDate 
-            ? dayjs(selectedClaim.incidentDate).format("DD/MM/YYYY HH:mm")
-            : "-"}
-        </td>
+        <td className="font-semibold bg-gray-50 p-3 w-1/4 text-gray-600">Mức độ</td>
+        <td className="p-3">{selectedClaim.severity}</td>
       </tr>
 
-      {/* Hàng 2 - Địa điểm và Ngày tạo */}
+      {/* Hàng 2 */}
       <tr className="border-b hover:bg-gray-50 transition">
-        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Địa điểm xảy ra</td>
-        <td className="p-3" colSpan={3}>{selectedClaim.incidentLocation || "-"}</td>
+        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Ngày xảy ra</td>
+        <td className="p-3">
+          {dayjs(selectedClaim.incident_date).format("DD/MM/YYYY HH:mm")}
+        </td>
+        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Địa điểm</td>
+        <td className="p-3">{selectedClaim.incident_location}</td>
       </tr>
 
-      {/* Mô tả */}
-      {selectedClaim.description && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Mô tả sự cố</td>
-          <td className="p-3" colSpan={3}>{selectedClaim.description}</td>
-        </tr>
-      )}
-
+    
       {/* Người thuê */}
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Người thuê</td>
-        <td className="p-3">{selectedClaim.renterName || "-"}</td>
+        <td className="p-3">{selectedClaim.renter_name}</td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">SĐT</td>
-        <td className="p-3">{selectedClaim.renterPhone || "-"}</td>
+        <td className="p-3">{selectedClaim.renter_phone}</td>
       </tr>
-
-      {/* Email và Địa chỉ */}
-      {(selectedClaim.renterEmail || selectedClaim.address) && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Email</td>
-          <td className="p-3">{selectedClaim.renterEmail || "-"}</td>
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Địa chỉ</td>
-          <td className="p-3">{selectedClaim.address || "-"}</td>
-        </tr>
-      )}
 
       {/* Xe */}
       <tr className="border-b hover:bg-gray-50 transition">
-        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Model xe</td>
-        <td className="p-3">{selectedClaim.vehicleModelName || "-"}</td>
+        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Xe</td>
+        <td className="p-3">{selectedClaim.vehicle_model_name}</td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Biển số</td>
-        <td className="p-3">{selectedClaim.licensePlate || "-"}</td>
+        <td className="p-3">{selectedClaim.license_plate}</td>
       </tr>
 
-      {/* Mô tả xe */}
-      {selectedClaim.vehicleDescription && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Mô tả xe</td>
-          <td className="p-3" colSpan={3}>{selectedClaim.vehicleDescription}</td>
-        </tr>
-      )}
-
-      {/* Chi nhánh */}
+      {/* Chi nhánh / Gói */}
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Chi nhánh giao</td>
-        <td className="p-3">{selectedClaim.handoverBranchName || "-"}</td>
-        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Địa chỉ chi nhánh</td>
-        <td className="p-3">{selectedClaim.handoverBranchAddress || "-"}</td>
+        <td className="p-3">{selectedClaim.handover_branch_name}</td>
+        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Gói bảo hiểm</td>
+        <td className="p-3">{selectedClaim.package_name}</td>
       </tr>
 
-      {/* Booking */}
-      {selectedClaim.bookingId && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Mã booking</td>
-          <td className="p-3">{selectedClaim.bookingId}</td>
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Ngày tạo</td>
-          <td className="p-3">
-            {selectedClaim.createdAt 
-              ? dayjs(selectedClaim.createdAt).format("DD/MM/YYYY HH:mm")
-              : "-"}
-          </td>
-        </tr>
-      )}
+      {/* Phí / Thiệt hại */}
+      <tr className="border-b hover:bg-gray-50 transition">
+        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Phí gói</td>
+        <td className="p-3">{selectedClaim.package_fee.toLocaleString()}₫</td>
+        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Tổng thiệt hại</td>
+        <td className="p-3">
+          {selectedClaim.settlement?.total_cost
+            ? selectedClaim.settlement.total_cost.toLocaleString()
+            : "-"}
+          ₫
+        </td>
+      </tr>
 
-      {/* Thời gian booking */}
-      {(selectedClaim.bookingStartDate || selectedClaim.bookingEndDate) && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Ngày bắt đầu thuê</td>
-          <td className="p-3">
-            {selectedClaim.bookingStartDate 
-              ? dayjs(selectedClaim.bookingStartDate).format("DD/MM/YYYY HH:mm")
-              : "-"}
-          </td>
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Ngày kết thúc thuê</td>
-          <td className="p-3">
-            {selectedClaim.bookingEndDate 
-              ? dayjs(selectedClaim.bookingEndDate).format("DD/MM/YYYY HH:mm")
-              : "-"}
-          </td>
-        </tr>
-      )}
-
-      {/* Gói bảo hiểm */}
-      {selectedClaim.packageName && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Gói bảo hiểm</td>
-          <td className="p-3">{selectedClaim.packageName}</td>
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Phí gói</td>
-          <td className="p-3">
-            {selectedClaim.packageFee 
-              ? selectedClaim.packageFee.toLocaleString("vi-VN") + "₫"
-              : "-"}
-          </td>
-        </tr>
-      )}
-
-      {/* Chi tiết bảo hiểm */}
-      {(selectedClaim.coveragePersonLimit || selectedClaim.coveragePropertyLimit || selectedClaim.coverageVehiclePercentage) && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Giới hạn bảo hiểm người</td>
-          <td className="p-3">
-            {selectedClaim.coveragePersonLimit 
-              ? selectedClaim.coveragePersonLimit.toLocaleString("vi-VN") + "₫"
-              : "-"}
-          </td>
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Giới hạn bảo hiểm tài sản</td>
-          <td className="p-3">
-            {selectedClaim.coveragePropertyLimit 
-              ? selectedClaim.coveragePropertyLimit.toLocaleString("vi-VN") + "₫"
-              : "-"}
-          </td>
-        </tr>
-      )}
-
-      {/* Tỷ lệ bảo hiểm xe và Khấu trừ */}
-      {(selectedClaim.coverageVehiclePercentage || selectedClaim.deductibleAmount) && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Tỷ lệ bảo hiểm xe</td>
-          <td className="p-3">
-            {selectedClaim.coverageVehiclePercentage 
-              ? selectedClaim.coverageVehiclePercentage + "%"
-              : "-"}
-          </td>
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Số tiền khấu trừ</td>
-          <td className="p-3">
-            {selectedClaim.deductibleAmount 
-              ? selectedClaim.deductibleAmount.toLocaleString("vi-VN") + "₫"
-              : "-"}
-          </td>
-        </tr>
-      )}
-
-      {/* Bảo hiểm trộm cắp */}
-      {selectedClaim.coverageTheft !== undefined && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Bảo hiểm trộm cắp</td>
-          <td className="p-3" colSpan={3}>
-            {selectedClaim.coverageTheft === 1 ? "Có" : "Không"}
-          </td>
-        </tr>
-      )}
-
-      {/* Mô tả bảo hiểm */}
-      {selectedClaim.insuranceDescription && (
-        <tr className="border-b hover:bg-gray-50 transition">
-          <td className="font-semibold bg-gray-50 p-3 text-gray-600">Mô tả gói bảo hiểm</td>
-          <td className="p-3" colSpan={3}>{selectedClaim.insuranceDescription}</td>
-        </tr>
-      )}
+      {/* Bảo hiểm / Khách chịu */}
+      <tr>
+        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Bảo hiểm chi trả</td>
+        <td className="p-3">
+          {selectedClaim.settlement?.insurance_coverage_amount
+            ? selectedClaim.settlement.insurance_coverage_amount.toLocaleString()
+            : "-"}
+          ₫
+        </td>
+        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Khách chịu</td>
+        <td className="p-3">
+          {selectedClaim.settlement?.renter_liability_amount
+            ? selectedClaim.settlement.renter_liability_amount.toLocaleString()
+            : "-"}
+          ₫
+        </td>
+      </tr>
+      {/* Mô tả */}
+      <tr className="border-b hover:bg-gray-50 transition">
+        <td className="font-semibold bg-gray-50 p-3 text-gray-600">Mô tả</td>
+        <td className="p-3" colSpan={3}>
+          {selectedClaim.description}
+        </td>
+      </tr>
     </tbody>
   </table>
 </div>
 
 {/* Hình ảnh */}
-{selectedClaim.incidentImages && selectedClaim.incidentImages.length > 0 && (
-  <div className="mt-5">
-    <h4 className="font-semibold mb-2 text-gray-700">Hình ảnh hiện trường:</h4>
-    <div className="flex gap-3 flex-wrap">
-      {selectedClaim.incidentImages.map((url: string, idx: number) => (
-        <div
-          key={idx}
-          className="border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition"
-        >
-          <Image width={150} src={url} alt={`Hình ảnh ${idx + 1}`} />
-        </div>
-      ))}
-    </div>
+<div className="mt-5">
+  <h4 className="font-semibold mb-2 text-gray-700">Hình ảnh hiện trường:</h4>
+  <div className="flex gap-3 flex-wrap">
+    {selectedClaim.incident_images?.map((url: string, idx: number) => (
+      <div
+        key={idx}
+        className="border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition"
+      >
+        <Image width={130} src={url} />
+      </div>
+    ))}
   </div>
-)}
-      </>
-    )}
+</div>
+
   </Modal>
 )}
 

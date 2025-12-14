@@ -11,6 +11,7 @@ import {
   Modal,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   message,
@@ -83,7 +84,6 @@ export default function TechnicianRepairRequestsPage() {
   const [updateOpen, setUpdateOpen] = useState(false);
   const [updatingRequest, setUpdatingRequest] = useState<any | null>(null);
   const [statusForm] = Form.useForm();
-  const [validationError, setValidationError] = useState<string>("");
   const [createForm] = Form.useForm();
   const [createOpen, setCreateOpen] = useState(false);
   const [vehicles, setVehicles] = useState<any[]>([]);
@@ -221,8 +221,7 @@ export default function TechnicianRepairRequestsPage() {
         try {
           const firstParse = JSON.parse(checklist);
           if (typeof firstParse === "string") {
-            const finalParse = JSON.parse(firstParse);
-            return finalParse;
+            return JSON.parse(firstParse);
           }
           return firstParse;
         } catch (e2) {
@@ -232,6 +231,7 @@ export default function TechnicianRepairRequestsPage() {
       }
     }
     
+    // Nếu đã là object, trả về trực tiếp
     return checklist;
   };
 
@@ -288,12 +288,16 @@ export default function TechnicianRepairRequestsPage() {
       }
       
       setUpdatingRequest(enrichedDetail);
-      // Set form values cho checklist (không có status)
+      const normalized = normalizeStatus(enrichedDetail.status || record.status || "ASSIGNED");
+      
+      // Set form values cho status và checklist
       statusForm.setFieldsValue({
+        status: normalized,
         checklist_battery: enrichedDetail.checklist?.battery || "",
         checklist_motor: enrichedDetail.checklist?.motor || "",
         checklist_brake: enrichedDetail.checklist?.brake || "",
         checklist_lighting: enrichedDetail.checklist?.lighting || "",
+        checklist_controller: enrichedDetail.checklist?.controller !== undefined ? enrichedDetail.checklist.controller : false,
         checklist_tires: enrichedDetail.checklist?.tires || "",
         checklist_notes: enrichedDetail.checklist?.notes 
           ? (Array.isArray(enrichedDetail.checklist.notes) 
@@ -324,12 +328,14 @@ export default function TechnicianRepairRequestsPage() {
       }
       
       setUpdatingRequest(enrichedRecord);
-      // Set form values cho checklist (không có status)
+      const normalized = normalizeStatus(enrichedRecord.status || "ASSIGNED");
       statusForm.setFieldsValue({
+        status: normalized,
         checklist_battery: enrichedRecord.checklist?.battery || "",
         checklist_motor: enrichedRecord.checklist?.motor || "",
         checklist_brake: enrichedRecord.checklist?.brake || "",
         checklist_lighting: enrichedRecord.checklist?.lighting || "",
+        checklist_controller: enrichedRecord.checklist?.controller !== undefined ? enrichedRecord.checklist.controller : false,
         checklist_tires: enrichedRecord.checklist?.tires || "",
         checklist_notes: enrichedRecord.checklist?.notes 
           ? (Array.isArray(enrichedRecord.checklist.notes) 
@@ -345,76 +351,45 @@ export default function TechnicianRepairRequestsPage() {
     if (!requestToUpdate?.id) return;
     try {
       const values = await statusForm.validateFields();
-      
-      // VALIDATION: Kiểm tra ít nhất một trường checklist được điền TRƯỚC KHI xử lý
-      const hasBattery = values.checklist_battery !== undefined && values.checklist_battery !== null && values.checklist_battery !== "";
-      const hasMotor = values.checklist_motor !== undefined && values.checklist_motor !== null && values.checklist_motor !== "";
-      const hasBrake = values.checklist_brake !== undefined && values.checklist_brake !== null && values.checklist_brake !== "";
-      const hasLighting = values.checklist_lighting !== undefined && values.checklist_lighting !== null && values.checklist_lighting !== "";
-      const hasTires = values.checklist_tires !== undefined && values.checklist_tires !== null && values.checklist_tires !== "";
-      const hasNotes = values.checklist_notes && values.checklist_notes.trim() && values.checklist_notes.trim().length > 0;
-      
-      const hasAnyChecklistData = hasBattery || hasMotor || hasBrake || hasLighting || hasTires || hasNotes;
-      
-      if (!hasAnyChecklistData) {
-        // Set error cho validation field để hiển thị lỗi trên form
-        const errorMsg = "Vui lòng điền ít nhất một trường trong checklist kiểm tra";
-        statusForm.setFields([
-          {
-            name: 'checklist_validation',
-            errors: [errorMsg],
-          },
-        ]);
-        setValidationError(errorMsg);
-        message.error(errorMsg);
-        // Scroll to first checklist field
-        const firstField = document.querySelector('[name="checklist_battery"]');
-        if (firstField) {
-          (firstField as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        return;
-      }
-      
-      // Clear validation error nếu có dữ liệu
-      setValidationError("");
-      statusForm.setFields([
-        {
-          name: 'checklist_validation',
-          errors: [],
-        },
-      ]);
+      const apiStatus = toPascalCaseStatus(values.status);
       
       // Tạo checklist object từ form values (phù hợp với xe máy điện)
-      // KHÔNG bao gồm status trong checklist - API không hỗ trợ technician update status
-      const checklist: any = {};
+      const checklist: any = {
+        ...(requestToUpdate.checklist || {}),
+      };
       
       // Cập nhật battery nếu có
-      if (hasBattery) {
+      if (values.checklist_battery !== undefined && values.checklist_battery !== null && values.checklist_battery !== "") {
         checklist.battery = values.checklist_battery;
       }
       
       // Cập nhật motor nếu có
-      if (hasMotor) {
+      if (values.checklist_motor !== undefined && values.checklist_motor !== null && values.checklist_motor !== "") {
         checklist.motor = values.checklist_motor;
       }
       
       // Cập nhật brake nếu có
-      if (hasBrake) {
+      if (values.checklist_brake !== undefined && values.checklist_brake !== null && values.checklist_brake !== "") {
         checklist.brake = values.checklist_brake;
       }
       
       // Cập nhật lighting nếu có
-      if (hasLighting) {
+      if (values.checklist_lighting !== undefined && values.checklist_lighting !== null && values.checklist_lighting !== "") {
         checklist.lighting = values.checklist_lighting;
       }
       
+      // Cập nhật controller nếu có
+      if (values.checklist_controller !== undefined) {
+        checklist.controller = values.checklist_controller;
+      }
+      
       // Cập nhật tires nếu có
-      if (hasTires) {
+      if (values.checklist_tires !== undefined && values.checklist_tires !== null && values.checklist_tires !== "") {
         checklist.tires = values.checklist_tires;
       }
       
       // Cập nhật notes nếu có
-      if (hasNotes) {
+      if (values.checklist_notes && values.checklist_notes.trim()) {
         // Chia notes thành array (mỗi dòng là một note)
         checklist.notes = values.checklist_notes
           .split("\n")
@@ -422,22 +397,26 @@ export default function TechnicianRepairRequestsPage() {
           .filter((note: string) => note.length > 0);
       }
       
-      // Thêm extra info với timestamp
-      checklist.extra = {
-        ...(requestToUpdate.checklist?.extra || {}),
-        time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-        updatedAt: new Date().toISOString(),
-      };
+      // Thêm extra info nếu cần
+      if (!checklist.extra) {
+        checklist.extra = {};
+      }
+      checklist.extra.time = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
       
-      console.log("Checklist object:", checklist);
-      console.log("Checklist JSON string:", JSON.stringify(checklist));
+      // Đảm bảo checklist luôn có ít nhất một field
+      // Nếu checklist rỗng, tạo object mặc định
+      const finalChecklist = Object.keys(checklist).length > 0 
+        ? checklist 
+        : { status: apiStatus };
       
-      // CHỈ gửi checklist, KHÔNG gửi status
-      // API spec: { repairRequestId, checklist: "string" }
+      console.log("Checklist object:", finalChecklist);
+      console.log("Checklist JSON string:", JSON.stringify(finalChecklist));
+      
       await updateTechnicianRepairRequest(requestToUpdate.id, {
-        checklist: checklist,
+        status: apiStatus,
+        checklist: finalChecklist,
       });
-      message.success("Đã cập nhật checklist kiểm tra");
+      message.success("Đã cập nhật trạng thái yêu cầu");
       setUpdateOpen(false);
       setUpdatingRequest(null);
       setDetailOpen(false);
@@ -446,16 +425,9 @@ export default function TechnicianRepairRequestsPage() {
       // Reload với pagination hiện tại
       await loadRequests(pagination.current, pagination.pageSize);
     } catch (err: any) {
-      if (err?.errorFields) {
-        // Form validation errors
-        const firstError = err.errorFields?.[0];
-        if (firstError) {
-          message.error(firstError.errors?.[0] || "Vui lòng kiểm tra lại thông tin đã nhập");
-        }
-        return;
-      }
+      if (err?.errorFields) return;
       console.error(err);
-      message.error(err.message || "Không thể cập nhật checklist");
+      message.error(err.message || "Không thể cập nhật trạng thái");
     }
   };
 
@@ -953,6 +925,13 @@ export default function TechnicianRepairRequestsPage() {
                       </Tag>
                     </Descriptions.Item>
                   )}
+                  {checklist.controller !== undefined && (
+                    <Descriptions.Item label="Bộ điều khiển">
+                      <Tag color={checklist.controller ? "green" : "red"}>
+                        {checklist.controller ? "Đã kiểm tra" : "Chưa kiểm tra"}
+                      </Tag>
+                    </Descriptions.Item>
+                  )}
                   {checklist.tires && (
                     <Descriptions.Item label="Lốp xe">
                       <Tag color={checklist.tires === "normal" ? "green" : "orange"}>
@@ -1026,22 +1005,21 @@ export default function TechnicianRepairRequestsPage() {
         )}
       </Modal>
 
-      {/* Modal cập nhật checklist */}
+      {/* Modal cập nhật trạng thái và checklist */}
       <Modal
         title={
           <span className="text-lg font-semibold text-gray-800">
-            Cập nhật checklist kiểm tra
+            Cập nhật yêu cầu sửa chữa
           </span>
         }
         open={updateOpen}
         onCancel={() => {
-        setUpdateOpen(false);
-        setUpdatingRequest(null);
-        statusForm.resetFields();
-        setValidationError("");
+          setUpdateOpen(false);
+          setUpdatingRequest(null);
+          statusForm.resetFields();
         }}
         onOk={handleStatusUpdate}
-        okText="Cập nhật checklist"
+        okText="Cập nhật"
         cancelText="Hủy"
         destroyOnHidden
         width={600}
@@ -1094,60 +1072,29 @@ export default function TechnicianRepairRequestsPage() {
             </div>
 
             <Form layout="vertical" form={statusForm}>
-              <div className="mb-4">
-                <Alert
-                  type="info"
-                  showIcon
-                  message="Cập nhật Checklist"
-                  description="Kỹ thuật viên chỉ có thể cập nhật checklist kiểm tra. Trạng thái sẽ được hệ thống tự động cập nhật dựa trên tiến độ sửa chữa."
-                  className="mb-3"
+              <Form.Item
+                name="status"
+                label="* Cập nhật trạng thái"
+                rules={[{ required: true, message: "Vui lòng chọn trạng thái" }]}
+              >
+                <Select
+                  placeholder="Chọn trạng thái"
+                  options={technicianStatusOptions.map((status) => {
+                    const statusMap: Record<string, string> = {
+                      ASSIGNED: "Đã phân công",
+                      IN_PROGRESS: "Đang xử lý",
+                      COMPLETED: "Hoàn thành",
+                    };
+                    return {
+                      label: statusMap[status] || status,
+                      value: status,
+                    };
+                  })}
                 />
-              </div>
+              </Form.Item>
 
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Checklist kiểm tra *</h4>
-                <p className="text-xs text-red-500 mb-3 font-medium">* Bắt buộc: Vui lòng điền ít nhất một trường trong checklist</p>
-                
-                {/* Hiển thị lỗi validation */}
-                {validationError && (
-                  <Alert
-                    type="error"
-                    showIcon
-                    message={validationError}
-                    className="mb-3"
-                    closable
-                    onClose={() => setValidationError("")}
-                  />
-                )}
-                
-                {/* Validation field để hiển thị lỗi khi không điền gì */}
-                <Form.Item
-                  name="checklist_validation"
-                  rules={[
-                    {
-                      validator: async (_, value) => {
-                        const formValues = statusForm.getFieldsValue();
-                        const hasBattery = formValues.checklist_battery !== undefined && formValues.checklist_battery !== null && formValues.checklist_battery !== "";
-                        const hasMotor = formValues.checklist_motor !== undefined && formValues.checklist_motor !== null && formValues.checklist_motor !== "";
-                        const hasBrake = formValues.checklist_brake !== undefined && formValues.checklist_brake !== null && formValues.checklist_brake !== "";
-                        const hasLighting = formValues.checklist_lighting !== undefined && formValues.checklist_lighting !== null && formValues.checklist_lighting !== "";
-                        const hasTires = formValues.checklist_tires !== undefined && formValues.checklist_tires !== null && formValues.checklist_tires !== "";
-                        const hasNotes = formValues.checklist_notes && formValues.checklist_notes.trim() && formValues.checklist_notes.trim().length > 0;
-                        
-                        if (!hasBattery && !hasMotor && !hasBrake && !hasLighting && !hasTires && !hasNotes) {
-                          const errorMsg = "Vui lòng điền ít nhất một trường trong checklist kiểm tra";
-                          setValidationError(errorMsg);
-                          return Promise.reject(new Error(errorMsg));
-                        }
-                        setValidationError("");
-                        return Promise.resolve();
-                      },
-                    },
-                  ]}
-                  validateTrigger={['onChange', 'onSubmit']}
-                >
-                  <Input type="hidden" />
-                </Form.Item>
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Checklist kiểm tra</h4>
                 
                 <Form.Item
                   name="checklist_battery"
@@ -1211,6 +1158,17 @@ export default function TechnicianRepairRequestsPage() {
                       { label: "Cần thay bóng đèn", value: "need_replace" },
                     ]}
                   />
+                </Form.Item>
+
+                <Form.Item
+                  name="checklist_controller"
+                  label="Bộ điều khiển"
+                  valuePropName="checked"
+                >
+                  <div className="flex items-center gap-2">
+                    <Switch />
+                    <span className="text-sm text-gray-600">Đã kiểm tra bộ điều khiển</span>
+                  </div>
                 </Form.Item>
 
                 <Form.Item
