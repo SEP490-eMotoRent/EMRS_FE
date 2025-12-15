@@ -138,19 +138,28 @@ export async function createVehicleModel(formData: FormData): Promise<any> {
 }
 
 // Cập nhật vehicle model
-export async function updateVehicleModel(modelId: string, data: Partial<VehicleModel>): Promise<any> {
+export async function updateVehicleModel(modelId: string, data: Partial<VehicleModel> | FormData): Promise<any> {
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+
+  const body = isFormData
+    ? data
+    : (() => {
+        const d = data as Partial<VehicleModel>;
+        return JSON.stringify({
+          id: modelId,
+          modelName: d.modelName,
+          category: d.category,
+          batteryCapacityKwh: d.batteryCapacityKwh,
+          maxRangeKm: d.maxRangeKm,
+          maxSpeedKmh: d.maxSpeedKmh,
+          description: d.description,
+          rentalPricingId: d.rentalPricingId,
+        });
+      })();
+
   const res = await fetchBackend(`${API_PREFIX}/${modelId}`, {
     method: "PUT",
-    body: JSON.stringify({
-      id: modelId,
-      modelName: data.modelName,
-      category: data.category,
-      batteryCapacityKwh: data.batteryCapacityKwh,
-      maxRangeKm: data.maxRangeKm,
-      maxSpeedKmh: data.maxSpeedKmh,
-      description: data.description,
-      rentalPricingId: data.rentalPricingId,
-    }),
+    body,
   });
 
   if (!res.ok) {

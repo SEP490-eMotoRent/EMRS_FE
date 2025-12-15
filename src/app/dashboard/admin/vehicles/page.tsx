@@ -994,8 +994,22 @@ export default function VehiclesPage() {
             <Input type="number" placeholder="Nhập số km" />
           </Form.Item>
 
-          <Form.Item name="batteryHealthPercentage" label="Phần trăm pin (%)">
-            <Input type="number" min={0} max={100} placeholder="Nhập % pin" />
+          <Form.Item
+            name="batteryHealthPercentage"
+            label="Phần trăm pin (%)"
+            rules={[
+              {
+                validator: (_: any, value: any) => {
+                  if (value === undefined || value === null || value === "") return Promise.resolve();
+                  if (Number.isNaN(Number(value))) return Promise.reject(new Error("Giá trị không hợp lệ"));
+                  if (value < 0) return Promise.reject(new Error("Tối thiểu 0%"));
+                  if (value > 100) return Promise.reject(new Error("Tối đa 100%"));
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
+            <Input type="number" min={0} max={100} placeholder="Nhập % pin (0 - 100)" />
           </Form.Item>
 
           <Form.Item

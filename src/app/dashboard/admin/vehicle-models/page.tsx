@@ -182,8 +182,36 @@ export default function VehicleModelsPage() {
       const values = await form.validateFields();
       
       if (editingModel) {
-        // Update
-        await updateVehicleModel(editingModel.vehicleModelId || editingModel.id || "", values);
+        // Update (cho phép đổi ảnh)
+        const hasNewImage = fileList.some((file) => file.originFileObj);
+        const modelId = editingModel.vehicleModelId || editingModel.id || "";
+        
+        if (!modelId) {
+          message.error("Không tìm thấy ID model");
+          return;
+        }
+
+        if (hasNewImage) {
+          const formData = new FormData();
+          formData.append("ModelName", values.modelName.trim());
+          formData.append("Category", values.category);
+          if (values.description) formData.append("Description", values.description.trim());
+          if (values.rentalPricingId) formData.append("RentalPricingId", values.rentalPricingId);
+          if (values.batteryCapacityKwh) formData.append("BatteryCapacityKwh", String(values.batteryCapacityKwh));
+          if (values.maxRangeKm) formData.append("MaxRangeKm", String(values.maxRangeKm));
+          if (values.maxSpeedKmh) formData.append("MaxSpeedKmh", String(values.maxSpeedKmh));
+
+          fileList.forEach((file) => {
+            if (file.originFileObj) {
+              formData.append("ImageFiles", file.originFileObj);
+            }
+          });
+
+          await updateVehicleModel(modelId, formData);
+        } else {
+          await updateVehicleModel(modelId, values);
+        }
+
         message.success("Cập nhật model thành công");
       } else {
         // Create
@@ -600,38 +628,36 @@ export default function VehicleModelsPage() {
             </Select>
           </Form.Item>
 
-          {!editingModel && (
-            <Form.Item 
-              label={
-                <span>
-                  Hình ảnh <span className="text-red-500">*</span>
-                </span>
-              }
-              required
+          <Form.Item
+            label={
+              <span>
+                Hình ảnh {editingModel ? <span className="text-gray-400">(tuỳ chọn)</span> : <span className="text-red-500">*</span>}
+              </span>
+            }
+            required={!editingModel}
+          >
+            <Upload
+              listType="picture-card"
+              fileList={fileList}
+              onChange={({ fileList }) => setFileList(fileList)}
+              beforeUpload={(file) => {
+                const isAllowedType = ALLOWED_IMAGE_TYPES.includes(file.type);
+                if (!isAllowedType) {
+                  message.error("Chỉ hỗ trợ ảnh JPG, PNG, WEBP");
+                  return Upload.LIST_IGNORE;
+                }
+                const isLtSize = file.size / 1024 / 1024 < MAX_IMAGE_MB;
+                if (!isLtSize) {
+                  message.error(`Ảnh phải nhỏ hơn ${MAX_IMAGE_MB}MB`);
+                  return Upload.LIST_IGNORE;
+                }
+                return false; // prevent auto upload
+              }}
+              multiple={false}
             >
-              <Upload
-                listType="picture-card"
-                fileList={fileList}
-                onChange={({ fileList }) => setFileList(fileList)}
-                beforeUpload={(file) => {
-                  const isAllowedType = ALLOWED_IMAGE_TYPES.includes(file.type);
-                  if (!isAllowedType) {
-                    message.error("Chỉ hỗ trợ ảnh JPG, PNG, WEBP");
-                    return Upload.LIST_IGNORE;
-                  }
-                  const isLtSize = file.size / 1024 / 1024 < MAX_IMAGE_MB;
-                  if (!isLtSize) {
-                    message.error(`Ảnh phải nhỏ hơn ${MAX_IMAGE_MB}MB`);
-                    return Upload.LIST_IGNORE;
-                  }
-                  return false; // prevent auto upload
-                }}
-                multiple={false}
-              >
-                {fileList.length < 1 && <div><UploadOutlined /> Tải lên</div>}
-              </Upload>
-            </Form.Item>
-          )}
+              {fileList.length < 1 && <div><UploadOutlined /> Tải lên</div>}
+            </Upload>
+          </Form.Item>
         </Form>
       </Modal>
 
