@@ -622,7 +622,7 @@ export default function VehiclesPage() {
         
         message.success("Cập nhật xe thành công");
       } else {
-        // Thêm ảnh vào FormData cho BE
+        // Thêm ảnh vào FormData cho BE (BE sẽ lưu ảnh, không upload lại qua media để tránh trùng)
         fileList.forEach((file: any) => {
           if (file.originFileObj) {
             formData.append("ImageFiles", file.originFileObj);
@@ -630,41 +630,7 @@ export default function VehiclesPage() {
         });
         
         // Tạo vehicle mới (có kèm ảnh trong FormData)
-        const createdVehicle = await createVehicle(formData);
-        const newVehicleId = createdVehicle?.id || createdVehicle?.data?.id || createdVehicle?.vehicleId;
-        
-        if (!newVehicleId) {
-          console.error("Failed to get vehicle ID after creation:", createdVehicle);
-          message.error("Tạo xe thành công nhưng không lấy được ID để thêm ảnh");
-          handleCloseModal();
-          loadVehicles();
-          return;
-        }
-        
-        // Nếu BE đã lưu ảnh từ ImageFiles (fileUrl/medias có dữ liệu) thì không tạo thêm để tránh trùng
-        const hasImagesFromBackend =
-          (createdVehicle?.fileUrl && Array.isArray(createdVehicle.fileUrl) && createdVehicle.fileUrl.length > 0) ||
-          (createdVehicle?.data?.fileUrl && Array.isArray(createdVehicle.data.fileUrl) && createdVehicle.data.fileUrl.length > 0) ||
-          (createdVehicle?.medias && Array.isArray(createdVehicle.medias) && createdVehicle.medias.length > 0) ||
-          (createdVehicle?.data?.medias && Array.isArray(createdVehicle.data.medias) && createdVehicle.data.medias.length > 0);
-        
-        if (!hasImagesFromBackend) {
-          // Thêm ảnh bằng POST /api/Media sau khi tạo vehicle (fallback nếu BE không tự lưu)
-          const createMediaPromises: Promise<any>[] = [];
-          fileList.forEach((file: any) => {
-            if (file.originFileObj) {
-              console.log(`Creating new media for vehicle ${newVehicleId}`);
-              createMediaPromises.push(createMedia(newVehicleId, file.originFileObj, "Vehicle", "Image"));
-            }
-          });
-          
-          if (createMediaPromises.length > 0) {
-            console.log(`Creating ${createMediaPromises.length} media files for new vehicle...`);
-            await Promise.all(createMediaPromises);
-            console.log("All media files created");
-          }
-        }
-        
+        await createVehicle(formData);
         message.success("Thêm xe thành công");
       }
 
@@ -1395,6 +1361,9 @@ export default function VehiclesPage() {
                 } else {
                   console.log("No images found in any source");
                 }
+
+                // Loại bỏ trùng lặp URL (tránh hiển thị 2 ảnh giống nhau)
+                imageUrls = Array.from(new Set(imageUrls));
 
                 return imageUrls.length > 0 ? (
                   <Image.PreviewGroup>
