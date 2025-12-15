@@ -647,7 +647,7 @@ export default function VehicleModelsPage() {
               }}
               multiple
             >
-              {fileList.length < 1 && <div><UploadOutlined /> Tải lên</div>}
+              {fileList.length < 5 && <div><UploadOutlined /> Tải lên</div>}
             </Upload>
           </Form.Item>
         </Form>
