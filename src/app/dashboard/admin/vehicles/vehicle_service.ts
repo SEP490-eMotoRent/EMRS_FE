@@ -165,6 +165,8 @@ function normalizeVehicle(vehicle: any) {
   
   const normalized = {
     ...vehicle,
+    // Chuẩn hóa ngày sản xuất về cùng key cho UI
+    dateManufacturing: vehicle.dateManufacturing || vehicle.DateManufacturing || vehicle.yearOfManufacture || vehicle.YearOfManufacture,
     gpsDeviceIdent: vehicle.gpsDeviceIdent || vehicle.GpsDeviceIdent || vehicle.gpsDeviceId || null,
     flespiDeviceId: vehicle.flespiDeviceId || vehicle.FlespiDeviceId || vehicle.flespiDeviceId || null,
     // Map id -> vehicleId để tương thích

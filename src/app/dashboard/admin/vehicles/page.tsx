@@ -32,7 +32,7 @@ interface Vehicle {
   vehicleId?: string; // Hoặc vehicleId
   licensePlate: string;
   color?: string;
-  yearOfManufacture?: string;
+  dateManufacturing?: string;
   currentOdometerKm?: number;
   batteryHealthPercentage?: number;
   status?: string;
@@ -445,7 +445,7 @@ export default function VehiclesPage() {
       form.setFieldsValue({
         licensePlate: fullVehicle.licensePlate,
         color: fullVehicle.color,
-        yearOfManufacture: fullVehicle.yearOfManufacture ? dayjs(fullVehicle.yearOfManufacture) : undefined,
+        dateManufacturing: fullVehicle.dateManufacturing ? dayjs(fullVehicle.dateManufacturing) : undefined,
         currentOdometerKm: fullVehicle.currentOdometerKm,
         batteryHealthPercentage: fullVehicle.batteryHealthPercentage,
         status: fullVehicle.status,
@@ -546,8 +546,8 @@ export default function VehiclesPage() {
         appendIfValue("Description", values.description);
       }
       
-      if (values.yearOfManufacture) {
-        formData.append("YearOfManufacture", dayjs(values.yearOfManufacture).toISOString());
+      if (values.dateManufacturing) {
+        formData.append("DateManufacturing", dayjs(values.dateManufacturing).toISOString());
       }
       appendIfValue("CurrentOdometerKm", values.currentOdometerKm);
       appendIfValue("BatteryHealthPercentage", values.batteryHealthPercentage);
@@ -1007,7 +1007,7 @@ export default function VehiclesPage() {
             <Input placeholder="Nhập màu sắc" />
           </Form.Item>
 
-          <Form.Item name="yearOfManufacture" label="Năm sản xuất">
+          <Form.Item name="dateManufacturing" label="Ngày sản xuất">
             <DatePicker
               picker="year"
               style={{ width: "100%" }}
@@ -1243,8 +1243,8 @@ export default function VehiclesPage() {
                 {selectedVehicle.color || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Năm sản xuất">
-                {selectedVehicle.yearOfManufacture
-                  ? dayjs(selectedVehicle.yearOfManufacture).format("YYYY")
+                {selectedVehicle.dateManufacturing
+                  ? dayjs(selectedVehicle.dateManufacturing).format("YYYY")
                   : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Số km hiện tại">
