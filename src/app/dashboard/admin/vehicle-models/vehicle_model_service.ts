@@ -144,17 +144,18 @@ export async function updateVehicleModel(modelId: string, data: Partial<VehicleM
   const body = isFormData
     ? data
     : (() => {
+        // Dùng FormData cho cả update để phù hợp BE (tránh 405 với JSON)
         const d = data as Partial<VehicleModel>;
-        return JSON.stringify({
-          id: modelId,
-          modelName: d.modelName,
-          category: d.category,
-          batteryCapacityKwh: d.batteryCapacityKwh,
-          maxRangeKm: d.maxRangeKm,
-          maxSpeedKmh: d.maxSpeedKmh,
-          description: d.description,
-          rentalPricingId: d.rentalPricingId,
-        });
+        const fd = new FormData();
+        fd.append("Id", modelId);
+        if (d.modelName) fd.append("ModelName", d.modelName);
+        if (d.category) fd.append("Category", d.category);
+        if (d.description) fd.append("Description", d.description);
+        if (d.rentalPricingId) fd.append("RentalPricingId", d.rentalPricingId);
+        if (d.batteryCapacityKwh !== undefined) fd.append("BatteryCapacityKwh", String(d.batteryCapacityKwh));
+        if (d.maxRangeKm !== undefined) fd.append("MaxRangeKm", String(d.maxRangeKm));
+        if (d.maxSpeedKmh !== undefined) fd.append("MaxSpeedKmh", String(d.maxSpeedKmh));
+        return fd;
       })();
 
   const res = await fetchBackend(`${API_PREFIX}/${modelId}`, {
