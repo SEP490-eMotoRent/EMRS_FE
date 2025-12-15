@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Table, Button, Card, Input, Space, Tag, Modal, Form, InputNumber, Upload, message, Image, Descriptions, Select } from "antd";
 import { EditOutlined, PlusOutlined, EyeOutlined, UploadOutlined, DeleteOutlined } from "@ant-design/icons";
-import { getVehicleModels, getVehicleModelById, createVehicleModel, updateVehicleModel, deleteVehicleModel, VehicleModel } from "./vehicle_model_service";
+import { getVehicleModels, getVehicleModelById, createVehicleModel, updateVehicleModel, deleteVehicleModel, createVehicleModelMedia, VehicleModel } from "./vehicle_model_service";
 import { getVehicles } from "../vehicles/vehicle_service";
 import type { ColumnsType } from "antd/es/table";
 import { fetchBackend } from "@/utils/helpers";
@@ -182,7 +182,7 @@ export default function VehicleModelsPage() {
       const values = await form.validateFields();
       
       if (editingModel) {
-        // Update (cho phép đổi ảnh)
+        // Update thông tin model
         const hasNewImage = fileList.some((file) => file.originFileObj);
         const modelId = editingModel.vehicleModelId || editingModel.id || "";
         
@@ -191,25 +191,17 @@ export default function VehicleModelsPage() {
           return;
         }
 
+        await updateVehicleModel(modelId, values);
+
+        // Nếu có ảnh mới, thêm qua Media API để không phải xóa ảnh cũ
         if (hasNewImage) {
-          const formData = new FormData();
-          formData.append("ModelName", values.modelName.trim());
-          formData.append("Category", values.category);
-          if (values.description) formData.append("Description", values.description.trim());
-          if (values.rentalPricingId) formData.append("RentalPricingId", values.rentalPricingId);
-          if (values.batteryCapacityKwh) formData.append("BatteryCapacityKwh", String(values.batteryCapacityKwh));
-          if (values.maxRangeKm) formData.append("MaxRangeKm", String(values.maxRangeKm));
-          if (values.maxSpeedKmh) formData.append("MaxSpeedKmh", String(values.maxSpeedKmh));
-
-          fileList.forEach((file) => {
-            if (file.originFileObj) {
-              formData.append("ImageFiles", file.originFileObj);
-            }
-          });
-
-          await updateVehicleModel(modelId, formData);
-        } else {
-          await updateVehicleModel(modelId, values);
+          const newFiles = fileList.filter((f) => f.originFileObj);
+          const uploadPromises = newFiles.map((file) =>
+            createVehicleModelMedia(modelId, file.originFileObj)
+          );
+          if (uploadPromises.length > 0) {
+            await Promise.all(uploadPromises);
+          }
         }
 
         message.success("Cập nhật model thành công");
@@ -653,7 +645,7 @@ export default function VehicleModelsPage() {
                 }
                 return false; // prevent auto upload
               }}
-              multiple={false}
+              multiple
             >
               {fileList.length < 1 && <div><UploadOutlined /> Tải lên</div>}
             </Upload>

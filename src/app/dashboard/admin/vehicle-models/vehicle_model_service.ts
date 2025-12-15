@@ -181,6 +181,39 @@ export async function updateVehicleModel(modelId: string, data: Partial<VehicleM
   return json.data || json;
 }
 
+// Tạo media (ảnh) mới cho vehicle model
+export async function createVehicleModelMedia(docNo: string, file: File, mediaType: string = "Image") {
+  const formData = new FormData();
+  formData.append("DocNo", docNo);
+  formData.append("File", file);
+  formData.append("MediaType", mediaType);
+  formData.append("EntityType", "VehicleModel");
+
+  // Đi qua Next.js API route để giữ token/header
+  const res = await fetch("/api/media", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Failed to create vehicle model media:", res.status, errorText);
+    throw new Error(`Failed to create vehicle model media: ${res.statusText}`);
+  }
+
+  const text = await res.text();
+  let json: any;
+
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    console.error("Failed to parse JSON:", text);
+    throw new Error("Invalid JSON response");
+  }
+
+  return json.data || json;
+}
+
 // Xóa vehicle model
 export async function deleteVehicleModel(modelId: string): Promise<any> {
   const res = await fetchBackend(`${API_PREFIX}/${modelId}`, {
