@@ -641,19 +641,28 @@ export default function VehiclesPage() {
           return;
         }
         
-        // Thêm ảnh bằng POST /api/Media sau khi tạo vehicle
-        const createMediaPromises: Promise<any>[] = [];
-        fileList.forEach((file: any) => {
-          if (file.originFileObj) {
-            console.log(`Creating new media for vehicle ${newVehicleId}`);
-            createMediaPromises.push(createMedia(newVehicleId, file.originFileObj, "Vehicle", "Image"));
-          }
-        });
+        // Nếu BE đã lưu ảnh từ ImageFiles (fileUrl/medias có dữ liệu) thì không tạo thêm để tránh trùng
+        const hasImagesFromBackend =
+          (createdVehicle?.fileUrl && Array.isArray(createdVehicle.fileUrl) && createdVehicle.fileUrl.length > 0) ||
+          (createdVehicle?.data?.fileUrl && Array.isArray(createdVehicle.data.fileUrl) && createdVehicle.data.fileUrl.length > 0) ||
+          (createdVehicle?.medias && Array.isArray(createdVehicle.medias) && createdVehicle.medias.length > 0) ||
+          (createdVehicle?.data?.medias && Array.isArray(createdVehicle.data.medias) && createdVehicle.data.medias.length > 0);
         
-        if (createMediaPromises.length > 0) {
-          console.log(`Creating ${createMediaPromises.length} media files for new vehicle...`);
-          await Promise.all(createMediaPromises);
-          console.log("All media files created");
+        if (!hasImagesFromBackend) {
+          // Thêm ảnh bằng POST /api/Media sau khi tạo vehicle (fallback nếu BE không tự lưu)
+          const createMediaPromises: Promise<any>[] = [];
+          fileList.forEach((file: any) => {
+            if (file.originFileObj) {
+              console.log(`Creating new media for vehicle ${newVehicleId}`);
+              createMediaPromises.push(createMedia(newVehicleId, file.originFileObj, "Vehicle", "Image"));
+            }
+          });
+          
+          if (createMediaPromises.length > 0) {
+            console.log(`Creating ${createMediaPromises.length} media files for new vehicle...`);
+            await Promise.all(createMediaPromises);
+            console.log("All media files created");
+          }
         }
         
         message.success("Thêm xe thành công");
@@ -1009,9 +1018,9 @@ export default function VehiclesPage() {
 
           <Form.Item name="dateManufacturing" label="Ngày sản xuất">
             <DatePicker
-              picker="year"
               style={{ width: "100%" }}
-              placeholder="Chọn năm"
+              placeholder="Chọn ngày sản xuất"
+              disabledDate={(current) => current && current > dayjs().endOf("day")}
             />
           </Form.Item>
 
