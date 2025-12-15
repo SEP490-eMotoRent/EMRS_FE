@@ -141,7 +141,8 @@ export async function createVehicleModel(formData: FormData): Promise<any> {
 export async function updateVehicleModel(modelId: string, data: Partial<VehicleModel>): Promise<any> {
   const d = data as Partial<VehicleModel>;
 
-  const res = await fetchBackend(`${API_PREFIX}/${modelId}`, {
+  // Backend expects PUT to /api/Vehicle/model with id in body (no id in path)
+  const res = await fetchBackend(`${API_PREFIX}`, {
     method: "PUT",
     body: JSON.stringify({
       id: modelId,
