@@ -152,13 +152,19 @@ export default function VehicleModelsPage() {
         description: model.description,
         rentalPricingId: model.rentalPricingId,
       });
-      if (model.imageUrl) {
-        setFileList([{
-          uid: '-1',
-          name: 'image.jpg',
-          status: 'done',
-          url: model.imageUrl,
-        }]);
+      const existingImages =
+        (model.images && model.images.length > 0 ? model.images : []) ||
+        (model.imageUrl ? [model.imageUrl] : []);
+
+      if (existingImages.length > 0) {
+        setFileList(
+          existingImages.map((url, idx) => ({
+            uid: `existing-${idx}`,
+            name: `image-${idx}.jpg`,
+            status: "done",
+            url,
+          }))
+        );
       } else {
         setFileList([]);
       }
@@ -647,7 +653,7 @@ export default function VehicleModelsPage() {
               }}
               multiple
             >
-              {fileList.length < 5 && <div><UploadOutlined /> Tải lên</div>}
+              {fileList.length < 5 && <div><UploadOutlined /> Tải thêm</div>}
             </Upload>
           </Form.Item>
         </Form>

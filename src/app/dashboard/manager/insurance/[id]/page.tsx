@@ -267,13 +267,6 @@ export default function InsuranceClaimDetailPage() {
                 Chỉnh sửa
               </Button>
               <Button
-                type="primary"
-                icon={<CheckOutlined />}
-                onClick={handleApprove}
-              >
-                Duyệt claim
-              </Button>
-              <Button
                 danger
                 icon={<CloseOutlined />}
                 onClick={handleReject}
