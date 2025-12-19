@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
 
-// GET /api/insurance-claim/admin/list
-// Lấy danh sách tất cả insurance claims (cho admin)
 export async function GET() {
   try {
     const cookieStore = await cookies();
@@ -16,8 +14,7 @@ export async function GET() {
       );
     }
 
-    // Gọi endpoint /InsuranceClaim/admin theo API spec
-    const beRes = await emrsFetch("/InsuranceClaim/admin", {
+    const beRes = await emrsFetch("/InsuranceClaim/my-claims", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -27,7 +24,7 @@ export async function GET() {
     try {
       json = text ? JSON.parse(text) : {};
     } catch (e) {
-      console.error("Failed to parse insurance claims response:", e);
+      console.error("Failed to parse my-claims response:", e);
       return NextResponse.json(
         { success: false, message: "Invalid JSON from backend" },
         { status: 500 }
@@ -36,7 +33,7 @@ export async function GET() {
 
     return NextResponse.json(json, { status: beRes.status });
   } catch (err) {
-    console.error("Insurance claims API error:", err);
+    console.error("My claims API error:", err);
     return NextResponse.json(
       { success: false, message: "Internal BFF Error" },
       { status: 500 }

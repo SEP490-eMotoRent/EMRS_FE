@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
+import { cookies } from "next/headers";
 
-// GET /api/insurance-claim/admin/list
-// Lấy danh sách tất cả insurance claims (cho admin)
-export async function GET() {
+export async function GET(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await context.params;
+
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -16,29 +19,27 @@ export async function GET() {
       );
     }
 
-    // Gọi endpoint /InsuranceClaim/admin theo API spec
-    const beRes = await emrsFetch("/InsuranceClaim/admin", {
+    const beRes = await emrsFetch(`/InsuranceClaim/admin/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     const text = await beRes.text();
     let json;
-    
+
     try {
-      json = text ? JSON.parse(text) : {};
+      json = JSON.parse(text);
     } catch (e) {
-      console.error("Failed to parse insurance claims response:", e);
       return NextResponse.json(
-        { success: false, message: "Invalid JSON from backend" },
+        { success: false, message: "Invalid JSON from BE" },
         { status: 500 }
       );
     }
 
     return NextResponse.json(json, { status: beRes.status });
   } catch (err) {
-    console.error("Insurance claims API error:", err);
+    console.error("Admin claim detail error:", err);
     return NextResponse.json(
-      { success: false, message: "Internal BFF Error" },
+      { success: false, message: "Internal server error" },
       { status: 500 }
     );
   }

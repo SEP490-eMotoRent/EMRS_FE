@@ -1,4 +1,4 @@
-const API_PREFIX = "/api/InsuranceClaim";
+const API_PREFIX = "/api/insurance-claim";
 
 export async function getBranchClaims() {
   const res = await fetch(`${API_PREFIX}/manager/branch-claims`, {
