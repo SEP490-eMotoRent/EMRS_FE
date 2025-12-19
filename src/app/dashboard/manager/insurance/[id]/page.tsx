@@ -136,13 +136,27 @@ export default function InsuranceClaimDetailPage() {
     }
   };
 
-  const handleApprove = () => {
-    form.setFieldsValue({ status: "Processing" });
+  const handleApprove = async () => {
     Modal.confirm({
       title: "Xác nhận duyệt claim",
       content: "Bạn có chắc chắn muốn duyệt yêu cầu bảo hiểm này và chuyển sang trạng thái Đang xử lý?",
-      onOk: () => {
-        form.submit();
+      onOk: async () => {
+        try {
+          setUpdating(true);
+          const formData = new FormData();
+          formData.append("status", "Processing");
+          
+          const result = await updateClaim(claimId, formData);
+          message.success(
+            result.message || "Duyệt claim thành công"
+          );
+          await loadClaim();
+        } catch (err: any) {
+          console.error(err);
+          message.error(err.message || "Duyệt claim thất bại");
+        } finally {
+          setUpdating(false);
+        }
       },
     });
   };
@@ -222,8 +236,9 @@ export default function InsuranceClaimDetailPage() {
   };
 
   const canEdit = claim?.status === "Reported";
-  const canSettle = claim?.status === "Processing";
-  const isLocked = claim?.status === "Processing" || claim?.status === "Completed";
+  const canSettle = claim?.status === "Reported" || claim?.status === "Processing";
+  const canApprove = claim?.status === "Reported";
+  const isLocked = claim?.status === "Completed";
 
   if (loading) {
     return (
@@ -280,11 +295,21 @@ export default function InsuranceClaimDetailPage() {
               </Button>
             </>
           )}
+          {canApprove && (
+            <Button
+              type="primary"
+              icon={<CheckOutlined />}
+              onClick={handleApprove}
+            >
+              Duyệt
+            </Button>
+          )}
           {canSettle && (
             <Button
               type="primary"
               icon={<CheckOutlined />}
               onClick={() => setSettlementModalVisible(true)}
+              style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
             >
               Hoàn tất quyết toán
             </Button>
