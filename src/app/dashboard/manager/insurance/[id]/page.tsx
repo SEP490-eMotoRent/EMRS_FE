@@ -84,33 +84,37 @@ export default function InsuranceClaimDetailPage() {
       setUpdating(true);
       const formData = new FormData();
 
-      if (values.description) {
-        formData.append("description", values.description);
-      }
-      if (values.incidentLocation) {
-        formData.append("incidentLocation", values.incidentLocation);
-      }
+      // Thêm Id vào FormData (theo API spec)
+      formData.append("Id", claimId);
+
+      // Sử dụng PascalCase cho các field theo API spec
       if (values.incidentDate) {
         formData.append(
-          "incidentDate",
+          "IncidentDate",
           dayjs(values.incidentDate).toISOString()
         );
       }
-      if (values.severity) {
-        formData.append("severity", values.severity);
+      if (values.incidentLocation) {
+        formData.append("IncidentLocation", values.incidentLocation);
       }
-      if (values.notes) {
-        formData.append("notes", values.notes);
+      if (values.description) {
+        formData.append("Description", values.description);
+      }
+      if (values.severity) {
+        formData.append("Severity", values.severity);
       }
       if (values.status) {
-        formData.append("status", values.status);
+        formData.append("Status", values.status);
         if (values.status === "Rejected" && !values.rejectionReason) {
           message.error("Vui lòng nhập lý do từ chối");
           return;
         }
       }
+      if (values.notes) {
+        formData.append("Notes", values.notes);
+      }
       if (values.rejectionReason) {
-        formData.append("rejectionReason", values.rejectionReason);
+        formData.append("RejectionReason", values.rejectionReason);
       }
 
       // Thêm ảnh bổ sung
@@ -119,7 +123,7 @@ export default function InsuranceClaimDetailPage() {
           (f: any) => f.originFileObj
         ) || [];
       additionalImages.forEach((file: File) => {
-        formData.append("additionalImageFiles", file);
+        formData.append("AdditionalImageFiles", file);
       });
 
       const result = await updateClaim(claimId, formData);
@@ -127,6 +131,7 @@ export default function InsuranceClaimDetailPage() {
         result.message || "Cập nhật claim thành công"
       );
       setEditModalVisible(false);
+      form.resetFields();
       await loadClaim();
     } catch (err: any) {
       console.error(err);
@@ -171,8 +176,8 @@ export default function InsuranceClaimDetailPage() {
       setSettling(true);
       const formData = new FormData();
 
-      // Thêm id vào FormData (theo API spec)
-      formData.append("id", claimId);
+      // Thêm Id vào FormData (theo API spec - PascalCase)
+      formData.append("Id", claimId);
 
       // Sử dụng PascalCase cho các field theo API spec
       formData.append("VehicleDamageCost", values.vehicleDamageCost.toString());

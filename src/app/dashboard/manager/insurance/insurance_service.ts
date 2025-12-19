@@ -1,4 +1,4 @@
-const API_PREFIX = "/api/insurance-claim";
+const API_PREFIX = "/api/InsuranceClaim";
 
 export async function getBranchClaims() {
   const res = await fetch(`${API_PREFIX}/manager/branch-claims`, {
@@ -30,7 +30,7 @@ export async function getClaimById(id: string) {
 }
 
 export async function updateClaim(id: string, data: FormData) {
-  const res = await fetch(`${API_PREFIX}/manager/${id}`, {
+  const res = await fetch(`${API_PREFIX}/manager/update`, {
     method: "PUT",
     body: data,
   });
@@ -51,7 +51,7 @@ export async function updateClaim(id: string, data: FormData) {
 }
 
 export async function settleClaim(id: string, data: FormData) {
-  const res = await fetch(`${API_PREFIX}/manager/${id}/settlement`, {
+  const res = await fetch(`${API_PREFIX}/manager/settlement`, {
     method: "PUT",
     body: data,
   });
