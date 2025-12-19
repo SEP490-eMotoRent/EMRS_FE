@@ -230,7 +230,7 @@ export async function getStaffById(staffId: string) {
 }
 
 // Get list of staff in the branch for assignment
-export async function getBranchStaff() {
+export async function getBranchStaff(branchName?: string, branchId?: string) {
   try {
     const { fetchBackend } = await import("@/utils/helpers");
     
@@ -271,7 +271,28 @@ export async function getBranchStaff() {
     );
     
     // Filter out null values
-    return staffWithDetails.filter((staff: any) => staff !== null);
+    let filteredStaff = staffWithDetails.filter((staff: any) => staff !== null);
+    
+    // Bước 3: Lọc staff theo chi nhánh nếu có thông tin chi nhánh
+    if (branchName || branchId) {
+      filteredStaff = filteredStaff.filter((staff: any) => {
+        const staffBranchName = staff.staff?.branch?.branchName || staff.branch?.branchName;
+        const staffBranchId = staff.staff?.branch?.id || staff.branch?.id;
+        
+        // So sánh theo branchName hoặc branchId
+        if (branchName && staffBranchName) {
+          return staffBranchName === branchName;
+        }
+        if (branchId && staffBranchId) {
+          return staffBranchId === branchId;
+        }
+        
+        // Nếu không có thông tin branch của staff, loại bỏ
+        return false;
+      });
+    }
+    
+    return filteredStaff;
   } catch (err) {
     console.error("Error fetching branch staff:", err);
     throw err;

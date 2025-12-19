@@ -157,19 +157,23 @@ export default function InsuranceClaimDetailPage() {
       setSettling(true);
       const formData = new FormData();
 
-      formData.append("vehicleDamageCost", values.vehicleDamageCost.toString());
-      formData.append("personInjuryCost", (values.personInjuryCost || 0).toString());
-      formData.append("thirdPartyCost", (values.thirdPartyCost || 0).toString());
+      // Thêm id vào FormData (theo API spec)
+      formData.append("id", claimId);
+
+      // Sử dụng PascalCase cho các field theo API spec
+      formData.append("VehicleDamageCost", values.vehicleDamageCost.toString());
+      formData.append("PersonInjuryCost", (values.personInjuryCost || 0).toString());
+      formData.append("ThirdPartyCost", (values.thirdPartyCost || 0).toString());
       formData.append(
-        "insuranceCoverageAmount",
+        "InsuranceCoverageAmount",
         values.insuranceCoverageAmount.toString()
       );
 
       if (values.insuranceClaimPdfFile?.fileList?.[0]?.originFileObj) {
         formData.append(
-        "insuranceClaimPdfFile",
-        values.insuranceClaimPdfFile.fileList[0].originFileObj
-      );
+          "InsuranceClaimPdfFile",
+          values.insuranceClaimPdfFile.fileList[0].originFileObj
+        );
       }
 
       const result = await settleClaim(claimId, formData);
@@ -177,6 +181,7 @@ export default function InsuranceClaimDetailPage() {
         result.message || "Hoàn tất quyết toán thành công"
       );
       setSettlementModalVisible(false);
+      settlementForm.resetFields();
       await loadClaim();
     } catch (err: any) {
       console.error(err);
