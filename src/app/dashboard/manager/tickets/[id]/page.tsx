@@ -47,6 +47,38 @@ export default function TicketDetailPage() {
 
   const ticketId = params?.id as string;
 
+  const loadStaffList = useCallback(async (branchNameOverride?: string, branchIdOverride?: string) => {
+    try {
+      // Lấy branchId và branchName từ cookie hoặc parameter
+      let branchId: string | undefined = branchIdOverride;
+      let branchName: string | undefined = branchNameOverride;
+      
+      // Lấy từ cookie
+      if (typeof document !== "undefined") {
+        const cookieStr = document.cookie || "";
+        const cookies: Record<string, string> = {};
+        cookieStr.split(";").forEach((c) => {
+          const [key, value] = c.trim().split("=");
+          if (key && value) {
+            cookies[key] = decodeURIComponent(value);
+          }
+        });
+        if (!branchId) {
+          branchId = cookies.branchId || undefined;
+        }
+        // Chỉ dùng cookie branchName nếu chưa có branchNameOverride
+        if (!branchName) {
+          branchName = cookies.branchName || undefined;
+        }
+      }
+      
+      const staff = await getBranchStaff(branchName, branchId);
+      setStaffList(staff);
+    } catch (err: any) {
+      console.error("Không thể tải danh sách staff:", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (ticketId) {
       loadTicket();
@@ -205,38 +237,6 @@ export default function TicketDetailPage() {
       setLoading(false);
     }
   };
-
-  const loadStaffList = useCallback(async (branchNameOverride?: string, branchIdOverride?: string) => {
-    try {
-      // Lấy branchId và branchName từ cookie hoặc parameter
-      let branchId: string | undefined = branchIdOverride;
-      let branchName: string | undefined = branchNameOverride;
-      
-      // Lấy từ cookie
-      if (typeof document !== "undefined") {
-        const cookieStr = document.cookie || "";
-        const cookies: Record<string, string> = {};
-        cookieStr.split(";").forEach((c) => {
-          const [key, value] = c.trim().split("=");
-          if (key && value) {
-            cookies[key] = decodeURIComponent(value);
-          }
-        });
-        if (!branchId) {
-          branchId = cookies.branchId || undefined;
-        }
-        // Chỉ dùng cookie branchName nếu chưa có branchNameOverride
-        if (!branchName) {
-          branchName = cookies.branchName || undefined;
-        }
-      }
-      
-      const staff = await getBranchStaff(branchName, branchId);
-      setStaffList(staff);
-    } catch (err: any) {
-      console.error("Không thể tải danh sách staff:", err);
-    }
-  }, []);
 
   const handleAssign = async (values: any) => {
     try {
