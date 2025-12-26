@@ -34,7 +34,6 @@ export async function GET(req: Request) {
     });
 
     const text = await beRes.text();
-    );
 
     let json;
     try {
