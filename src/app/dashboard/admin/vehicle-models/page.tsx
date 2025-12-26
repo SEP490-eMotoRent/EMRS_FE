@@ -602,7 +602,7 @@ export default function VehicleModelsPage() {
               }
             >
               {rentalPricings.map((pricing) => {
-                const rentalPrice = pricing.rentalPrice ?? 0;
+                const rentalPrice = typeof pricing.rentalPrice === 'number' ? pricing.rentalPrice : 0;
                 return (
                   <Option 
                     key={pricing.id} 

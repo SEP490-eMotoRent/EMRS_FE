@@ -158,10 +158,15 @@ export default function InsurancePage() {
       {/* Phí / Thiệt hại */}
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Phí gói</td>
-        <td className="p-3">{selectedClaim.package_fee.toLocaleString()}₫</td>
+        <td className="p-3">
+          {selectedClaim.package_fee != null && typeof selectedClaim.package_fee === 'number'
+            ? selectedClaim.package_fee.toLocaleString()
+            : "-"}
+          ₫
+        </td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Tổng thiệt hại</td>
         <td className="p-3">
-          {selectedClaim.settlement?.total_cost
+          {selectedClaim.settlement?.total_cost != null && typeof selectedClaim.settlement.total_cost === 'number'
             ? selectedClaim.settlement.total_cost.toLocaleString()
             : "-"}
           ₫
@@ -172,14 +177,14 @@ export default function InsurancePage() {
       <tr>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Bảo hiểm chi trả</td>
         <td className="p-3">
-          {selectedClaim.settlement?.insurance_coverage_amount
+          {selectedClaim.settlement?.insurance_coverage_amount != null && typeof selectedClaim.settlement.insurance_coverage_amount === 'number'
             ? selectedClaim.settlement.insurance_coverage_amount.toLocaleString()
             : "-"}
           ₫
         </td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Khách chịu</td>
         <td className="p-3">
-          {selectedClaim.settlement?.renter_liability_amount
+          {selectedClaim.settlement?.renter_liability_amount != null && typeof selectedClaim.settlement.renter_liability_amount === 'number'
             ? selectedClaim.settlement.renter_liability_amount.toLocaleString()
             : "-"}
           ₫
