@@ -9,6 +9,17 @@ export async function getInsuranceClaims() {
   return json.data || json;
 }
 
+// 🟢 Lấy chi tiết claim theo ID
+export async function getInsuranceClaimById(id: string) {
+  const res = await fetch(`/api/insurance-claim/admin/${id}`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error("Failed to fetch insurance claim details");
+  }
+  const json = await res.json();
+  // Trả về data từ response
+  return json.data || json;
+}
+
 // 🟡 Lấy danh sách gói bảo hiểm
 // TODO: Tạo API route nếu cần
 export async function getInsurancePackages() {

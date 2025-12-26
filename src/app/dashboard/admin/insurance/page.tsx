@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Table, Tag, Button, Select, Space, Modal, Descriptions, Image } from "antd";
-import { getInsuranceClaims } from "./insurance_service";
+import { getInsuranceClaims, getInsuranceClaimById } from "./insurance_service";
 import dayjs from "dayjs";
 
 // 🔹 Map trạng thái sang tiếng Việt + màu
@@ -50,20 +50,35 @@ export default function InsurancePage() {
         <Tag color={statusMap[s]?.color}>{statusMap[s]?.label || s}</Tag>
       ),
     },
-    { title: "Người thuê", dataIndex: "renter_name", key: "renter_name" },
-    { title: "Xe", dataIndex: "vehicle_model_name", key: "vehicle_model_name" },
-    { title: "Chi nhánh", dataIndex: "handover_branch_name", key: "handover_branch_name" },
+    { title: "Người thuê", dataIndex: "renterName", key: "renterName" },
+    { title: "Xe", dataIndex: "vehicleModelName", key: "vehicleModelName" },
+    { title: "Chi nhánh", dataIndex: "handoverBranchName", key: "handoverBranchName" },
     {
       title: "Ngày xảy ra",
-      dataIndex: "incident_date",
-      key: "incident_date",
-      render: (d: string) => dayjs(d).format("DD/MM/YYYY HH:mm"),
+      dataIndex: "incidentDate",
+      key: "incidentDate",
+      render: (d: string) => d ? dayjs(d).format("DD/MM/YYYY HH:mm") : "-",
     },
     {
       title: "Thao tác",
       key: "actions",
       render: (_: any, record: any) => (
-        <Button type="link" onClick={() => { setSelectedClaim(record); setModalOpen(true); }}>
+        <Button 
+          type="link" 
+          onClick={async () => {
+            try {
+              // Fetch full details when clicking
+              const detail = await getInsuranceClaimById(record.id);
+              setSelectedClaim(detail);
+              setModalOpen(true);
+            } catch (err) {
+              console.error("Error loading claim details:", err);
+              // Fallback to list data if detail fetch fails
+              setSelectedClaim(record);
+              setModalOpen(true);
+            }
+          }}
+        >
           Xem chi tiết
         </Button>
       ),
@@ -117,57 +132,57 @@ export default function InsurancePage() {
           </Tag>
         </td>
         <td className="font-semibold bg-gray-50 p-3 w-1/4 text-gray-600">Mức độ</td>
-        <td className="p-3">{selectedClaim.severity}</td>
+        <td className="p-3">{selectedClaim.severity || "-"}</td>
       </tr>
 
       {/* Hàng 2 */}
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Ngày xảy ra</td>
         <td className="p-3">
-          {dayjs(selectedClaim.incident_date).format("DD/MM/YYYY HH:mm")}
+          {selectedClaim.incidentDate ? dayjs(selectedClaim.incidentDate).format("DD/MM/YYYY HH:mm") : "-"}
         </td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Địa điểm</td>
-        <td className="p-3">{selectedClaim.incident_location}</td>
+        <td className="p-3">{selectedClaim.incidentLocation || "-"}</td>
       </tr>
 
     
       {/* Người thuê */}
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Người thuê</td>
-        <td className="p-3">{selectedClaim.renter_name}</td>
+        <td className="p-3">{selectedClaim.renterName || "-"}</td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">SĐT</td>
-        <td className="p-3">{selectedClaim.renter_phone}</td>
+        <td className="p-3">{selectedClaim.renterPhone || "-"}</td>
       </tr>
 
       {/* Xe */}
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Xe</td>
-        <td className="p-3">{selectedClaim.vehicle_model_name}</td>
+        <td className="p-3">{selectedClaim.vehicleModelName || "-"}</td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Biển số</td>
-        <td className="p-3">{selectedClaim.license_plate}</td>
+        <td className="p-3">{selectedClaim.licensePlate || "-"}</td>
       </tr>
 
       {/* Chi nhánh / Gói */}
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Chi nhánh giao</td>
-        <td className="p-3">{selectedClaim.handover_branch_name}</td>
+        <td className="p-3">{selectedClaim.handoverBranchName || "-"}</td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Gói bảo hiểm</td>
-        <td className="p-3">{selectedClaim.package_name}</td>
+        <td className="p-3">{selectedClaim.packageName || "-"}</td>
       </tr>
 
       {/* Phí / Thiệt hại */}
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Phí gói</td>
         <td className="p-3">
-          {selectedClaim.package_fee != null && typeof selectedClaim.package_fee === 'number'
-            ? selectedClaim.package_fee.toLocaleString()
+          {selectedClaim.packageFee != null && typeof selectedClaim.packageFee === 'number'
+            ? selectedClaim.packageFee.toLocaleString()
             : "-"}
           ₫
         </td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Tổng thiệt hại</td>
         <td className="p-3">
-          {selectedClaim.settlement?.total_cost != null && typeof selectedClaim.settlement.total_cost === 'number'
-            ? selectedClaim.settlement.total_cost.toLocaleString()
+          {selectedClaim.totalCost != null && typeof selectedClaim.totalCost === 'number'
+            ? selectedClaim.totalCost.toLocaleString()
             : "-"}
           ₫
         </td>
@@ -177,15 +192,15 @@ export default function InsurancePage() {
       <tr>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Bảo hiểm chi trả</td>
         <td className="p-3">
-          {selectedClaim.settlement?.insurance_coverage_amount != null && typeof selectedClaim.settlement.insurance_coverage_amount === 'number'
-            ? selectedClaim.settlement.insurance_coverage_amount.toLocaleString()
+          {selectedClaim.insuranceCoverageAmount != null && typeof selectedClaim.insuranceCoverageAmount === 'number'
+            ? selectedClaim.insuranceCoverageAmount.toLocaleString()
             : "-"}
           ₫
         </td>
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Khách chịu</td>
         <td className="p-3">
-          {selectedClaim.settlement?.renter_liability_amount != null && typeof selectedClaim.settlement.renter_liability_amount === 'number'
-            ? selectedClaim.settlement.renter_liability_amount.toLocaleString()
+          {selectedClaim.renterLiabilityAmount != null && typeof selectedClaim.renterLiabilityAmount === 'number'
+            ? selectedClaim.renterLiabilityAmount.toLocaleString()
             : "-"}
           ₫
         </td>
@@ -194,7 +209,7 @@ export default function InsurancePage() {
       <tr className="border-b hover:bg-gray-50 transition">
         <td className="font-semibold bg-gray-50 p-3 text-gray-600">Mô tả</td>
         <td className="p-3" colSpan={3}>
-          {selectedClaim.description}
+          {selectedClaim.description || "-"}
         </td>
       </tr>
     </tbody>
@@ -205,14 +220,18 @@ export default function InsurancePage() {
 <div className="mt-5">
   <h4 className="font-semibold mb-2 text-gray-700">Hình ảnh hiện trường:</h4>
   <div className="flex gap-3 flex-wrap">
-    {selectedClaim.incident_images?.map((url: string, idx: number) => (
-      <div
-        key={idx}
-        className="border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition"
-      >
-        <Image width={130} src={url} />
-      </div>
-    ))}
+    {selectedClaim.incidentImages && selectedClaim.incidentImages.length > 0 ? (
+      selectedClaim.incidentImages.map((url: string, idx: number) => (
+        <div
+          key={idx}
+          className="border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition"
+        >
+          <Image width={130} src={url} alt={`Incident image ${idx + 1}`} />
+        </div>
+      ))
+    ) : (
+      <p className="text-gray-500">Không có hình ảnh</p>
+    )}
   </div>
 </div>
 
