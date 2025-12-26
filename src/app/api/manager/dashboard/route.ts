@@ -233,17 +233,6 @@ export async function GET() {
       return dateStr >= monthStartStr && dateStr <= todayStr;
     });
     
-    // Log chi tiết để debug
-    if (bookings.length > 0) {
-      .map((b: any) => ({
-        id: b.id,
-        startDatetime: b.startDatetime,
-        parsedDate: getBookingDate(b),
-        bookingDate: b.bookingDate,
-        createdAt: b.createdAt,
-      })));
-    }
-
     // Tính doanh thu - đếm từ dữ liệu thực tế
     const todayRevenue = todayBookings.reduce((sum: number, b: any) => {
       const amount = getBookingAmount(b);
