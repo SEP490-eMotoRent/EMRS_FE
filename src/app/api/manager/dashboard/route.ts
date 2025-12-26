@@ -120,11 +120,6 @@ export async function GET() {
       const bookingsRaw = bookingsJson?.data ?? bookingsJson ?? [];
       bookings = Array.isArray(bookingsRaw) ? bookingsRaw : [];
     }
-    );
-    ,
-      dataHasItems: !!bookingsJson?.data?.items,
-      itemsIsArray: Array.isArray(bookingsJson?.data?.items),
-    });
 
     // Xử lý insurance claims
     const claimsRaw = insuranceClaimsJson?.data ?? insuranceClaimsJson ?? [];
@@ -141,7 +136,6 @@ export async function GET() {
         transferRequests = raw.items;
       }
     }
-    );
 
     // Flatten vehicles từ vehicle models
     // API trả về vehicle models, mỗi model có mảng vehicles bên trong
