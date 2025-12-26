@@ -156,7 +156,6 @@ export default function StaffPage() {
     try {
       const data = await getStaffs();
       setStaffs(data);
-      => ({ id: acc.id, username: acc.username, role: acc.role })));
       const resolvedUserId = currentUserId || getCookieValue("userId");
       const resolvedUsername = currentUsername || getCookieValue("username");
       let matched: Account | undefined;

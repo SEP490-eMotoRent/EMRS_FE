@@ -19,13 +19,6 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
 
-    ,
-      IncidentDate: formData.get("IncidentDate"),
-      IncidentLocation: formData.get("IncidentLocation"),
-      Description: formData.get("Description"),
-      filesCount: Array.from(formData.getAll("IncidentImageFiles")).length,
-    });
-
     const beRes = await emrsFetch("/InsuranceClaim/create", {
       method: "POST",
       headers: {
@@ -36,7 +29,6 @@ export async function POST(req: Request) {
     });
 
     const text = await beRes.text();
-    );
 
     return new NextResponse(text, { 
       status: beRes.status,
