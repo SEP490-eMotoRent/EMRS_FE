@@ -426,7 +426,6 @@ export default function ManagerTransferPage() {
               }
             : item
         );
-        );
         return updated;
       });
       

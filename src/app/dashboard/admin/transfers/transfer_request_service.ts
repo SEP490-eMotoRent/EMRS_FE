@@ -150,7 +150,6 @@ export async function approveTransferRequest(requestId: string): Promise<Vehicle
 
   try {
     json = text ? JSON.parse(text) : {};
-    );
   } catch (e) {
     console.error("[Approve Service] Failed to parse JSON:", text, e);
     throw new Error("Invalid JSON response");
@@ -194,7 +193,6 @@ export async function cancelTransferRequest(requestId: string): Promise<VehicleT
 
   try {
     json = text ? JSON.parse(text) : {};
-    );
   } catch (e) {
     console.error("[Cancel Service] Failed to parse JSON:", text, e);
     throw new Error("Invalid JSON response");
@@ -234,8 +232,6 @@ export async function createTransferRequest(data: {
   quantityRequested: number;
   description: string;
 }): Promise<VehicleTransferRequest> {
-  );
-
   const res = await fetchBackend(`${API_PREFIX}/create`, {
     method: "POST",
     body: JSON.stringify(data),

@@ -191,12 +191,6 @@ function normalizeVehicle(vehicle: any) {
     } : undefined,
   };
   
-  ? normalized.medias.length : "N/A",
-    medias: normalized.medias,
-    fileUrl: normalized.fileUrl,
-    imageFiles: normalized.imageFiles,
-  });
-  
   return normalized;
 }
 

@@ -64,7 +64,6 @@ export async function GET(request: Request) {
       params.append("BranchId", branchIdParam);
     } else {
       // Nếu branchIdParam === "all" hoặc không có, không append BranchId (admin xem tất cả)
-      ");
     }
 
     const queryString = params.toString();
@@ -74,9 +73,6 @@ export async function GET(request: Request) {
     });
 
     const text = await beRes.text();
-    
-    // Log for debugging
-    );
     
     return new NextResponse(text, { 
       status: beRes.status,

@@ -408,7 +408,6 @@ export default function TechnicianRepairRequestsPage() {
       const finalChecklist = Object.keys(checklist).length > 0 
         ? checklist 
         : { status: apiStatus };
-      );
       
       await updateTechnicianRepairRequest(requestToUpdate.id, {
         status: apiStatus,
