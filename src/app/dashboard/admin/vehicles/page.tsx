@@ -1271,15 +1271,15 @@ export default function VehiclesPage() {
                 <Descriptions.Item label="Mô tả Model" span={2}>
                   {selectedVehicle.vehicleModel.description || "-"}
                 </Descriptions.Item>
-                {selectedVehicle.vehicleModel.rentalPricing && (
+                {selectedVehicle.vehicleModel?.rentalPricing && (
                   <>
                     <Descriptions.Item label="Giá thuê">
-                      {selectedVehicle.vehicleModel.rentalPricing.rentalPrice
+                      {selectedVehicle.vehicleModel.rentalPricing?.rentalPrice
                         ? `${selectedVehicle.vehicleModel.rentalPricing.rentalPrice.toLocaleString()} VNĐ`
                         : "-"}
                     </Descriptions.Item>
                     <Descriptions.Item label="Giá vượt km">
-                      {selectedVehicle.vehicleModel.rentalPricing.excessKmPrice
+                      {selectedVehicle.vehicleModel.rentalPricing?.excessKmPrice
                         ? `${selectedVehicle.vehicleModel.rentalPricing.excessKmPrice.toLocaleString()} VNĐ/km`
                         : "-"}
                     </Descriptions.Item>

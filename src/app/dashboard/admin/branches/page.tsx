@@ -220,12 +220,18 @@ export default function BranchesPage() {
 
   const handleViewDetail = async (branch: Branch) => {
     try {
-      const detail = await getBranchById(branch.id);
+      const branchId = branch.id || branch.branchId;
+      if (!branchId) {
+        message.error("Không tìm thấy ID chi nhánh");
+        return;
+      }
+      const detail = await getBranchById(branchId);
       setSelectedBranch(detail);
       setIsDetailModalVisible(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading branch detail:", error);
-      message.error("Không thể tải chi tiết chi nhánh");
+      const errorMessage = error?.message || "Không thể tải chi tiết chi nhánh";
+      message.error(errorMessage);
     }
   };
 

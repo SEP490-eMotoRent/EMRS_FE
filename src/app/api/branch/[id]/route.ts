@@ -20,6 +20,17 @@ export async function GET(
 
     const { id } = await context.params;
 
+    if (!id || id.trim() === "") {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: "Branch ID is required",
+          code: 400
+        },
+        { status: 400 }
+      );
+    }
+
     const beRes = await emrsFetch(`/Branch/find/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -42,8 +53,15 @@ export async function GET(
     }
 
     if (!beRes.ok) {
+      // Provide better error message from backend if available
+      const errorMessage = data?.message || data?.error || "Backend error";
       return NextResponse.json(
-        data || { success: false, message: "Backend error" },
+        { 
+          success: false, 
+          message: errorMessage,
+          data: null,
+          code: beRes.status
+        },
         { status: beRes.status }
       );
     }

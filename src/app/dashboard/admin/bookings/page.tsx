@@ -409,7 +409,7 @@ export default function AdminBookingsPage() {
           <div className="font-semibold text-green-600">
             {record.totalRentalFee?.toLocaleString("vi-VN")} VNĐ
           </div>
-          {record.depositAmount > 0 && (
+          {record.depositAmount != null && record.depositAmount > 0 && (
             <div className="text-xs text-gray-500">
               Cọc: {record.depositAmount.toLocaleString("vi-VN")} VNĐ
             </div>
@@ -743,7 +743,7 @@ export default function AdminBookingsPage() {
                   {selectedBooking.insurancePackage.packageName}
                 </Descriptions.Item>
                 <Descriptions.Item label="Phí bảo hiểm">
-                  {selectedBooking.insurancePackage.packageFee.toLocaleString("vi-VN")} VNĐ
+                  {selectedBooking.insurancePackage?.packageFee != null ? `${selectedBooking.insurancePackage.packageFee.toLocaleString("vi-VN")} VNĐ` : "-"}
                 </Descriptions.Item>
                 {selectedBooking.insurancePackage.description && (
                   <Descriptions.Item label="Mô tả" span={2}>
@@ -756,26 +756,26 @@ export default function AdminBookingsPage() {
             {/* Thông tin thanh toán */}
             <Descriptions title="Thông tin thanh toán" column={2} bordered>
               <Descriptions.Item label="Phí thuê cơ bản">
-                {selectedBooking.baseRentalFee.toLocaleString("vi-VN")} VNĐ
+                {selectedBooking.baseRentalFee != null ? `${selectedBooking.baseRentalFee.toLocaleString("vi-VN")} VNĐ` : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Tiền cọc">
-                {selectedBooking.depositAmount.toLocaleString("vi-VN")} VNĐ
+                {selectedBooking.depositAmount != null ? `${selectedBooking.depositAmount.toLocaleString("vi-VN")} VNĐ` : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Phí trả muộn">
-                {selectedBooking.lateReturnFee.toLocaleString("vi-VN")} VNĐ
+                {selectedBooking.lateReturnFee != null ? `${selectedBooking.lateReturnFee.toLocaleString("vi-VN")} VNĐ` : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Tổng phí thuê">
                 <span className="font-semibold text-green-600">
-                  {selectedBooking.totalRentalFee.toLocaleString("vi-VN")} VNĐ
+                  {selectedBooking.totalRentalFee != null ? `${selectedBooking.totalRentalFee.toLocaleString("vi-VN")} VNĐ` : "-"}
                 </span>
               </Descriptions.Item>
               <Descriptions.Item label="Tổng thanh toán">
                 <span className="font-semibold text-blue-600">
-                  {selectedBooking.totalAmount.toLocaleString("vi-VN")} VNĐ
+                  {selectedBooking.totalAmount != null ? `${selectedBooking.totalAmount.toLocaleString("vi-VN")} VNĐ` : "-"}
                 </span>
               </Descriptions.Item>
               <Descriptions.Item label="Giá thuê trung bình">
-                {selectedBooking.averageRentalPrice.toLocaleString("vi-VN")} VNĐ/ngày
+                {selectedBooking.averageRentalPrice != null ? `${selectedBooking.averageRentalPrice.toLocaleString("vi-VN")} VNĐ/ngày` : "-"}
               </Descriptions.Item>
             </Descriptions>
 

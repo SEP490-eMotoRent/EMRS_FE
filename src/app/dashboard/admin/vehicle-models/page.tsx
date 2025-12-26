@@ -711,12 +711,12 @@ export default function VehicleModelsPage() {
                   );
                 })()}
               </Descriptions.Item>
-              {selectedModel.depositAmount && (
+              {selectedModel.depositAmount != null && selectedModel.depositAmount > 0 && (
                 <Descriptions.Item label="Tiền cọc">
                   {selectedModel.depositAmount.toLocaleString()} VNĐ
                 </Descriptions.Item>
               )}
-              {selectedModel.originalPrice && selectedModel.originalPrice > 0 && (
+              {selectedModel.originalPrice != null && selectedModel.originalPrice > 0 && (
                 <Descriptions.Item label="Giá gốc">
                   {selectedModel.originalPrice.toLocaleString()} VNĐ
                 </Descriptions.Item>
@@ -730,12 +730,12 @@ export default function VehicleModelsPage() {
             {selectedModel.rentalPricing && (
               <Descriptions title="Thông tin giá thuê" column={2} bordered className="mb-4">
                 <Descriptions.Item label="Giá thuê">
-                  {selectedModel.rentalPricing.rentalPrice
+                  {selectedModel.rentalPricing?.rentalPrice
                     ? `${selectedModel.rentalPricing.rentalPrice.toLocaleString()} VNĐ`
                     : "-"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Giá vượt km">
-                  {selectedModel.rentalPricing.excessKmPrice
+                  {selectedModel.rentalPricing?.excessKmPrice
                     ? `${selectedModel.rentalPricing.excessKmPrice.toLocaleString()} VNĐ/km`
                     : "-"}
                 </Descriptions.Item>

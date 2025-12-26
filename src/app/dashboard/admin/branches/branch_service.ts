@@ -130,12 +130,27 @@ export async function getBranches(): Promise<Branch[]> {
 
 // Lấy chi tiết branch theo ID
 export async function getBranchById(branchId: string): Promise<Branch> {
+  if (!branchId || branchId.trim() === "") {
+    throw new Error("Branch ID is required");
+  }
+
   const res = await fetchBackend(`${API_PREFIX}/${branchId}`);
 
   if (!res.ok) {
     const errorText = await res.text();
+    let errorMessage = `Failed to fetch branch: ${res.statusText}`;
+    
+    try {
+      const errorJson = errorText ? JSON.parse(errorText) : {};
+      if (errorJson.message) {
+        errorMessage = errorJson.message;
+      }
+    } catch (e) {
+      // Use default error message if JSON parsing fails
+    }
+    
     console.error("Failed to fetch branch:", res.status, errorText);
-    throw new Error(`Failed to fetch branch: ${res.statusText}`);
+    throw new Error(errorMessage);
   }
 
   const text = await res.text();
@@ -149,6 +164,11 @@ export async function getBranchById(branchId: string): Promise<Branch> {
   }
 
   const branch = json.data || json;
+  
+  if (!branch || (!branch.id && !branch.branchId)) {
+    throw new Error("Invalid branch data received");
+  }
+  
   return {
     id: branch.id || branch.branchId,
     branchId: branch.id || branch.branchId,
