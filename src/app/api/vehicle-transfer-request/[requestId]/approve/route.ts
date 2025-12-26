@@ -34,7 +34,7 @@ export async function PUT(
 
     try {
       data = text ? JSON.parse(text) : {};
-      );
+      
     } catch (parseErr) {
       console.error("[Approve Route] Failed to parse JSON:", text, parseErr);
       return NextResponse.json(

@@ -28,7 +28,7 @@ export async function PUT(
       },
     });
     const text = await beRes.text();
-    }...`);
+   
     let data: any;
 
     try {

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    );
+    
 
     // Endpoint theo API documentation: POST /api/VehicleTransferOrder/create
     const endpoint = "/VehicleTransferOrder/create";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     try {
       data = text ? JSON.parse(text) : {};
-      );
+      
     } catch (parseErr) {
       console.error("[Create Order Route] Failed to parse JSON:", text, parseErr);
       return NextResponse.json(

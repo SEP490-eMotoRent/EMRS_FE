@@ -132,8 +132,6 @@ export async function createTransferOrder(data: {
   toBranchId: string;
   notes?: string;
 }): Promise<VehicleTransferOrder> {
-  );
-
   const res = await fetchBackend(`${API_PREFIX}/create`, {
     method: "POST",
     body: JSON.stringify(data),
@@ -143,7 +141,6 @@ export async function createTransferOrder(data: {
 
   try {
     json = text ? JSON.parse(text) : {};
-    );
   } catch (e) {
     console.error("[Create Order Service] Failed to parse JSON:", text, e);
     throw new Error("Invalid JSON response");
