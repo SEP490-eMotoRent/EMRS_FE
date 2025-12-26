@@ -26,10 +26,6 @@ import {
   AdminDashboardData,
   getAdminDashboardData,
 } from "./admin_dashboard_service";
-import {
-  getAllTransactions,
-  type Transaction,
-} from "@/services/transaction_service";
 import { getBookings } from "../bookings/booking_service";
 import { getRepairRequests } from "@/services/repair_request_service";
 import { getMemberships } from "../memberships/membership_service";
@@ -172,59 +168,7 @@ export default function AdminDashboardPage() {
 
   const revenueInMillions = (data.transactions?.totalRevenue || 0) / 1_000_000;
 
-  // Fallback: nếu không có cashflow từ API dashboard, tính từ transactions
-  useEffect(() => {
-    async function computeCashflowFromTransactions() {
-      if (!data || (cashflowData && cashflowData.length > 0)) return;
-      setLoadingCashflow(true);
-      try {
-        const txs = await getAllTransactions();
-        const now = new Date();
-        const months: { [key: string]: { thu: number; chi: number } } = {};
-        for (let i = 0; i < 12; i++) {
-          const date = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
-          const key = `${date.getFullYear()}-${date.getMonth()}`;
-          months[key] = { thu: 0, chi: 0 };
-        }
-
-        txs.forEach((tx: Transaction) => {
-          if (tx.status !== "Success" && tx.status !== "Completed") return;
-          const d = new Date(tx.createdAt);
-          const key = `${d.getFullYear()}-${d.getMonth()}`;
-          if (!(key in months)) return; // ngoài 12 tháng gần nhất
-          // Tạm coi tất cả là thu (Income). Nếu BE có trường phân loại chi phí, có thể map thêm.
-          months[key].thu += tx.amount || 0;
-        });
-
-        const monthLabels = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
-        const ordered: { month: string; thu: number; chi: number }[] = [];
-        // Duyệt lại theo thứ tự cũ (12 tháng gần nhất)
-        Object.keys(months)
-          .sort((a, b) => {
-            const [ya, ma] = a.split("-").map(Number);
-            const [yb, mb] = b.split("-").map(Number);
-            return ya === yb ? ma - mb : ya - yb;
-          })
-          .forEach((key, idx) => {
-            const m = months[key];
-            ordered.push({
-              month: monthLabels[idx % 12],
-              thu: parseFloat((m.thu / 1_000_000).toFixed(1)),
-              chi: parseFloat((m.chi / 1_000_000).toFixed(1)),
-            });
-          });
-
-        setCashflowData(ordered);
-      } catch (err) {
-        console.error("Failed to compute cashflow from transactions:", err);
-        message.warning("Không tải được thống kê dòng tiền từ giao dịch");
-      } finally {
-        setLoadingCashflow(false);
-      }
-    }
-
-    computeCashflowFromTransactions();
-  }, [data, cashflowData]);
+  // Fallback từ giao dịch tạm thời tắt để tránh lỗi runtime; giữ data từ API dashboard
 
   return (
     <div className="space-y-4 sm:space-y-6">
