@@ -30,6 +30,10 @@ import {
   BookingListResponse,
   Booking,
 } from "./booking_service";
+import {
+  getTransactionsByDocNo,
+  type Transaction,
+} from "@/services/transaction_service";
 import type { ColumnsType } from "antd/es/table";
 
 const { Option } = Select;
@@ -68,6 +72,10 @@ export default function AdminBookingsPage() {
   });
   const [searchText, setSearchText] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [bookingTransactions, setBookingTransactions] = useState<
+    Transaction[]
+  >([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
   
   // Modal states
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
@@ -196,6 +204,19 @@ export default function AdminBookingsPage() {
       const detail = await getBookingById(booking.id);
       setSelectedBooking(detail);
       setIsDetailModalVisible(true);
+
+      // Load transactions liên quan tới booking (docNo = booking.id)
+      setLoadingTransactions(true);
+      try {
+        const txs = await getTransactionsByDocNo(detail.id);
+        setBookingTransactions(txs);
+      } catch (err) {
+        console.error("Error loading booking transactions:", err);
+        message.warning("Không thể tải danh sách giao dịch của đặt xe này");
+        setBookingTransactions([]);
+      } finally {
+        setLoadingTransactions(false);
+      }
     } catch (error) {
       console.error("Error loading booking detail:", error);
       message.error("Không thể tải chi tiết đặt xe");
@@ -757,6 +778,76 @@ export default function AdminBookingsPage() {
                 {selectedBooking.averageRentalPrice.toLocaleString("vi-VN")} VNĐ/ngày
               </Descriptions.Item>
             </Descriptions>
+
+            {/* Giao dịch liên quan */}
+            <Card className="shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-base font-semibold">Giao dịch liên quan</h4>
+              </div>
+              {loadingTransactions ? (
+                <div className="py-4 text-center text-gray-500">
+                  Đang tải danh sách giao dịch...
+                </div>
+              ) : bookingTransactions.length === 0 ? (
+                <div className="py-2 text-gray-500 text-sm">
+                  Không có giao dịch liên quan tới đặt xe này.
+                </div>
+              ) : (
+                <Table
+                  rowKey="id"
+                  size="small"
+                  pagination={false}
+                  dataSource={bookingTransactions}
+                  columns={[
+                    {
+                      title: "Thời gian",
+                      dataIndex: "createdAt",
+                      key: "createdAt",
+                      render: (value: string) =>
+                        dayjs(value).format("DD/MM/YYYY HH:mm"),
+                    },
+                    {
+                      title: "Loại giao dịch",
+                      dataIndex: "transactionType",
+                      key: "transactionType",
+                    },
+                    {
+                      title: "Số tiền",
+                      dataIndex: "amount",
+                      key: "amount",
+                      render: (value: number) =>
+                        `${value.toLocaleString("vi-VN")} VNĐ`,
+                    },
+                    {
+                      title: "Trạng thái",
+                      dataIndex: "status",
+                      key: "status",
+                      render: (status: string) => {
+                        const color =
+                          status === "Success"
+                            ? "green"
+                            : status === "Failed"
+                            ? "red"
+                            : "blue";
+                        return <Tag color={color}>{status}</Tag>;
+                      },
+                    },
+                    {
+                      title: "Mã chứng từ",
+                      dataIndex: "docNo",
+                      key: "docNo",
+                      render: (value: string) => (
+                        <Tooltip title={value}>
+                          <span className="font-mono text-xs">
+                            {value.slice(0, 8)}...
+                          </span>
+                        </Tooltip>
+                      ),
+                    },
+                  ]}
+                />
+              )}
+            </Card>
 
             {/* Hợp đồng thuê */}
             {selectedBooking.rentalContract && (
