@@ -34,14 +34,8 @@ export async function GET() {
         }
         try {
           const json = JSON.parse(text);
-          ,
-            dataLength: Array.isArray(json.data) ? json.data.length : 'N/A',
-            hasItems: !!json.data?.items,
-            itemsLength: Array.isArray(json.data?.items) ? json.data.items.length : 'N/A',
-          });
           return json;
         } catch (parseErr) {
-          );
           return null;
         }
       } catch (err) {
