@@ -58,10 +58,6 @@ export async function PUT(
 
     // ⭐⭐ Backend route: PUT /Ticket (không có id trong URL)
     const url = `${base}/Ticket`;
-    // Log FormData entries để debug
-    for (const [key, value] of Object.entries({ Id: id, Status, StaffId })) {
-      `);
-    }
 
     const axios = (await import("axios")).default;
 
@@ -74,7 +70,6 @@ export async function PUT(
         // Thêm timeout và validate status
         timeout: 30000,
       });
-      );
 
       return NextResponse.json(axiosRes.data, { status: axiosRes.status });
     } catch (axiosError: any) {
