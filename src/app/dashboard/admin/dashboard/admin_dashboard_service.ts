@@ -1,3 +1,10 @@
+export interface CashFlowData {
+  month: string;
+  thu: number; // Thu nhập (Income)
+  chi: number; // Chi phí (Expenses)
+  revenue?: number; // Doanh thu (Revenue) - optional
+}
+
 export interface AdminDashboardData {
   vehicleModel: {
     totalVehicleModels: number;
@@ -27,6 +34,7 @@ export interface AdminDashboardData {
   transactions: {
     totalRevenue: number;
   };
+  cashflow?: CashFlowData[] | null;
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {

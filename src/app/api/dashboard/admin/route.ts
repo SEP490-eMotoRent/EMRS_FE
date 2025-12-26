@@ -10,6 +10,7 @@ const ENDPOINTS = {
   branch: "/Dashboard/admin/branch",
   accounts: "/Dashboard/admin/accounts",
   transactions: "/Dashboard/admin/transactions",
+  cashflow: "/Dashboard/admin/cashflow",
 };
 
 async function fetchSection(
@@ -49,13 +50,14 @@ export async function GET() {
       );
     }
 
-    const [vehicleModel, vehicle, branch, accounts, transactions] =
+    const [vehicleModel, vehicle, branch, accounts, transactions, cashflow] =
       await Promise.all([
         fetchSection(ENDPOINTS.vehicleModel, token),
         fetchSection(ENDPOINTS.vehicle, token),
         fetchSection(ENDPOINTS.branch, token),
         fetchSection(ENDPOINTS.accounts, token),
         fetchSection(ENDPOINTS.transactions, token),
+        fetchSection(ENDPOINTS.cashflow, token).catch(() => ({ success: false, data: null })),
       ]);
 
     return NextResponse.json({
@@ -66,6 +68,7 @@ export async function GET() {
         branch: branch.data || branch,
         accounts: accounts.data || accounts,
         transactions: transactions.data || transactions,
+        cashflow: cashflow.success ? (cashflow.data || cashflow) : null,
       },
     });
   } catch (error) {

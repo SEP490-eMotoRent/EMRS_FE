@@ -140,32 +140,25 @@ export default function AdminDashboardPage() {
 
   const revenueInMillions = (data.transactions?.totalRevenue || 0) / 1_000_000;
 
-  // Tạo dữ liệu thống kê dòng tiền theo tháng (12 tháng gần nhất)
-  const generateRevenueData = () => {
-    const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
-    const currentMonth = new Date().getMonth();
-    const revenueData = [];
-    
-    // Tạo dữ liệu cho 12 tháng, với tháng hiện tại có revenue cao nhất
-    for (let i = 0; i < 12; i++) {
-      const monthIndex = (currentMonth - 11 + i + 12) % 12;
-      const baseRevenue = revenueInMillions / 12;
-      // Tạo biến động ngẫu nhiên nhưng có xu hướng tăng dần
-      const variation = (Math.random() * 0.5 + 0.75) * (1 + (i / 12) * 0.3);
-      const revenue = baseRevenue * variation;
-      
-      revenueData.push({
-        month: months[monthIndex],
-        revenue: parseFloat(revenue.toFixed(1)),
-        thu: parseFloat((revenue * 0.6).toFixed(1)), // Thu nhập
-        chi: parseFloat((revenue * 0.4).toFixed(1)), // Chi phí
-      });
+  // Sử dụng dữ liệu thống kê dòng tiền từ API
+  // Nếu API không có dữ liệu, hiển thị mảng rỗng hoặc fallback
+  const getCashFlowData = () => {
+    if (data.cashflow && Array.isArray(data.cashflow) && data.cashflow.length > 0) {
+      // Dữ liệu từ API - chuyển đổi sang đơn vị triệu nếu cần
+      return data.cashflow.map((item: any) => ({
+        month: item.month || item.monthLabel || item.period || "",
+        thu: typeof item.thu === 'number' ? parseFloat((item.thu / 1_000_000).toFixed(1)) : (typeof item.income === 'number' ? parseFloat((item.income / 1_000_000).toFixed(1)) : 0),
+        chi: typeof item.chi === 'number' ? parseFloat((item.chi / 1_000_000).toFixed(1)) : (typeof item.expense === 'number' ? parseFloat((item.expense / 1_000_000).toFixed(1)) : 0),
+        revenue: typeof item.revenue === 'number' ? parseFloat((item.revenue / 1_000_000).toFixed(1)) : undefined,
+      }));
     }
     
-    return revenueData;
+    // Fallback: Nếu không có dữ liệu từ API, trả về mảng rỗng
+    // Hoặc có thể hiển thị thông báo "Chưa có dữ liệu"
+    return [];
   };
 
-  const revenueData = generateRevenueData();
+  const revenueData = getCashFlowData();
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -250,8 +243,13 @@ export default function AdminDashboardPage() {
             <TrendingUp size={20} className="text-emerald-600" />
             <h2 className="font-semibold text-sm sm:text-base">Thống kê dòng tiền</h2>
           </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={revenueData} barCategoryGap={14}>
+          {revenueData.length === 0 ? (
+            <div className="flex items-center justify-center h-[280px] text-gray-500">
+              <p>Chưa có dữ liệu thống kê dòng tiền</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={revenueData} barCategoryGap={14}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
               <XAxis
                 dataKey="month"
@@ -306,6 +304,7 @@ export default function AdminDashboardPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
         <div className="bg-white border rounded-xl sm:rounded-2xl p-3 sm:p-4">
           <h2 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Phân bổ tài khoản</h2>
