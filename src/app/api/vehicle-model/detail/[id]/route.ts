@@ -26,7 +26,6 @@ export async function GET(
       headers: { Authorization: `Bearer ${token}` },
     });
     const text = await beRes.text();
-    );
 
     return new NextResponse(text, {
       status: beRes.status,
