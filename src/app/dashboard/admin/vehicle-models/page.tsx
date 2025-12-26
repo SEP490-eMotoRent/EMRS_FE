@@ -605,19 +605,15 @@ export default function VehicleModelsPage() {
             >
               {rentalPricings.map((pricing) => {
                 const rentalPrice = pricing.rentalPrice ?? 0;
-                const excessKmPrice = pricing.excessKmPrice ?? 0;
                 return (
                   <Option 
                     key={pricing.id} 
                     value={pricing.id}
-                    label={`${rentalPrice.toLocaleString()} VNĐ - ${excessKmPrice.toLocaleString()} VNĐ/km`}
+                    label={`${rentalPrice.toLocaleString()} VNĐ`}
                   >
                     <div className="flex justify-between items-center">
                       <span>
                         <strong>{rentalPrice.toLocaleString()} VNĐ</strong>
-                        <span className="text-gray-500 ml-2">
-                          / {excessKmPrice.toLocaleString()} VNĐ/km
-                        </span>
                       </span>
                     </div>
                   </Option>
