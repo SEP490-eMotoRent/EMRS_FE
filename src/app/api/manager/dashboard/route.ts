@@ -337,7 +337,6 @@ export async function GET() {
       },
     };
 
-    );
     return NextResponse.json(result);
   } catch (err) {
     console.error("Manager dashboard error:", err);
