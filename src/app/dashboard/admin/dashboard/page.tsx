@@ -309,13 +309,17 @@ export default function AdminDashboardPage() {
             <TrendingUp size={20} className="text-emerald-600" />
             <h2 className="font-semibold text-sm sm:text-base">Thống kê dòng tiền</h2>
           </div>
-          {revenueData.length === 0 ? (
+          {loadingCashflow ? (
+            <div className="flex items-center justify-center h-[280px] text-gray-500">
+              <p>Đang tải dữ liệu thống kê dòng tiền...</p>
+            </div>
+          ) : cashflowData.length === 0 ? (
             <div className="flex items-center justify-center h-[280px] text-gray-500">
               <p>Chưa có dữ liệu thống kê dòng tiền</p>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={revenueData} barCategoryGap={14}>
+              <BarChart data={cashflowData} barCategoryGap={14}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
               <XAxis
                 dataKey="month"
