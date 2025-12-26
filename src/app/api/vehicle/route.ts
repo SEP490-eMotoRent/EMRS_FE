@@ -9,9 +9,6 @@ export async function GET(request: Request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
     const branchId = cookieStore.get("branchId")?.value;
-
-    console.log("Vehicle API - branchId from cookie:", branchId);
-
     if (!token) {
       return NextResponse.json(
         { success: false, message: "Unauthorized - No token" },
@@ -59,28 +56,19 @@ export async function GET(request: Request) {
     
     // Filter theo BranchId nếu có (cho manager), admin có thể không filter
     const branchIdParam = searchParams.get("BranchId");
-    console.log("Vehicle API - branchId from cookie:", branchId);
-    console.log("Vehicle API - branchIdParam from query:", branchIdParam);
-    
     if (branchId && !branchIdParam) {
       // Manager: dùng branchId từ cookie
       params.append("BranchId", branchId);
-      console.log("Vehicle API - Using branchId from cookie:", branchId);
     } else if (branchIdParam && branchIdParam !== "all") {
       // Admin: dùng branchId từ query param (nếu không phải "all")
       params.append("BranchId", branchIdParam);
-      console.log("Vehicle API - Using branchIdParam from query:", branchIdParam);
     } else {
       // Nếu branchIdParam === "all" hoặc không có, không append BranchId (admin xem tất cả)
-      console.log("Vehicle API - Not filtering by BranchId (admin view all)");
+      ");
     }
 
     const queryString = params.toString();
     const url = `/Vehicle${queryString ? `?${queryString}` : ""}`;
-
-    console.log("Vehicle API - Final URL:", url);
-    console.log("Vehicle API - BranchId filter:", branchId);
-
     const beRes = await emrsFetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -88,9 +76,7 @@ export async function GET(request: Request) {
     const text = await beRes.text();
     
     // Log for debugging
-    console.log("Vehicle API - URL:", url);
-    console.log("Vehicle API - Status:", beRes.status);
-    console.log("Vehicle API - Response:", text.substring(0, 500));
+    );
     
     return new NextResponse(text, { 
       status: beRes.status,

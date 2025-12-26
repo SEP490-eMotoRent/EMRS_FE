@@ -14,8 +14,6 @@ export async function getManagerDashboardData() {
   }
 
   const json = await res.json();
-  console.log("Dashboard API response:", json);
-  
   if (!json.success) {
     throw new Error(json.message || "API trả về lỗi");
   }

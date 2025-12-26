@@ -281,7 +281,6 @@ export default function BranchesPage() {
   };
 
   const handleDelete = (branch: Branch) => {
-    console.log("handleDelete called with branch:", branch);
     setBranchToDelete(branch);
     setIsDeleteModalVisible(true);
   };
@@ -301,9 +300,7 @@ export default function BranchesPage() {
 
     setIsDeleting(true);
     try {
-      console.log("Delete confirmed. Deleting branch with ID:", branchId);
       await deleteBranch(branchId);
-      console.log("Branch deleted successfully");
       message.success("Xóa chi nhánh thành công");
       setIsDeleteModalVisible(false);
       setBranchToDelete(null);
@@ -393,7 +390,6 @@ export default function BranchesPage() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log("Delete button clicked for branch:", record);
                 handleDelete(record);
               }}
             >
@@ -489,7 +485,6 @@ export default function BranchesPage() {
             name="address"
             label="Địa chỉ"
             rules={[{ required: true, message: "Vui lòng nhập địa chỉ" }]}
-            help="Nhập địa chỉ ở thành phố Hồ Chí Minh để tự động lấy tọa độ (chọn từ gợi ý - OpenStreetMap)"
           >
             <AutoComplete
               options={addressOptions}
@@ -532,7 +527,6 @@ export default function BranchesPage() {
               name="latitude"
               label="Vĩ độ"
               rules={[{ required: true, message: "Vui lòng nhập vĩ độ" }]}
-              help="Sẽ tự động điền khi chọn địa chỉ (có thể chỉnh sửa)"
             >
               <InputNumber
                 style={{ width: "100%" }}
@@ -544,7 +538,6 @@ export default function BranchesPage() {
               name="longitude"
               label="Kinh độ"
               rules={[{ required: true, message: "Vui lòng nhập kinh độ" }]}
-              help="Sẽ tự động điền khi chọn địa chỉ (có thể chỉnh sửa)"
             >
               <InputNumber
                 style={{ width: "100%" }}

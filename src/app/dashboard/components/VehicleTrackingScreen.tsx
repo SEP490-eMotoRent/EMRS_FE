@@ -163,8 +163,6 @@ export default function VehicleTrackingScreen({
         }
 
         const text = await res.text();
-        console.log("Tracking API raw response:", text);
-        
         let json: any;
         try {
           json = text ? JSON.parse(text) : {};
@@ -172,9 +170,6 @@ export default function VehicleTrackingScreen({
           console.error("Failed to parse tracking response:", parseErr, text);
           return;
         }
-
-        console.log("Tracking API parsed response:", json);
-
         // Thử lấy vị trí cuối cùng từ response nếu có
         if (json && !cancelled) {
           const possibleLocation =
@@ -184,7 +179,6 @@ export default function VehicleTrackingScreen({
             extractLatLng(json);
 
           if (possibleLocation) {
-            console.log("Found last known position in API response:", possibleLocation);
             setLocation(possibleLocation);
           }
         }
@@ -210,18 +204,10 @@ export default function VehicleTrackingScreen({
         } else {
           trackingData = json;
         }
-
-        console.log("Extracted tracking payload:", trackingData);
-        console.log("json.data structure:", json.data);
-        console.log("json.data.tempTrackingPayload:", json.data?.tempTrackingPayload);
-
         const p = trackingData;
         const tmpToken = p?.tmpToken || p?.token || p?.tmp_token;
         const deviceId = p?.deviceId || p?.device_id;
         const imei = p?.imei;
-
-        console.log("Extracted values:", { tmpToken, deviceId, imei });
-
         if (!tmpToken || (!deviceId && !imei)) {
           console.error(
             "Tracking payload thiếu token hoặc deviceId/imei:",
@@ -247,7 +233,6 @@ export default function VehicleTrackingScreen({
             extractLatLng(trackingData) ||
             extractLatLng(trackingData?.lastKnownLocation);
           if (payloadLocation) {
-            console.log("Found last known position in payload:", payloadLocation);
             setLocation(payloadLocation);
           }
         }
@@ -348,7 +333,6 @@ export default function VehicleTrackingScreen({
     setMqttStatus("Connecting...");
 
     client.on("connect", () => {
-      console.log("MQTT connected");
       setMqttStatus("Connected");
 
       const topic = `flespi/message/gw/devices/${deviceId}`;
@@ -356,7 +340,6 @@ export default function VehicleTrackingScreen({
         if (err) {
           console.error("Subscribe error:", err);
         } else {
-          console.log("Subscribed to", topic);
         }
       });
     });
@@ -371,12 +354,7 @@ export default function VehicleTrackingScreen({
     client.on("message", (topic, payloadBuf) => {
       try {
         const payloadStr = payloadBuf.toString();
-        console.log("MQTT message received from topic:", topic);
-        console.log("MQTT message raw payload:", payloadStr);
-        
         const msg = JSON.parse(payloadStr);
-        console.log("MQTT message parsed:", msg);
-        
         // Flespi có thể trả về nhiều format khác nhau
         // Thử các cách parse khác nhau
         let lat: number | undefined;
@@ -411,11 +389,7 @@ export default function VehicleTrackingScreen({
 
         // Timestamp
         ts = msg.timestamp || msg["timestamp"] || msg.time || msg["time"] || Date.now() / 1000;
-
-        console.log("Extracted GPS data:", { lat, lng, speed, ts });
-
         if (typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng)) {
-          console.log("Setting location:", { lat, lng, speed, ts });
           setLocation({
             lat,
             lng,

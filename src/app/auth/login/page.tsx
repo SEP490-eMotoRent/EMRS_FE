@@ -102,10 +102,6 @@ export default function LoginPage() {
       const { accessToken, user } = json.data;
 
       // Log user info để debug
-      console.log("Login user data:", user);
-      console.log("BranchId:", user.branchId);
-      console.log("BranchName:", user.branchName);
-
       // Tự set cookie phía client để middleware đọc được
       const expires = new Date();
       expires.setDate(expires.getDate() + 7); // 7 ngày
@@ -129,9 +125,6 @@ export default function LoginPage() {
         branchName
       )}; path=/; expires=${expires.toUTCString()}`;
       document.cookie = `staffId=${staffId}; path=/; expires=${expires.toUTCString()}`;
-      
-      console.log("Cookies set - branchId:", branchId, "branchName:", branchName);
-
       const role = (user.role ?? "").toUpperCase();
 
       switch (role) {

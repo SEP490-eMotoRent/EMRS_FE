@@ -21,9 +21,6 @@ export async function PUT(
 
     const Status = formData.get("Status") as string;
     const StaffId = formData.get("StaffId") as string;
-
-    console.log("🔵 [Assign] Received from client:", { id, Status, StaffId });
-
     if (!id) {
       return NextResponse.json(
         { success: false, message: "Ticket Id is required" },
@@ -61,21 +58,9 @@ export async function PUT(
 
     // ⭐⭐ Backend route: PUT /Ticket (không có id trong URL)
     const url = `${base}/Ticket`;
-
-    console.log("🔵 [Assign] PUT URL:", url);
-    console.log("🔵 [Assign] FormData fields:", { 
-      Id: id, 
-      Status, 
-      StaffId,
-      "Id type": typeof id,
-      "Status type": typeof Status,
-      "StaffId type": typeof StaffId
-    });
-
     // Log FormData entries để debug
-    console.log("🔵 [Assign] FormData entries:");
     for (const [key, value] of Object.entries({ Id: id, Status, StaffId })) {
-      console.log(`  ${key}: ${value} (${typeof value})`);
+      `);
     }
 
     const axios = (await import("axios")).default;
@@ -89,9 +74,7 @@ export async function PUT(
         // Thêm timeout và validate status
         timeout: 30000,
       });
-
-      console.log("🟣 [Assign] Backend response status:", axiosRes.status);
-      console.log("🟣 [Assign] Backend response data:", JSON.stringify(axiosRes.data, null, 2));
+      );
 
       return NextResponse.json(axiosRes.data, { status: axiosRes.status });
     } catch (axiosError: any) {

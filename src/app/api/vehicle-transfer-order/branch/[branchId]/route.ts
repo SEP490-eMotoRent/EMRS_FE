@@ -25,13 +25,9 @@ export async function GET(
     const { branchId } = await context.params;
 
     // Endpoint theo API documentation: GET /api/VehicleTransferOrder/branch/{branchId}
-    console.log(`[Transfer Order Branch] Fetching orders for branch: ${branchId}`);
     const beRes = await emrsFetch(`/VehicleTransferOrder/branch/${branchId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    
-    console.log(`[Transfer Order Branch] Response status: ${beRes.status} ${beRes.statusText}`);
-
     const text = await beRes.text();
     let data: any;
 

@@ -269,15 +269,13 @@ export async function updateBranch(
 
 // Xóa branch
 export async function deleteBranch(branchId: string): Promise<any> {
-  console.log("Deleting branch:", branchId);
 
   const res = await fetchBackend(`${API_PREFIX}/${branchId}`, {
     method: "DELETE",
   });
 
   const text = await res.text();
-  console.log("Delete branch response status:", res.status);
-  console.log("Delete branch response text:", text);
+
 
   let json: any;
 
@@ -301,6 +299,6 @@ export async function deleteBranch(branchId: string): Promise<any> {
 
   // Trả về response từ API
   // API trả về: { success: true, message: "Branch deleted successfully", data: true, code: 200 }
-  console.log("Delete branch success:", json);
+
   return json;
 }

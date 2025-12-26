@@ -14,10 +14,6 @@ export async function emrsFetch(path: string, options: RequestInit = {}) {
 
   const url = `${base}${path}`;
 
-  // Log nhẹ để debug trên server (sẽ thấy trong terminal chạy `npm run dev`)
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[emrsFetch] ->", url);
-  }
 
   return fetch(url, { ...options, cache: "no-store" });
 }

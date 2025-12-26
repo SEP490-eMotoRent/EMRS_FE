@@ -71,7 +71,6 @@ export default function ManagerTransferPage() {
       });
       
       if (cookies.branchId) {
-        console.log(`[Manager Transfers] BranchId from cookie: ${cookies.branchId}`);
         setBranchId(cookies.branchId);
       } else {
         console.warn("[Manager Transfers] No branchId found in cookies");
@@ -116,10 +115,7 @@ export default function ManagerTransferPage() {
     }
     setLoadingRequests(true);
     try {
-      console.log(`[Load Requests] Loading requests for branch: ${branchId}, branchName: ${branchName}`);
       const data = await getTransferRequestsByBranch(branchId);
-      console.log(`[Load Requests] Loaded ${data?.length || 0} requests from API`);
-      
       // Filter lại theo branchName để đảm bảo chỉ hiển thị requests của branch này
       // (trong trường hợp backend trả về tất cả requests)
       let filteredData = data || [];
@@ -128,7 +124,6 @@ export default function ManagerTransferPage() {
           // So sánh theo branchName để đảm bảo chỉ hiển thị requests của branch này
           return req.branchName === branchName;
         });
-        console.log(`[Load Requests] Filtered to ${filteredData.length} requests for branch "${branchName}"`);
       }
       
       setRequests(filteredData);
@@ -241,8 +236,6 @@ export default function ManagerTransferPage() {
   const handleSubmitRequest = async () => {
     try {
       const values = await requestForm.validateFields();
-      console.log("[Create Request] Submitting request with values:", values);
-      
       // Hiển thị loading message
       const hideLoading = message.loading("Đang tạo yêu cầu điều chuyển...", 0);
       
@@ -254,9 +247,6 @@ export default function ManagerTransferPage() {
       
       // Đóng loading message
       hideLoading();
-      
-      console.log("[Create Request] Request created successfully:", result);
-      
       message.success("Tạo yêu cầu điều chuyển thành công");
       setIsRequestModalVisible(false);
       requestForm.resetFields();
@@ -415,13 +405,10 @@ export default function ManagerTransferPage() {
     setIsProcessing(true);
     try {
       const updatedOrder = await receiveTransferOrder(orderToReceive.id);
-      console.log("[Receive] API response:", updatedOrder);
       message.success("Xác nhận nhận xe thành công. Xe đã sẵn sàng cho thuê tại chi nhánh này.");
 
       // Ensure status is correctly set from API response
       const newStatus = updatedOrder?.status || "Completed";
-      console.log("[Receive] API response status:", newStatus, "receivedDate:", updatedOrder?.receivedDate);
-
       // Close modal first
       setIsReceiveModalVisible(false);
       const orderIdToUpdate = orderToReceive.id;
@@ -439,13 +426,12 @@ export default function ManagerTransferPage() {
               }
             : item
         );
-        console.log("[Receive] Updated orders state:", updated.find(o => o.id === orderIdToUpdate));
+        );
         return updated;
       });
       
       setPendingOrders((prev) => {
         const filtered = prev.filter((item) => item.id !== orderIdToUpdate);
-        console.log("[Receive] Removed from pending orders, remaining:", filtered.length);
         return filtered;
       });
 
@@ -457,7 +443,6 @@ export default function ManagerTransferPage() {
           status: newStatus,
           receivedDate: updatedOrder?.receivedDate || selectedOrder.receivedDate
         };
-        console.log("[Receive] Updating selectedOrder:", updatedSelected);
         setSelectedOrder(updatedSelected);
       }
 

@@ -62,7 +62,6 @@ export default function StaffPage() {
     const roleValue = getCookieValue("role");
     const userIdValue = getCookieValue("userId");
     const usernameValue = getCookieValue("username");
-    console.log("[StaffPage] Cookie role:", roleValue, "Cookie userId:", userIdValue, "Cookie username:", usernameValue);
     if (roleValue) {
       setCurrentUserRole(roleValue);
       setIsAdminUser(roleValue.toUpperCase() === "ADMIN");
@@ -87,8 +86,6 @@ export default function StaffPage() {
       }
       
       const text = await res.text();
-      console.log("Branch API raw response:", text);
-      
       let json: any = {};
       try {
         json = text ? JSON.parse(text) : {};
@@ -96,9 +93,6 @@ export default function StaffPage() {
         console.error("Failed to parse branch response as JSON:", text);
         throw new Error("Invalid JSON response from branch API");
       }
-      
-      console.log("Branch API parsed JSON:", json);
-      
       // Handle different response structures
       let branchesData: any[] = [];
       
@@ -124,9 +118,6 @@ export default function StaffPage() {
       else if (json.data && json.data.items && Array.isArray(json.data.items)) {
         branchesData = json.data.items;
       }
-      
-      console.log("Extracted branchesData:", branchesData);
-      
       // Normalize branch data: API trả về { id, branchName }
       const normalizedBranches = branchesData
         .map((branch: any) => {
@@ -146,9 +137,6 @@ export default function StaffPage() {
           };
         })
         .filter((b: Branch | null): b is Branch => b !== null);
-      
-      console.log("Normalized branches:", normalizedBranches);
-      
       if (normalizedBranches.length === 0) {
         console.warn("No branches found after normalization");
         message.warning("Không tìm thấy chi nhánh nào");
@@ -168,15 +156,9 @@ export default function StaffPage() {
     try {
       const data = await getStaffs();
       setStaffs(data);
-      console.log("[StaffPage] Loaded staffs:", data.map((acc) => ({ id: acc.id, username: acc.username, role: acc.role })));
+      => ({ id: acc.id, username: acc.username, role: acc.role })));
       const resolvedUserId = currentUserId || getCookieValue("userId");
       const resolvedUsername = currentUsername || getCookieValue("username");
-      console.log(
-        "[StaffPage] Resolved userId for current session:",
-        resolvedUserId,
-        "Resolved username:",
-        resolvedUsername
-      );
       let matched: Account | undefined;
       if (resolvedUserId) {
         matched = data.find((acc) => acc.id === resolvedUserId);
@@ -193,7 +175,6 @@ export default function StaffPage() {
       if (!matched && resolvedUsername) {
         matched = data.find((acc) => acc.username?.toLowerCase() === resolvedUsername.toLowerCase());
       }
-      console.log("[StaffPage] Matched current account:", matched);
       if (matched?.role) {
         setCurrentUserRole(matched.role);
         setIsAdminUser(matched.role.toUpperCase() === "ADMIN");
@@ -326,7 +307,6 @@ export default function StaffPage() {
   };
 
   const handleDelete = (account: Account) => {
-    console.log("[StaffPage] Attempt delete account:", account.id, account.username);
     setAccountToDelete(account);
     setIsDeleteConfirmVisible(true);
   };

@@ -16,12 +16,10 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    console.log("[Create Order Route] Request body:", JSON.stringify(body, null, 2));
+    );
 
     // Endpoint theo API documentation: POST /api/VehicleTransferOrder/create
     const endpoint = "/VehicleTransferOrder/create";
-    console.log("[Create Order Route] Calling endpoint:", endpoint);
-    
     // Headers theo API documentation
     const beRes = await emrsFetch(endpoint, {
       method: "POST",
@@ -32,17 +30,12 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify(body),
     });
-
-    console.log("[Create Order Route] Response status:", beRes.status, beRes.statusText);
-
     const text = await beRes.text();
-    console.log("[Create Order Route] Response text:", text);
-    
     let data: any;
 
     try {
       data = text ? JSON.parse(text) : {};
-      console.log("[Create Order Route] Parsed data:", JSON.stringify(data, null, 2));
+      );
     } catch (parseErr) {
       console.error("[Create Order Route] Failed to parse JSON:", text, parseErr);
       return NextResponse.json(
@@ -69,7 +62,6 @@ export async function POST(request: Request) {
     }
 
     // Trả về response thành công từ backend
-    console.log("[Create Order Route] Success, returning data");
     return NextResponse.json(data, { status: beRes.status });
   } catch (err) {
     console.error("Transfer order create error:", err);

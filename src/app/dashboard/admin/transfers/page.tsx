@@ -130,11 +130,8 @@ export default function TransferOrdersPage() {
   const loadRequests = async () => {
     setLoadingRequests(true);
     try {
-      console.log("Loading all requests...");
       const data = await getTransferRequests();
-      console.log("Loaded requests:", data.length, "items");
       setRequests(data);
-      console.log("Requests state updated");
     } catch (error) {
       console.error("Error loading transfer requests:", error);
       message.error("Không thể tải danh sách yêu cầu điều chuyển");
@@ -145,11 +142,8 @@ export default function TransferOrdersPage() {
 
   const loadPendingRequests = async () => {
     try {
-      console.log("Loading pending requests...");
       const data = await getPendingRequests();
-      console.log("Loaded pending requests:", data.length, "items");
       setPendingRequests(data);
-      console.log("Pending requests state updated");
     } catch (error) {
       console.error("Error loading pending requests:", error);
     }
@@ -210,8 +204,6 @@ export default function TransferOrdersPage() {
   const handleSubmitOrder = async () => {
     try {
       const values = await orderForm.validateFields();
-      console.log("[UI] Submitting order with values:", values);
-      
       // Hiển thị loading message
       const hideLoading = message.loading("Đang tạo lệnh điều chuyển...", 0);
       
@@ -224,9 +216,6 @@ export default function TransferOrdersPage() {
       
       // Đóng loading message
       hideLoading();
-      
-      console.log("[UI] Order created successfully:", result);
-      
       message.success("Tạo lệnh điều chuyển thành công");
       setIsOrderModalVisible(false);
       orderForm.resetFields();
@@ -294,10 +283,6 @@ export default function TransferOrdersPage() {
   };
 
   const handleApproveRequest = async (request: VehicleTransferRequest) => {
-    console.log("[UI] ===== APPROVE BUTTON CLICKED =====");
-    console.log("[UI] Request ID:", request.id);
-    console.log("[UI] Request status:", request.status);
-    
     // Normalize status để so sánh
     const normalizedStatus = (request.status || "").toUpperCase();
     
@@ -311,10 +296,7 @@ export default function TransferOrdersPage() {
     
     try {
       // Gọi API approve với ID của request
-      console.log("[UI] Calling approveTransferRequest with ID:", request.id);
       const result = await approveTransferRequest(request.id);
-      console.log("[UI] Approve result received:", result);
-      
       // Đóng loading message
       hideLoading();
       
@@ -323,9 +305,6 @@ export default function TransferOrdersPage() {
         console.error("[UI] Invalid result:", result);
         throw new Error("Không nhận được dữ liệu hợp lệ từ server");
       }
-      
-      console.log("[UI] Result is valid! Status:", result.status);
-      
       // Cập nhật state trực tiếp
       setRequests(prevRequests => {
         const updated = prevRequests.map(req => 
@@ -350,14 +329,10 @@ export default function TransferOrdersPage() {
             loadRequests(),
             loadPendingRequests()
           ]);
-          console.log("[UI] Data reloaded successfully");
         } catch (reloadError) {
           console.error("[UI] Error reloading data:", reloadError);
         }
       }, 500);
-      
-      console.log("[UI] ===== APPROVE COMPLETED SUCCESSFULLY =====");
-      
     } catch (error: any) {
       // Đóng loading message
       hideLoading();
@@ -378,19 +353,12 @@ export default function TransferOrdersPage() {
   };
 
   const handleCancelRequest = async (request: VehicleTransferRequest) => {
-    console.log("[UI] ===== CANCEL BUTTON CLICKED =====");
-    console.log("[UI] Request ID:", request.id);
-    console.log("[UI] Request status:", request.status);
-    
     // Hiển thị loading message
     const hideLoading = message.loading("Đang hủy yêu cầu...", 0);
     
     try {
       // Gọi API cancel với ID của request
-      console.log("[UI] Calling cancelTransferRequest with ID:", request.id);
       const result = await cancelTransferRequest(request.id);
-      console.log("[UI] Cancel result received:", result);
-      
       // Đóng loading message
       hideLoading();
       
@@ -399,9 +367,6 @@ export default function TransferOrdersPage() {
         console.error("[UI] Invalid result:", result);
         throw new Error("Không nhận được dữ liệu hợp lệ từ server");
       }
-      
-      console.log("[UI] Result is valid! Status:", result.status);
-      
       // Cập nhật state trực tiếp
       setRequests(prevRequests => {
         const updated = prevRequests.map(req => 
@@ -426,14 +391,10 @@ export default function TransferOrdersPage() {
             loadRequests(),
             loadPendingRequests()
           ]);
-          console.log("[UI] Data reloaded successfully");
         } catch (reloadError) {
           console.error("[UI] Error reloading data:", reloadError);
         }
       }, 500);
-      
-      console.log("[UI] ===== CANCEL COMPLETED SUCCESSFULLY =====");
-      
     } catch (error: any) {
       // Đóng loading message
       hideLoading();
@@ -619,7 +580,6 @@ export default function TransferOrdersPage() {
                   type="link"
                   icon={<CheckOutlined />}
                   onClick={() => {
-                    console.log("Approve button clicked for request:", record);
                     handleApproveRequest(record);
                   }}
                 >

@@ -6,8 +6,6 @@ import { emrsFetch } from "@/utils/emrsApi";
 // Sử dụng GET /Ticket với pagination để lấy tickets của branch
 export async function GET(req: Request) {
   try {
-    console.log("🔵 [BFF] GET /api/ticket/manager/branch-tickets");
-
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -31,15 +29,12 @@ export async function GET(req: Request) {
 
     const queryString = params.toString();
     const url = `/Ticket?${queryString}`;
-
-    console.log("🟦 Token found, calling:", url);
-
     const beRes = await emrsFetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     const text = await beRes.text();
-    console.log("🟣 BE Response text:", text.substring(0, 500));
+    );
 
     let json;
     try {

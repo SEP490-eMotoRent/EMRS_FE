@@ -134,7 +134,6 @@ export default function TicketDetailPage() {
         try {
           const booking = await getBookingById(normalized.bookingId);
           if (booking) {
-            console.log("Booking data:", booking);
             // Lấy thông tin khách hàng từ booking
             normalized.renterName = booking.renter?.fullName || booking.renter?.account?.fullname || booking.renterName || data.renterName || data.renter?.fullName || data.renter?.account?.fullname;
             normalized.renterPhone = booking.renter?.phoneNumber || booking.renter?.phone || booking.renterPhone || data.renterPhone || data.renter?.phoneNumber || data.renter?.phone;
@@ -263,19 +262,7 @@ export default function TicketDetailPage() {
         message.warning("Ticket này đã được phân công staff khác. Vui lòng kiểm tra lại.");
         return;
       }
-
-      console.log("🔵 [Client] Assigning staff:", {
-        ticketId,
-        staffId: values.staffId,
-        status: values.status,
-        currentTicketStatus: ticket?.status,
-        currentStaffId: ticket?.staffId
-      });
-
       const result = await assignStaff(ticketId, values.staffId, values.status);
-      
-      console.log("🟣 [Client] Assign result:", result);
-      
       message.success(result.message || result.data?.message || "Phân công staff thành công");
       setAssignModalVisible(false);
       form.resetFields();

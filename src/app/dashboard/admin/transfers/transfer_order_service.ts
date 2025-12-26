@@ -132,23 +132,18 @@ export async function createTransferOrder(data: {
   toBranchId: string;
   notes?: string;
 }): Promise<VehicleTransferOrder> {
-  console.log("[Create Order Service] Request data:", JSON.stringify(data, null, 2));
+  );
 
   const res = await fetchBackend(`${API_PREFIX}/create`, {
     method: "POST",
     body: JSON.stringify(data),
   });
-
-  console.log("[Create Order Service] Response status:", res.status, res.statusText);
-
   const text = await res.text();
-  console.log("[Create Order Service] Response text:", text);
-  
   let json: any;
 
   try {
     json = text ? JSON.parse(text) : {};
-    console.log("[Create Order Service] Parsed JSON:", JSON.stringify(json, null, 2));
+    );
   } catch (e) {
     console.error("[Create Order Service] Failed to parse JSON:", text, e);
     throw new Error("Invalid JSON response");
@@ -171,12 +166,10 @@ export async function createTransferOrder(data: {
 
   // Trả về data từ response (theo format: { success: true, message: "...", data: {...} })
   if (json.data && typeof json.data === 'object') {
-    console.log("[Create Order Service] Returning data from json.data:", json.data);
     return json.data as VehicleTransferOrder;
   }
 
   // Fallback: trả về toàn bộ json nếu không có data field
-  console.log("[Create Order Service] No data field, returning full json");
   return json as VehicleTransferOrder;
 }
 
@@ -231,15 +224,12 @@ export async function dispatchTransferOrder(orderId: string): Promise<VehicleTra
 
   try {
     json = text ? JSON.parse(text) : {};
-    console.log("[Dispatch Service] Parsed response:", json);
   } catch (e) {
     console.error("Failed to parse JSON:", text);
     throw new Error("Invalid JSON response");
   }
 
   const result = json.data || json;
-  console.log("[Dispatch Service] Returning order data:", result);
-  console.log("[Dispatch Service] Order status:", result?.status);
   return result;
 }
 
@@ -282,8 +272,6 @@ export async function receiveTransferOrder(orderId: string): Promise<VehicleTran
 
   // Ensure we return the data from response
   const result = json.data || json;
-  console.log("[Receive Service] Parsed response:", result);
-  console.log("[Receive Service] Order status:", result?.status);
   return result;
 }
 

@@ -19,8 +19,7 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
 
-    console.log("Insurance claim form data:", {
-      BookingId: formData.get("BookingId"),
+    ,
       IncidentDate: formData.get("IncidentDate"),
       IncidentLocation: formData.get("IncidentLocation"),
       Description: formData.get("Description"),
@@ -37,8 +36,7 @@ export async function POST(req: Request) {
     });
 
     const text = await beRes.text();
-    console.log("Insurance claim API response status:", beRes.status);
-    console.log("Insurance claim API response:", text.substring(0, 500));
+    );
 
     return new NextResponse(text, { 
       status: beRes.status,

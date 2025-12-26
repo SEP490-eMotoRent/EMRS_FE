@@ -29,7 +29,6 @@ export default function SettingsPage() {
           }
         });
         username = cookies.username || null;
-        console.log("Username from cookie:", username);
       }
       
       // Bước 1: Gọi GET /api/account để lấy tất cả accounts
@@ -42,9 +41,6 @@ export default function SettingsPage() {
         
         const allAccountsJson = await allAccountsRes.json();
         const accountsData = allAccountsJson.data || [];
-        
-        console.log("All accounts data:", accountsData);
-        
         // Bước 2: Tìm account theo username (hoặc role MANAGER nếu không tìm thấy)
         let targetAccount = null;
         if (username) {
@@ -84,9 +80,6 @@ export default function SettingsPage() {
           }
           return;
         }
-        
-        console.log("Target account found:", targetAccount);
-        
         // Bước 3: Lấy account.id (KHÔNG phải staff.id)
         const accountId = targetAccount.id;
         if (!accountId) {
@@ -94,27 +87,18 @@ export default function SettingsPage() {
           message.error("Không tìm thấy ID tài khoản");
           return;
         }
-        
-        console.log("Fetching account details with account ID:", accountId);
-        
         // Bước 4: Gọi GET /account/{accountId} để lấy đầy đủ thông tin
         const accountRes = await fetchBackend(`/account/${accountId}`);
         
         if (accountRes.ok) {
           const accountJson = await accountRes.json();
-          console.log("Account detail API response:", accountJson);
-          
           const accountDataFromApi = accountJson.data || accountJson;
-          
-          console.log("Account data from API:", accountDataFromApi);
-          
           // Set account data
           setAccountData(accountDataFromApi);
           
           // Lấy branch data từ staff.branch (theo cấu trúc response: data.staff.branch)
           const staff = accountDataFromApi.staff;
           if (staff && staff.branch) {
-            console.log("Branch data from staff:", staff.branch);
             setBranchData(staff.branch);
           } else {
             console.warn("No branch data found in staff:", staff);

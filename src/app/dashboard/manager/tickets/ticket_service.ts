@@ -114,8 +114,6 @@ export async function assignStaff(ticketId: string, staffId: string, status: str
     staffId: staffId,
   };
 
-  console.log("🔵 [Client] Request body:", requestBody);
-
   // Sử dụng route /api/ticket (PUT) - route đã có sẵn và ổn định
   const res = await fetch(`${API_PREFIX}`, {
     method: "PUT",

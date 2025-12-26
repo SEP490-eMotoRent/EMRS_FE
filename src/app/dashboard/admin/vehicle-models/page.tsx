@@ -100,7 +100,6 @@ export default function VehicleModelsPage() {
         }
       }
 
-      console.log(`Loaded ${allVehicles.length} vehicles for counting`);
 
       // Đếm số lượng vehicles theo vehicleModelId (case-insensitive status)
       const vehicleCountMap = new Map<string, { total: number; available: number }>();
@@ -118,7 +117,6 @@ export default function VehicleModelsPage() {
         }
       });
 
-      console.log("Vehicle count map:", Array.from(vehicleCountMap.entries()));
 
       // Cập nhật số lượng vào models
       const modelsWithCount = modelsData.map((model) => {

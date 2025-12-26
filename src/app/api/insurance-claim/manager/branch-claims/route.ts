@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { emrsFetch } from "@/utils/emrsApi";
-console.log("🟢 THIS IS THE CORRECT ROUTE.TS RUNNING");
-
 export async function GET() {
   try {
-    console.log("🔵 [BFF] GET /InsuranceClaim/manager/branch-claims");
-
     // ❗❗❗ Dòng quan trọng (await cookies())
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
@@ -18,16 +14,11 @@ export async function GET() {
         { status: 401 }
       );
     }
-
-    console.log("🟦 Token found");
-
     const beRes = await emrsFetch("/InsuranceClaim/manager/branch-claims", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     const text = await beRes.text();
-    console.log("🟣 BE Response text:", text);
-
     let json;
     try {
       json = JSON.parse(text);

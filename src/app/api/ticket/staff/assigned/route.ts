@@ -4,8 +4,6 @@ import { emrsFetch } from "@/utils/emrsApi";
 
 export async function GET() {
   try {
-    console.log("🔵 [BFF] GET /Ticket/staff/assigned");
-
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -22,8 +20,6 @@ export async function GET() {
     });
 
     const text = await beRes.text();
-    console.log("🟣 BE Response text:", text);
-
     let json;
     try {
       json = JSON.parse(text);

@@ -58,7 +58,6 @@ export async function GET(req: Request) {
 
 // PUT /api/ticket - Update ticket
 export async function PUT(req: Request) {
-  console.log("🔵 [BFF] PUT /api/ticket called");
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
@@ -76,16 +75,6 @@ export async function PUT(req: Request) {
     const id = body.id || body.Id;
     const status = body.status || body.Status;
     const staffId = body.staffId || body.StaffId;
-
-    console.log("🔵 [BFF] Incoming JSON body:", { 
-      id, 
-      status, 
-      staffId,
-      "id type": typeof id,
-      "status type": typeof status,
-      "staffId type": typeof staffId,
-    });
-
     // Validation với message rõ ràng
     if (!id || !String(id).trim()) {
       console.error("❌ [BFF] Validation failed: id is missing or empty");
@@ -124,19 +113,12 @@ export async function PUT(req: Request) {
 
     // ⭐⭐ Backend route: PUT /Ticket (không có id trong URL)
     const url = `${base}/Ticket`;
-
-    console.log("🔵 [BFF] PUT URL:", url);
-    console.log("🔵 [BFF] Request body:", requestBody);
-
     const axiosRes = await axios.put(url, requestBody, {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       }
     });
-
-    console.log("🟣 Backend response:", axiosRes.data);
-
     return NextResponse.json(axiosRes.data, { status: axiosRes.status });
 
   } catch (err: any) {

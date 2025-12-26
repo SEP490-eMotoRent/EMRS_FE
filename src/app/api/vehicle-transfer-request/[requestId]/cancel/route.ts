@@ -19,13 +19,8 @@ export async function PUT(
     }
 
     const { requestId } = await context.params;
-    console.log("[Cancel Route] Cancelling request:", requestId);
-
     // Endpoint theo API documentation: PUT /api/VehicleTransferRequest/{requestId}/cancel
     const endpoint = `/VehicleTransferRequest/${requestId}/cancel`;
-    console.log("[Cancel Route] Calling endpoint:", endpoint);
-    console.log("[Cancel Route] Request ID:", requestId);
-    
     // Headers theo API documentation: accept: */* và Authorization: Bearer {token}
     const beRes = await emrsFetch(endpoint, {
       method: "PUT",
@@ -34,17 +29,12 @@ export async function PUT(
         "Authorization": `Bearer ${token}` 
       },
     });
-
-    console.log("[Cancel Route] Response status:", beRes.status, beRes.statusText);
-
     const text = await beRes.text();
-    console.log("[Cancel Route] Response text:", text);
-    
     let data: any;
 
     try {
       data = text ? JSON.parse(text) : {};
-      console.log("[Cancel Route] Parsed data:", JSON.stringify(data, null, 2));
+      );
     } catch (parseErr) {
       console.error("[Cancel Route] Failed to parse JSON:", text, parseErr);
       return NextResponse.json(
@@ -71,7 +61,6 @@ export async function PUT(
     }
 
     // Trả về response thành công từ backend
-    console.log("[Cancel Route] Success, returning data");
     return NextResponse.json(data, { status: beRes.status });
   } catch (err) {
     console.error("Transfer request cancel error:", err);

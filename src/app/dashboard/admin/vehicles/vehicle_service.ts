@@ -78,8 +78,6 @@ export async function getVehicles(filters?: VehicleFilters): Promise<VehicleList
   }
 
   // Log để debug
-  console.log("Vehicle API response:", json);
-
   // Handle response structure: { success: true, data: { totalItems, totalPages, currentPage, pageSize, items: [...] } }
   if (json.success && json.data) {
     if (json.data.items && Array.isArray(json.data.items)) {
@@ -193,9 +191,7 @@ function normalizeVehicle(vehicle: any) {
     } : undefined,
   };
   
-  console.log("normalizeVehicle - Normalized result:", {
-    hasMedias: !!normalized.medias,
-    mediasLength: Array.isArray(normalized.medias) ? normalized.medias.length : "N/A",
+  ? normalized.medias.length : "N/A",
     medias: normalized.medias,
     fileUrl: normalized.fileUrl,
     imageFiles: normalized.imageFiles,
@@ -283,16 +279,11 @@ export async function updateVehicle(formData: FormData) {
 
 // Xóa vehicle
 export async function deleteVehicle(vehicleId: string) {
-  console.log("Deleting vehicle:", vehicleId);
-
   const res = await fetchBackend(`${API_PREFIX}/${vehicleId}`, {
     method: "DELETE",
   });
 
   const text = await res.text();
-  console.log("Delete vehicle response status:", res.status);
-  console.log("Delete vehicle response text:", text);
-
   let json: any;
 
   try {
@@ -315,7 +306,6 @@ export async function deleteVehicle(vehicleId: string) {
 
   // Trả về response từ API
   // API trả về: { success: true, message: "Vehicle created successfully.", data: true, code: 200 }
-  console.log("Delete vehicle success:", json);
   return json;
 }
 

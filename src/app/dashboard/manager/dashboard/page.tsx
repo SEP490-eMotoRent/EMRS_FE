@@ -32,11 +32,6 @@ export default function ManagerDashboardPage() {
     (async () => {
       try {
         const d = await getManagerDashboardData();
-        console.log("Dashboard data received:", d);
-        console.log("KPI data:", d?.kpi);
-        console.log("Total transfers:", d?.kpi?.totalTransfers, typeof d?.kpi?.totalTransfers);
-        console.log("Pending transfers:", d?.kpi?.pendingTransfers, typeof d?.kpi?.pendingTransfers);
-        console.log("Approved transfers:", d?.kpi?.approvedTransfers, typeof d?.kpi?.approvedTransfers);
         if (d && d.kpi) {
           setBookingCounts({
             today: d.kpi.todayBookings ?? 0,

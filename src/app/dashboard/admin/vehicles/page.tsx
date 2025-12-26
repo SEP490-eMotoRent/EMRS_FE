@@ -335,8 +335,6 @@ export default function VehiclesPage() {
         branchId: branch.branchId || branch.id,
         branchName: branch.branchName || branch.name || branch.branchName || "-",
       })).filter((branch: Branch) => branch.branchId); // Filter out invalid branches
-      
-      console.log("Loaded branches:", normalizedBranches);
       setBranches(normalizedBranches);
     } catch (error) {
       console.error("Error loading branches:", error);
@@ -358,9 +356,6 @@ export default function VehiclesPage() {
       if (!res.ok) throw new Error("Failed to fetch vehicle models");
       const text = await res.text();
       const json = text ? JSON.parse(text) : {};
-      
-      console.log("Vehicle Models API response:", json);
-      
       let modelsData = [];
       if (json.success && json.data) {
         if (Array.isArray(json.data)) {
@@ -389,8 +384,6 @@ export default function VehiclesPage() {
         imageUrl: model.imageUrl,
         availableColors: model.availableColors || [],
       }));
-      
-      console.log("Mapped vehicle models:", mappedModels);
       setVehicleModels(mappedModels);
     } catch (error) {
       console.error("Error loading vehicle models:", error);
@@ -418,7 +411,6 @@ export default function VehiclesPage() {
         try {
           const detail = await getVehicleById(vehicleId);
           fullVehicle = detail;
-          console.log("Loaded full vehicle detail:", detail);
         } catch (error) {
           console.warn("Không thể load chi tiết xe, dùng dữ liệu từ list:", error);
           // Fallback: dùng dữ liệu từ list
@@ -586,7 +578,6 @@ export default function VehiclesPage() {
         
         // Xóa các media đã bị xóa
         const deletePromises = deletedMediaIds.map((mediaId) => {
-          console.log(`Deleting media ${mediaId}`);
           return deleteMedia(mediaId).catch((error) => {
             console.error(`Failed to delete media ${mediaId}:`, error);
             // Không throw error để không block các operations khác
@@ -602,11 +593,9 @@ export default function VehiclesPage() {
             // File mới được upload
             if (file.mediaId) {
               // Có file mới và có mediaId -> update media bằng PUT /api/Media
-              console.log(`Updating media ${file.mediaId} with new file`);
               mediaPromises.push(updateMedia(file.mediaId, file.originFileObj));
             } else {
               // Có file mới nhưng không có mediaId -> tạo media mới bằng POST /api/Media
-              console.log(`Creating new media for vehicle ${vehicleId}`);
               mediaPromises.push(createMedia(vehicleId, file.originFileObj, "Vehicle", "Image"));
             }
           }
@@ -615,9 +604,7 @@ export default function VehiclesPage() {
         // Chờ tất cả media operations hoàn thành (xóa, update, tạo mới)
         const allMediaPromises = [...deletePromises, ...mediaPromises];
         if (allMediaPromises.length > 0) {
-          console.log(`Processing ${allMediaPromises.length} media operations...`);
           await Promise.all(allMediaPromises);
-          console.log("All media operations completed");
         }
         
         message.success("Cập nhật xe thành công");
@@ -655,10 +642,6 @@ export default function VehiclesPage() {
         return;
       }
       const detail = await getVehicleById(vehicleId);
-      console.log("Vehicle detail loaded:", detail);
-      console.log("Medias in detail:", detail.medias);
-      console.log("FileUrl in detail:", detail.fileUrl);
-      console.log("ImageFiles in detail:", detail.imageFiles);
       setSelectedVehicle(detail);
       setIsDetailModalVisible(true);
     } catch (error) {
@@ -680,7 +663,6 @@ export default function VehiclesPage() {
 
   // Handle delete vehicle
   const handleDelete = (vehicle: Vehicle) => {
-    console.log("handleDelete called with vehicle:", vehicle);
     setVehicleToDelete(vehicle);
     setIsDeleteModalVisible(true);
   };
@@ -700,9 +682,7 @@ export default function VehiclesPage() {
 
     setIsDeleting(true);
     try {
-      console.log("Delete confirmed. Deleting vehicle with ID:", vehicleId);
       await deleteVehicle(vehicleId);
-      console.log("Vehicle deleted successfully");
       message.success("Xóa xe thành công");
       setIsDeleteModalVisible(false);
       setVehicleToDelete(null);
@@ -833,7 +813,6 @@ export default function VehiclesPage() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log("Delete button clicked for vehicle:", record);
                 handleDelete(record);
               }}
               disabled={!vehicleId}
@@ -1347,33 +1326,20 @@ export default function VehiclesPage() {
               {(() => {
                 // Ưu tiên lấy từ medias array (format mới từ API)
                 let imageUrls: string[] = [];
-                
-                console.log("Checking images for selectedVehicle:", {
-                  medias: selectedVehicle.medias,
-                  fileUrl: selectedVehicle.fileUrl,
-                  imageFiles: selectedVehicle.imageFiles,
-                });
-                
                 if (selectedVehicle.medias && Array.isArray(selectedVehicle.medias) && selectedVehicle.medias.length > 0) {
-                  console.log("Using medias array, count:", selectedVehicle.medias.length);
                   imageUrls = selectedVehicle.medias
                     .filter((media) => {
                       const isImage = media.mediaType === "Image" && media.fileUrl;
                       if (!isImage) {
-                        console.log("Filtered out media:", media);
                       }
                       return isImage;
                     })
                     .map((media) => media.fileUrl);
-                  console.log("Extracted imageUrls from medias:", imageUrls);
                 } else if (selectedVehicle.fileUrl && Array.isArray(selectedVehicle.fileUrl) && selectedVehicle.fileUrl.length > 0) {
-                  console.log("Using fileUrl array, count:", selectedVehicle.fileUrl.length);
                   imageUrls = selectedVehicle.fileUrl;
                 } else if (selectedVehicle.imageFiles && Array.isArray(selectedVehicle.imageFiles) && selectedVehicle.imageFiles.length > 0) {
-                  console.log("Using imageFiles array, count:", selectedVehicle.imageFiles.length);
                   imageUrls = selectedVehicle.imageFiles;
                 } else {
-                  console.log("No images found in any source");
                 }
 
                 // Loại bỏ trùng lặp URL (tránh hiển thị 2 ảnh giống nhau)

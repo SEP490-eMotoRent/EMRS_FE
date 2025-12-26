@@ -21,9 +21,6 @@ export async function GET(
         { status: 404 }
       );
     }
-
-    console.log("Vehicle model detail API - ID:", id);
-
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -36,16 +33,11 @@ export async function GET(
     }
 
     const backendUrl = `/Vehicle/model/detail/${id}`;
-    console.log("Vehicle model detail API - Backend URL:", backendUrl);
-
     const beRes = await emrsFetch(backendUrl, {
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    console.log("Vehicle model detail API - Backend status:", beRes.status);
-
     const text = await beRes.text();
-    console.log("Vehicle model detail API - Response:", text.substring(0, 200));
+    );
 
     return new NextResponse(text, { 
       status: beRes.status,

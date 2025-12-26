@@ -145,17 +145,12 @@ export async function approveTransferRequest(requestId: string): Promise<Vehicle
   const res = await fetchBackend(`${API_PREFIX}/${requestId}/approve`, {
     method: "PUT",
   });
-
-  console.log("[Approve Service] Response status:", res.status, res.statusText);
-
   const text = await res.text();
-  console.log("[Approve Service] Response text:", text);
-  
   let json: any;
 
   try {
     json = text ? JSON.parse(text) : {};
-    console.log("[Approve Service] Parsed JSON:", JSON.stringify(json, null, 2));
+    );
   } catch (e) {
     console.error("[Approve Service] Failed to parse JSON:", text, e);
     throw new Error("Invalid JSON response");
@@ -177,18 +172,15 @@ export async function approveTransferRequest(requestId: string): Promise<Vehicle
 
   // Trả về data từ response (theo format: { success: true, message: "...", data: {...} })
   if (json.data && typeof json.data === 'object') {
-    console.log("[Approve Service] Returning data from json.data:", json.data);
     return json.data as VehicleTransferRequest;
   }
 
   // Nếu không có data field nhưng có success: true, có thể data chính là response
   if (json.success === true && json.id) {
-    console.log("[Approve Service] Response has success:true and id, returning full json as data");
     return json as VehicleTransferRequest;
   }
 
   // Fallback: trả về toàn bộ json nếu không có data field
-  console.log("[Approve Service] No data field, returning full json");
   return json as VehicleTransferRequest;
 }
 
@@ -197,17 +189,12 @@ export async function cancelTransferRequest(requestId: string): Promise<VehicleT
   const res = await fetchBackend(`${API_PREFIX}/${requestId}/cancel`, {
     method: "PUT",
   });
-
-  console.log("[Cancel Service] Response status:", res.status, res.statusText);
-
   const text = await res.text();
-  console.log("[Cancel Service] Response text:", text);
-  
   let json: any;
 
   try {
     json = text ? JSON.parse(text) : {};
-    console.log("[Cancel Service] Parsed JSON:", JSON.stringify(json, null, 2));
+    );
   } catch (e) {
     console.error("[Cancel Service] Failed to parse JSON:", text, e);
     throw new Error("Invalid JSON response");
@@ -229,18 +216,15 @@ export async function cancelTransferRequest(requestId: string): Promise<VehicleT
 
   // Trả về data từ response (theo format: { success: true, message: "...", data: {...} })
   if (json.data && typeof json.data === 'object') {
-    console.log("[Cancel Service] Returning data from json.data:", json.data);
     return json.data as VehicleTransferRequest;
   }
 
   // Nếu không có data field nhưng có success: true, có thể data chính là response
   if (json.success === true && json.id) {
-    console.log("[Cancel Service] Response has success:true and id, returning full json as data");
     return json as VehicleTransferRequest;
   }
 
   // Fallback: trả về toàn bộ json nếu không có data field
-  console.log("[Cancel Service] No data field, returning full json");
   return json as VehicleTransferRequest;
 }
 
@@ -250,7 +234,7 @@ export async function createTransferRequest(data: {
   quantityRequested: number;
   description: string;
 }): Promise<VehicleTransferRequest> {
-  console.log("[Create Request Service] Request data:", JSON.stringify(data, null, 2));
+  );
 
   const res = await fetchBackend(`${API_PREFIX}/create`, {
     method: "POST",
@@ -283,12 +267,10 @@ export async function createTransferRequest(data: {
 
   // Return data from response (theo format: { success: true, message: "...", data: {...} })
   if (json.data && typeof json.data === 'object') {
-    console.log("[Create Request Service] Request created successfully:", json.data);
     return json.data as VehicleTransferRequest;
   }
 
   // Fallback: trả về toàn bộ json nếu không có data field
-  console.log("[Create Request Service] No data field, returning full json");
   return json as VehicleTransferRequest;
 }
 

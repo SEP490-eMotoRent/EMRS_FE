@@ -50,10 +50,6 @@ export async function PUT(
 
     // ⭐⭐ Backend route: PUT /Ticket/{id}
     const url = `${base}/Ticket/${id}`;
-
-    console.log("🔵 [Assign] PUT URL:", url);
-    console.log("🔵 [Assign] FormData:", { Status, StaffId, TicketId: id });
-
     const axios = (await import("axios")).default;
 
     const axiosRes = await axios.put(url, backendFormData, {
@@ -62,9 +58,6 @@ export async function PUT(
         ...backendFormData.getHeaders(),
       },
     });
-
-    console.log("🟣 [Assign] Backend response:", axiosRes.data);
-
     return NextResponse.json(axiosRes.data, { status: axiosRes.status });
 
   } catch (err: any) {

@@ -52,8 +52,6 @@ export async function getVehicleModels(options?: {
     throw new Error("Invalid JSON response");
   }
 
-  console.log("Vehicle Model API response:", json);
-  
   // Handle response structure mới: { success: true, data: { items: [...], totalItems, totalPages, ... } }
   if (json.success && json.data) {
     // Nếu có structure mới với pagination

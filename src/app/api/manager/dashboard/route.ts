@@ -22,37 +22,29 @@ export async function GET() {
     // Helper function để parse response
     const parseResponse = async (res: Response | null, name: string) => {
       if (!res) {
-        console.log(`[Dashboard] ${name}: No response`);
         return null;
       }
       if (!res.ok) {
-        console.log(`[Dashboard] ${name}: Status ${res.status}`);
         return null;
       }
       try {
         const text = await res.text();
         if (!text || text.trim() === '') {
-          console.log(`[Dashboard] ${name}: Empty response`);
           return null;
         }
         try {
           const json = JSON.parse(text);
-          console.log(`[Dashboard] ${name}: Success`, {
-            hasSuccess: !!json.success,
-            hasData: !!json.data,
-            dataType: typeof json.data,
-            isDataArray: Array.isArray(json.data),
+          ,
             dataLength: Array.isArray(json.data) ? json.data.length : 'N/A',
             hasItems: !!json.data?.items,
             itemsLength: Array.isArray(json.data?.items) ? json.data.items.length : 'N/A',
           });
           return json;
         } catch (parseErr) {
-          console.log(`[Dashboard] ${name}: Not JSON, text length: ${text.length}`, text.substring(0, 200));
+          );
           return null;
         }
       } catch (err) {
-        console.log(`[Dashboard] ${name}: Error reading response`, err);
         return null;
       }
     };
@@ -134,13 +126,8 @@ export async function GET() {
       const bookingsRaw = bookingsJson?.data ?? bookingsJson ?? [];
       bookings = Array.isArray(bookingsRaw) ? bookingsRaw : [];
     }
-    
-    console.log(`[Dashboard] Bookings count: ${bookings.length}`);
-    console.log(`[Dashboard] Bookings sample:`, bookings.slice(0, 2));
-    console.log(`[Dashboard] Bookings JSON structure:`, {
-      hasSuccess: !!bookingsJson?.success,
-      hasData: !!bookingsJson?.data,
-      dataIsArray: Array.isArray(bookingsJson?.data),
+    );
+    ,
       dataHasItems: !!bookingsJson?.data?.items,
       itemsIsArray: Array.isArray(bookingsJson?.data?.items),
     });
@@ -160,8 +147,7 @@ export async function GET() {
         transferRequests = raw.items;
       }
     }
-    console.log("[Dashboard] Transfer requests count:", transferRequests.length);
-    console.log("[Dashboard] Transfer requests sample:", transferRequests.slice(0, 2));
+    );
 
     // Flatten vehicles từ vehicle models
     // API trả về vehicle models, mỗi model có mảng vehicles bên trong
@@ -178,10 +164,6 @@ export async function GET() {
         }
       });
     }
-
-    console.log(`[Dashboard] Vehicle models count: ${vehiclesRaw.length}, Total vehicles after flatten: ${allVehicles.length}`);
-    console.log(`[Dashboard] Sample vehicle:`, allVehicles[0]);
-
     // Tính toán KPI cho vehicles - đếm từ dữ liệu thực tế
     const totalVehicles = allVehicles.length;
     
@@ -205,9 +187,6 @@ export async function GET() {
       const status = (v.status || v.vehicleStatus || v.state || "").toString().toUpperCase();
       return status === "UNAVAILABLE" || status === "OUT_OF_SERVICE" || status === "DISABLED";
     }).length;
-    
-    console.log(`[Dashboard] Vehicles stats - Total: ${totalVehicles}, Active: ${activeVehicles}, Maintenance: ${maintenanceVehicles}, Available: ${availableVehicles}, Unavailable: ${unavailableVehicles}`);
-
     // Tính toán KPI cho bookings
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -267,10 +246,8 @@ export async function GET() {
     });
     
     // Log chi tiết để debug
-    console.log(`[Dashboard] Date ranges - Today: ${todayStr}, Week start: ${weekStartStr}, Month start: ${monthStartStr}`);
-    console.log(`[Dashboard] Bookings stats - Total: ${bookings.length}, Today: ${todayBookings.length}, Week: ${weekBookings.length}, Month: ${monthBookings.length}`);
     if (bookings.length > 0) {
-      console.log(`[Dashboard] Sample booking dates:`, bookings.slice(0, 3).map((b: any) => ({
+      .map((b: any) => ({
         id: b.id,
         startDatetime: b.startDatetime,
         parsedDate: getBookingDate(b),
@@ -294,17 +271,12 @@ export async function GET() {
       const amount = getBookingAmount(b);
       return sum + (typeof amount === "number" ? amount : 0);
     }, 0);
-    
-    console.log(`[Dashboard] Revenue stats - Today: ${todayRevenue}, Week: ${weekRevenue}, Month: ${monthRevenue}`);
-
     // Thống kê booking theo status - đếm từ dữ liệu thực tế
     const bookingStatusCounts: Record<string, number> = {};
     bookings.forEach((b: any) => {
       const status = getBookingStatus(b);
       bookingStatusCounts[status] = (bookingStatusCounts[status] || 0) + 1;
     });
-    console.log(`[Dashboard] Booking status counts:`, bookingStatusCounts);
-
     // Thống kê insurance claims - theo đúng status từ API
     // Status: Reported, Processing, Rejected, Completed
     const reportedClaims = insuranceClaims.filter((c: any) => {
@@ -342,12 +314,7 @@ export async function GET() {
       const status = (t.status || t.transferStatus || "").toString().toUpperCase();
       return status === "APPROVED" || status === "APPROVED_TRANSFER";
     }).length;
-
-    console.log("[Dashboard] Transfer stats - Total:", transferRequests.length, "Pending:", pendingTransfers, "Approved:", approvedTransfers);
-    
     // Log insurance claims stats
-    console.log(`[Dashboard] Insurance claims stats - Total: ${insuranceClaims.length}, Reported: ${reportedClaims}, Processing: ${processingClaims}, Rejected: ${rejectedClaims}, Completed: ${completedClaims}`);
-
     // Đảm bảo luôn có dữ liệu, ngay cả khi một số API lỗi
     const result = {
       success: true,
@@ -393,7 +360,7 @@ export async function GET() {
       },
     };
 
-    console.log("[Dashboard] Final result:", JSON.stringify(result, null, 2));
+    );
     return NextResponse.json(result);
   } catch (err) {
     console.error("Manager dashboard error:", err);
