@@ -43,13 +43,30 @@ export async function GET() {
       }
     };
 
+    // Tính toán ngày tháng cho revenue APIs
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Monday
+    weekStart.setHours(0, 0, 0, 0);
+    const weekStartStr = weekStart.toISOString().slice(0, 10);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    monthStart.setHours(0, 0, 0, 0);
+    const monthStr = String(today.getMonth() + 1).padStart(2, '0');
+    const yearStr = String(today.getFullYear());
+
     // Gọi tất cả các API có sẵn trong manager
+    // Thử dùng dedicated dashboard endpoints nếu có, nếu không thì dùng raw data APIs
     const [
       branchRes,
       vehiclesRes,
       bookingsRes,
       insuranceClaimsRes,
       transferRequestsRes,
+      // Thử gọi manager dashboard revenue endpoints nếu có
+      todayRevenueRes,
+      weekRevenueRes,
+      monthRevenueRes,
     ] = await Promise.all([
       // Lấy thông tin chi nhánh theo branchId
       emrsFetch(`/Branch/find/${branchId}`, { headers: authHeader }).catch((e) => {
@@ -76,15 +93,31 @@ export async function GET() {
         console.error("[Dashboard] Transfer Requests API error:", e);
         return null;
       }),
+      // Thử gọi manager revenue endpoints (nếu có)
+      emrsFetch(`/Dashboard/manager/revenue/day/${todayStr}`, { headers: authHeader }).catch(() => null),
+      emrsFetch(`/Dashboard/manager/revenue/week/${weekStartStr}/${todayStr}`, { headers: authHeader }).catch(() => null),
+      emrsFetch(`/Dashboard/manager/revenue/month/${monthStr}/${yearStr}`, { headers: authHeader }).catch(() => null),
     ]);
 
     // Parse responses
-    const [branchJson, vehiclesJson, bookingsJson, insuranceClaimsJson, transferRequestsJson] = await Promise.all([
+    const [
+      branchJson,
+      vehiclesJson,
+      bookingsJson,
+      insuranceClaimsJson,
+      transferRequestsJson,
+      todayRevenueJson,
+      weekRevenueJson,
+      monthRevenueJson,
+    ] = await Promise.all([
       parseResponse(branchRes, "Branch"),
       parseResponse(vehiclesRes, "Vehicles"),
       parseResponse(bookingsRes, "Bookings"),
       parseResponse(insuranceClaimsRes, "Insurance Claims"),
       parseResponse(transferRequestsRes, "Transfer Requests"),
+      parseResponse(todayRevenueRes, "Today Revenue"),
+      parseResponse(weekRevenueRes, "Week Revenue"),
+      parseResponse(monthRevenueRes, "Month Revenue"),
     ]);
 
     const branch = branchJson?.data ?? branchJson ?? {};
@@ -175,18 +208,9 @@ export async function GET() {
       const status = (v.status || v.vehicleStatus || v.state || "").toString().toUpperCase();
       return status === "UNAVAILABLE" || status === "OUT_OF_SERVICE" || status === "DISABLED";
     }).length;
-    // Tính toán KPI cho bookings
+    // Tính toán KPI cho bookings - sử dụng lại biến đã tính ở trên
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().slice(0, 10);
-
-    // Tính toán cho tuần này (Monday to Sunday)
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Monday
-    weekStart.setHours(0, 0, 0, 0);
-    const weekStartStr = weekStart.toISOString().slice(0, 10);
-
-    // Tính toán cho tháng này
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     monthStart.setHours(0, 0, 0, 0);
     const monthStartStr = monthStart.toISOString().slice(0, 10);
@@ -203,9 +227,14 @@ export async function GET() {
     };
 
     const getBookingAmount = (b: any) => {
-      // Kiểm tra nhiều field có thể có số tiền
-      const amount = b.totalAmount || b.total_amount || b.totalPrice || b.total_price || 
-                     b.baseRentalFee || b.base_rental_fee || b.amount || 0;
+      // Kiểm tra nhiều field có thể có số tiền - ưu tiên totalRentalFee và totalAmount
+      const amount = b.totalRentalFee || b.total_rental_fee || 
+                     b.totalAmount || b.total_amount || 
+                     b.totalPrice || b.total_price || 
+                     b.baseRentalFee || b.base_rental_fee || 
+                     b.paidAmount || b.paid_amount ||
+                     b.finalAmount || b.final_amount ||
+                     b.amount || 0;
       return typeof amount === "number" ? amount : 0;
     };
 
@@ -233,21 +262,42 @@ export async function GET() {
       return dateStr >= monthStartStr && dateStr <= todayStr;
     });
     
-    // Tính doanh thu - đếm từ dữ liệu thực tế
-    const todayRevenue = todayBookings.reduce((sum: number, b: any) => {
-      const amount = getBookingAmount(b);
-      return sum + (typeof amount === "number" ? amount : 0);
-    }, 0);
+    // Tính doanh thu - ưu tiên dùng dedicated revenue endpoints nếu có
+    // Nếu không có, tính từ bookings
+    let todayRevenue = 0;
+    let weekRevenue = 0;
+    let monthRevenue = 0;
 
-    const weekRevenue = weekBookings.reduce((sum: number, b: any) => {
-      const amount = getBookingAmount(b);
-      return sum + (typeof amount === "number" ? amount : 0);
-    }, 0);
+    // Thử lấy từ dedicated revenue endpoints trước
+    if (todayRevenueJson && (todayRevenueJson.data !== undefined || todayRevenueJson.revenue !== undefined || typeof todayRevenueJson === 'number')) {
+      todayRevenue = todayRevenueJson.data ?? todayRevenueJson.revenue ?? (typeof todayRevenueJson === 'number' ? todayRevenueJson : 0);
+    } else {
+      // Fallback: tính từ bookings
+      todayRevenue = todayBookings.reduce((sum: number, b: any) => {
+        const amount = getBookingAmount(b);
+        return sum + (typeof amount === "number" ? amount : 0);
+      }, 0);
+    }
 
-    const monthRevenue = monthBookings.reduce((sum: number, b: any) => {
-      const amount = getBookingAmount(b);
-      return sum + (typeof amount === "number" ? amount : 0);
-    }, 0);
+    if (weekRevenueJson && (weekRevenueJson.data !== undefined || weekRevenueJson.revenue !== undefined || typeof weekRevenueJson === 'number')) {
+      weekRevenue = weekRevenueJson.data ?? weekRevenueJson.revenue ?? (typeof weekRevenueJson === 'number' ? weekRevenueJson : 0);
+    } else {
+      // Fallback: tính từ bookings
+      weekRevenue = weekBookings.reduce((sum: number, b: any) => {
+        const amount = getBookingAmount(b);
+        return sum + (typeof amount === "number" ? amount : 0);
+      }, 0);
+    }
+
+    if (monthRevenueJson && (monthRevenueJson.data !== undefined || monthRevenueJson.revenue !== undefined || typeof monthRevenueJson === 'number')) {
+      monthRevenue = monthRevenueJson.data ?? monthRevenueJson.revenue ?? (typeof monthRevenueJson === 'number' ? monthRevenueJson : 0);
+    } else {
+      // Fallback: tính từ bookings
+      monthRevenue = monthBookings.reduce((sum: number, b: any) => {
+        const amount = getBookingAmount(b);
+        return sum + (typeof amount === "number" ? amount : 0);
+      }, 0);
+    }
     // Thống kê booking theo status - đếm từ dữ liệu thực tế
     const bookingStatusCounts: Record<string, number> = {};
     bookings.forEach((b: any) => {
