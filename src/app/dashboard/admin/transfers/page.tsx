@@ -467,8 +467,17 @@ export default function TransferOrdersPage() {
       key: "receivedDate",
       width: 150,
       render: (_, record) => {
+        // Chỉ hiển thị ngày nhận khi đã hoàn thành
+        if (record.status?.toUpperCase() !== "COMPLETED") {
+          return "-";
+        }
         if (!record.receivedDate) return "-";
-        return new Date(record.receivedDate).toLocaleDateString("vi-VN");
+        const receivedDate = new Date(record.receivedDate);
+        // Kiểm tra xem ngày có hợp lệ không (không phải ngày mặc định như 1/1/1)
+        if (isNaN(receivedDate.getTime()) || receivedDate.getFullYear() < 2000) {
+          return "-";
+        }
+        return receivedDate.toLocaleDateString("vi-VN");
       },
     },
     {
@@ -875,8 +884,14 @@ export default function TransferOrdersPage() {
                   : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Ngày nhận">
-                {selectedOrder.receivedDate 
-                  ? new Date(selectedOrder.receivedDate).toLocaleString("vi-VN")
+                {selectedOrder.status?.toUpperCase() === "COMPLETED" && selectedOrder.receivedDate
+                  ? (() => {
+                      const receivedDate = new Date(selectedOrder.receivedDate);
+                      if (isNaN(receivedDate.getTime()) || receivedDate.getFullYear() < 2000) {
+                        return "-";
+                      }
+                      return receivedDate.toLocaleString("vi-VN");
+                    })()
                   : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Ghi chú" span={2}>
