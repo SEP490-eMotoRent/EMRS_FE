@@ -31,6 +31,11 @@ import { getRepairRequests } from "@/services/repair_request_service";
 import { getMemberships } from "../memberships/membership_service";
 import { getTransferOrders } from "../transfers/transfer_order_service";
 import { getTransferRequests } from "../transfers/transfer_request_service";
+import {
+  getTotalRevenue,
+  getRevenueByYear,
+  type RevenueByYearResponse,
+} from "./revenue_service";
 import { Calendar, Wrench, Crown, Truck, Ticket } from "lucide-react";
 
 export default function AdminDashboardPage() {
@@ -44,8 +49,51 @@ export default function AdminDashboardPage() {
     { month: string; thu: number; chi: number; revenue?: number }[]
   >([]);
   const [loadingCashflow, setLoadingCashflow] = useState(false);
+  const [totalRevenue, setTotalRevenue] = useState<number>(0);
+  const [revenueByYear, setRevenueByYear] = useState<RevenueByYearResponse | null>(null);
 
   useEffect(() => {
+    async function loadRevenueData(hasCashflowData: boolean) {
+      try {
+        setLoadingCashflow(true);
+        const currentYear = new Date().getFullYear();
+        
+        // Load tổng doanh thu
+        const revenueResponse = await getTotalRevenue().catch(() => null);
+        if (revenueResponse?.data?.totalRevenue) {
+          setTotalRevenue(revenueResponse.data.totalRevenue);
+        }
+        
+        // Load doanh thu theo năm để hiển thị trong biểu đồ (chỉ nếu chưa có cashflow data)
+        if (!hasCashflowData) {
+          const yearResponse = await getRevenueByYear(currentYear).catch(() => null);
+          if (yearResponse?.data?.monthTotals) {
+            setRevenueByYear(yearResponse);
+            
+            // Chuyển đổi dữ liệu để hiển thị trong biểu đồ
+            const monthNames = [
+              "T1", "T2", "T3", "T4", "T5", "T6",
+              "T7", "T8", "T9", "T10", "T11", "T12"
+            ];
+            
+            const chartData = yearResponse.data.monthTotals.map((item) => ({
+              month: monthNames[item.month - 1] || `T${item.month}`,
+              thu: parseFloat((item.totalRevenue / 1_000_000).toFixed(1)),
+              chi: 0, // Chưa có dữ liệu chi phí từ API này
+              revenue: parseFloat((item.totalRevenue / 1_000_000).toFixed(1)),
+            }));
+            
+            setCashflowData(chartData);
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to load revenue data:", err);
+        // Không hiển thị error message để tránh làm phiền user
+      } finally {
+        setLoadingCashflow(false);
+      }
+    }
+
     async function load() {
       try {
         setLoading(true);
@@ -65,8 +113,10 @@ export default function AdminDashboardPage() {
           getTransferRequests().catch(() => []),
         ]);
         setData(dashboard);
-        // Cashflow: ưu tiên từ API dashboard. Nếu thiếu, sẽ fallback bằng transactions (xử lý bên dưới).
-        if (dashboard.cashflow && Array.isArray(dashboard.cashflow)) {
+        
+        // Cashflow: ưu tiên từ API dashboard. Nếu thiếu, sẽ fallback bằng revenue API.
+        const hasCashflow = dashboard.cashflow && Array.isArray(dashboard.cashflow) && dashboard.cashflow.length > 0;
+        if (hasCashflow) {
           setCashflowData(
             dashboard.cashflow.map((item: any) => ({
               month: item.month || item.monthLabel || item.period || "",
@@ -89,6 +139,9 @@ export default function AdminDashboardPage() {
             }))
           );
         }
+        
+        // Luôn load revenue data để cập nhật totalRevenue và fallback cho cashflow
+        await loadRevenueData(hasCashflow);
 
         // Xử lý bookings
         setBookings(bookingsData);
@@ -166,7 +219,10 @@ export default function AdminDashboardPage() {
     { name: "Khách thuê", value: accountTotals.totalRenter || 0 },
   ];
 
-  const revenueInMillions = (data.transactions?.totalRevenue || 0) / 1_000_000;
+  // Ưu tiên sử dụng totalRevenue từ API mới, fallback về data.transactions
+  const revenueInMillions = totalRevenue > 0 
+    ? totalRevenue / 1_000_000 
+    : (data.transactions?.totalRevenue || 0) / 1_000_000;
 
   // Fallback từ giao dịch tạm thời tắt để tránh lỗi runtime; giữ data từ API dashboard
 
