@@ -52,6 +52,7 @@ export async function GET() {
     const weekStartStr = weekStart.toISOString().slice(0, 10);
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     monthStart.setHours(0, 0, 0, 0);
+    const monthStartStr = monthStart.toISOString().slice(0, 10);
     const monthStr = String(today.getMonth() + 1).padStart(2, '0');
     const yearStr = String(today.getFullYear());
 
@@ -208,12 +209,7 @@ export async function GET() {
       const status = (v.status || v.vehicleStatus || v.state || "").toString().toUpperCase();
       return status === "UNAVAILABLE" || status === "OUT_OF_SERVICE" || status === "DISABLED";
     }).length;
-    // Tính toán KPI cho bookings - sử dụng lại biến đã tính ở trên
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    monthStart.setHours(0, 0, 0, 0);
-    const monthStartStr = monthStart.toISOString().slice(0, 10);
+    // Tính toán KPI cho bookings - sử dụng lại biến đã tính ở trên (todayStr, weekStartStr, monthStartStr)
 
     const getBookingDate = (b: any) => {
       // Kiểm tra nhiều field có thể có ngày booking
