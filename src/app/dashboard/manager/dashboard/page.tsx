@@ -216,16 +216,21 @@ export default function ManagerDashboardPage() {
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold text-gray-800">Booking theo tháng</h3>
-            <span className="text-xs text-gray-400">Biểu đồ cột</span>
+            <span className="text-xs text-gray-400">Biểu đồ cột xếp chồng</span>
           </div>
           <div className="w-full h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={
                   kpi.monthlyBookings
-                    ? Object.entries(kpi.monthlyBookings).map(([month, count]) => ({
+                    ? Object.entries(kpi.monthlyBookings).map(([month, data]: [string, any]) => ({
                         name: month.replace("Tháng ", "T"),
-                        value: count as number,
+                        "Hoàn thành": data.completed || 0,
+                        "Đã hủy": data.cancelled || 0,
+                        "Đang thuê": data.renting || 0,
+                        "Đã trả": data.returned || 0,
+                        "Chờ xử lý": data.pending || 0,
+                        total: data.total || 0,
                       }))
                     : []
                 }
@@ -247,12 +252,21 @@ export default function ManagerDashboardPage() {
                     border: "1px solid #E5E7EB",
                     borderRadius: "8px",
                   }}
-                  formatter={(value: any) => [value, "Số booking"]}
+                  formatter={(value: any, name: string) => {
+                    if (value > 0) return [value, name];
+                    return null;
+                  }}
                   labelFormatter={(label) => `Tháng ${label.replace("T", "")}`}
                 />
-                <Bar dataKey="value" fill="#6366f1" radius={[6, 6, 0, 0]}>
-                  <LabelList dataKey="value" position="top" fontSize={11} fill="#0F172A" />
-                </Bar>
+                <Legend 
+                  wrapperStyle={{ paddingTop: "10px" }}
+                  formatter={(value) => value}
+                />
+                <Bar dataKey="Hoàn thành" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Đã hủy" stackId="a" fill="#ef4444" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Đang thuê" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Đã trả" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Chờ xử lý" stackId="a" fill="#f97316" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

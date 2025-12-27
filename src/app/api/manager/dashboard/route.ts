@@ -301,26 +301,58 @@ export async function GET() {
       bookingStatusCounts[status] = (bookingStatusCounts[status] || 0) + 1;
     });
 
-    // Thống kê booking theo tháng trong năm hiện tại
+    // Thống kê booking theo tháng trong năm hiện tại - chi tiết theo trạng thái
     const currentYear = new Date().getFullYear();
-    const monthlyBookings: Record<string, number> = {};
-    // Khởi tạo 12 tháng với giá trị 0
     const monthNames = [
       "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
       "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
     ];
+    
+    // Khởi tạo dữ liệu theo tháng với các trạng thái
+    const monthlyBookings: Record<string, {
+      total: number;
+      completed: number;
+      cancelled: number;
+      renting: number;
+      returned: number;
+      pending: number;
+    }> = {};
+    
     monthNames.forEach(month => {
-      monthlyBookings[month] = 0;
+      monthlyBookings[month] = {
+        total: 0,
+        completed: 0,
+        cancelled: 0,
+        renting: 0,
+        returned: 0,
+        pending: 0,
+      };
     });
 
-    // Đếm booking theo từng tháng
+    // Đếm booking theo từng tháng và trạng thái
     bookings.forEach((b: any) => {
       const dateStr = getBookingDate(b);
       if (!dateStr) return;
       const bookingDate = new Date(dateStr);
       if (bookingDate.getFullYear() === currentYear) {
         const monthIndex = bookingDate.getMonth(); // 0-11
-        monthlyBookings[monthNames[monthIndex]] = (monthlyBookings[monthNames[monthIndex]] || 0) + 1;
+        const monthKey = monthNames[monthIndex];
+        const status = getBookingStatus(b).toUpperCase();
+        
+        monthlyBookings[monthKey].total += 1;
+        
+        // Phân loại theo trạng thái
+        if (status === "COMPLETED" || status === "HOÀN THÀNH") {
+          monthlyBookings[monthKey].completed += 1;
+        } else if (status === "CANCELLED" || status === "ĐÃ HỦY" || status === "CANCELED") {
+          monthlyBookings[monthKey].cancelled += 1;
+        } else if (status === "RENTING" || status === "ĐANG THUÊ" || status === "ACTIVE" || status === "RENTED") {
+          monthlyBookings[monthKey].renting += 1;
+        } else if (status === "RETURNED" || status === "ĐÃ TRẢ") {
+          monthlyBookings[monthKey].returned += 1;
+        } else {
+          monthlyBookings[monthKey].pending += 1;
+        }
       }
     });
     // Thống kê insurance claims - theo đúng status từ API
