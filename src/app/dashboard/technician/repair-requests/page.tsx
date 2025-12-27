@@ -549,13 +549,6 @@ export default function TechnicianRepairRequestsPage() {
         },
       },
       {
-        title: "Ngày cập nhật",
-        dataIndex: "updatedAt",
-        key: "updatedAt",
-        render: (date: string) =>
-          date ? dayjs(date).format("DD/MM/YYYY HH:mm") : "-",
-      },
-      {
         title: "Hành động",
         key: "action",
         width: 180,

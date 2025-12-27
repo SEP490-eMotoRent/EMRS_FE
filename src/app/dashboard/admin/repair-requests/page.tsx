@@ -478,24 +478,29 @@ export default function AdminRepairRequestsPage() {
       key: "action",
       width: 180,
       fixed: "right" as const,
-      render: (_: any, record: any) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => openDetail(record)}
-          >
-            Chi tiết
-          </Button>
-          <Button
-            type="link"
-            icon={<UserSwitchOutlined />}
-            onClick={() => openAssignModal(record)}
-          >
-            Phân công
-          </Button>
-        </Space>
-      ),
+      render: (_: any, record: any) => {
+        const isCompleted = (record.status || "").toUpperCase() === "COMPLETED";
+        return (
+          <Space>
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => openDetail(record)}
+            >
+              Chi tiết
+            </Button>
+            {!isCompleted && (
+              <Button
+                type="link"
+                icon={<UserSwitchOutlined />}
+                onClick={() => openAssignModal(record)}
+              >
+                Phân công
+              </Button>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -897,20 +902,10 @@ export default function AdminRepairRequestsPage() {
             rules={[{ required: true, message: "Vui lòng chọn trạng thái" }]}
           >
             <Select
-              options={statusOptions.map((status) => {
-                const statusMap: Record<string, string> = {
-                  PENDING: "Chờ xử lý",
-                  REVIEWING: "Đang xem xét",
-                  ASSIGNED: "Đã phân công",
-                  IN_PROGRESS: "Đang xử lý",
-                  COMPLETED: "Hoàn thành",
-                  CANCELLED: "Đã hủy",
-                };
-                return {
-                  label: statusMap[status] || status,
-                  value: status,
-                };
-              })}
+              options={[
+                { label: "Đã phân công", value: "ASSIGNED" },
+                { label: "Đang xử lý", value: "IN_PROGRESS" },
+              ]}
             />
           </Form.Item>
         </Form>
