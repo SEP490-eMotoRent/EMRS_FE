@@ -215,22 +215,31 @@ export default function ManagerDashboardPage() {
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-gray-800">Booking theo giai đoạn</h3>
+            <h3 className="font-semibold text-gray-800">Booking theo tháng</h3>
             <span className="text-xs text-gray-400">Biểu đồ cột</span>
           </div>
           <div className="w-full h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={[
-                  { name: "Hôm nay", value: bookingCounts.today },
-                  { name: "Tuần này", value: bookingCounts.week },
-                  { name: "Tháng này", value: bookingCounts.month },
-                  { name: "Tổng", value: bookingCounts.total },
-                ]}
-                barCategoryGap={18}
+                data={
+                  kpi.monthlyBookings
+                    ? Object.entries(kpi.monthlyBookings).map(([month, count]) => ({
+                        name: month.replace("Tháng ", "T"),
+                        value: count as number,
+                      }))
+                    : []
+                }
+                barCategoryGap={8}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="name" stroke="#6B7280" fontSize={12} />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#6B7280" 
+                  fontSize={11}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
                 <YAxis stroke="#6B7280" fontSize={12} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
@@ -238,9 +247,11 @@ export default function ManagerDashboardPage() {
                     border: "1px solid #E5E7EB",
                     borderRadius: "8px",
                   }}
+                  formatter={(value: any) => [value, "Số booking"]}
+                  labelFormatter={(label) => `Tháng ${label.replace("T", "")}`}
                 />
                 <Bar dataKey="value" fill="#6366f1" radius={[6, 6, 0, 0]}>
-                  <LabelList dataKey="value" position="top" fontSize={12} fill="#0F172A" />
+                  <LabelList dataKey="value" position="top" fontSize={11} fill="#0F172A" />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

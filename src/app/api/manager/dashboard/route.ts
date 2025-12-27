@@ -300,6 +300,29 @@ export async function GET() {
       const status = getBookingStatus(b);
       bookingStatusCounts[status] = (bookingStatusCounts[status] || 0) + 1;
     });
+
+    // Thống kê booking theo tháng trong năm hiện tại
+    const currentYear = new Date().getFullYear();
+    const monthlyBookings: Record<string, number> = {};
+    // Khởi tạo 12 tháng với giá trị 0
+    const monthNames = [
+      "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+      "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+    ];
+    monthNames.forEach(month => {
+      monthlyBookings[month] = 0;
+    });
+
+    // Đếm booking theo từng tháng
+    bookings.forEach((b: any) => {
+      const dateStr = getBookingDate(b);
+      if (!dateStr) return;
+      const bookingDate = new Date(dateStr);
+      if (bookingDate.getFullYear() === currentYear) {
+        const monthIndex = bookingDate.getMonth(); // 0-11
+        monthlyBookings[monthNames[monthIndex]] = (monthlyBookings[monthNames[monthIndex]] || 0) + 1;
+      }
+    });
     // Thống kê insurance claims - theo đúng status từ API
     // Status: Reported, Processing, Rejected, Completed
     const reportedClaims = insuranceClaims.filter((c: any) => {
@@ -366,6 +389,8 @@ export async function GET() {
           monthRevenue: monthRevenue || 0,
           // Booking status breakdown
           bookingStatusCounts: bookingStatusCounts || {},
+          // Monthly bookings breakdown
+          monthlyBookings: monthlyBookings || {},
           // Insurance claims KPIs
           totalClaims: insuranceClaims?.length || 0,
           pendingClaims: pendingClaims || 0, // Reported status
