@@ -350,9 +350,10 @@ export default function AdminRepairRequestsPage() {
       title: "Mã yêu cầu",
       dataIndex: "id",
       key: "id",
-      width: 120,
+      width: 140,
+      align: "center",
       render: (id: string) => (
-        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded inline-block">
           {id?.slice(0, 8)}...
         </span>
       ),
@@ -360,7 +361,8 @@ export default function AdminRepairRequestsPage() {
     {
       title: "Xe",
       key: "vehicle",
-      width: 150,
+      width: 160,
+      align: "left",
       render: (_: any, record: any) => {
         const vehicle = record.vehicle || record.assignedVehicle;
         const licensePlate = vehicle?.licensePlate || record.vehicleLicensePlate || record.vehicleId || "N/A";
@@ -383,17 +385,19 @@ export default function AdminRepairRequestsPage() {
       title: "Mô tả",
       dataIndex: "issueDescription",
       key: "issueDescription",
-      width: 250,
+      width: 280,
       ellipsis: { showTitle: true },
+      align: "left",
       render: (text: string) => (
-        <span className="text-gray-700">{text || "-"}</span>
+        <span className="text-gray-700 text-sm">{text || "-"}</span>
       ),
     },
     {
       title: "Ưu tiên",
       dataIndex: "priority",
       key: "priority",
-      width: 120,
+      width: 130,
+      align: "center",
       render: (priority: string) => {
         const priorityText = priority || "CHƯA CÓ";
         const priorityMap: Record<string, string> = {
@@ -413,7 +417,8 @@ export default function AdminRepairRequestsPage() {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
-      width: 130,
+      width: 140,
+      align: "center",
       render: (status: string, record: any) => {
         const statusText = status || "PENDING";
         const statusMap: Record<string, string> = {
@@ -434,7 +439,8 @@ export default function AdminRepairRequestsPage() {
     {
       title: "Kỹ thuật viên",
       key: "technician",
-      width: 150,
+      width: 160,
+      align: "left",
       render: (_: any, record: any) => {
         const staff = record.staff || record.technician;
         const techName = staff?.fullname || staff?.fullName || staff?.account?.fullname;
@@ -449,7 +455,8 @@ export default function AdminRepairRequestsPage() {
       title: "Ngày tạo",
       dataIndex: "createdAt",
       key: "createdAt",
-      width: 150,
+      width: 160,
+      align: "center",
       render: (date: string) =>
         date ? (
           <span className="text-gray-600">
@@ -463,7 +470,8 @@ export default function AdminRepairRequestsPage() {
       title: "Ngày duyệt",
       dataIndex: "approvedAt",
       key: "approvedAt",
-      width: 150,
+      width: 160,
+      align: "center",
       render: (date: string) =>
         date ? (
           <span className="text-gray-600">
@@ -477,6 +485,7 @@ export default function AdminRepairRequestsPage() {
       title: "Hành động",
       key: "action",
       width: 180,
+      align: "center",
       fixed: "right" as const,
       render: (_: any, record: any) => {
         const isCompleted = (record.status || "").toUpperCase() === "COMPLETED";

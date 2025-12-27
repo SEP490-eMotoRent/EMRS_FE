@@ -452,14 +452,19 @@ export default function TechnicianRepairRequestsPage() {
         title: "Mã yêu cầu",
         dataIndex: "id",
         key: "id",
+        width: 140,
+        align: "center" as const,
         render: (id: string) => (
-          <span className="font-mono text-sm">{id?.slice(0, 8)}...</span>
+          <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded inline-block">
+            {id?.slice(0, 8)}...
+          </span>
         ),
       },
       {
         title: "Biển số xe",
         key: "vehicle",
-        width: 180,
+        width: 160,
+        align: "left" as const,
         render: (_: any, record: any) => {
           // Ưu tiên lấy licensePlate từ record trực tiếp
           let licensePlate = 
@@ -508,17 +513,19 @@ export default function TechnicianRepairRequestsPage() {
         title: "Mô tả",
         dataIndex: "issueDescription",
         key: "issueDescription",
-        width: 250,
+        width: 280,
         ellipsis: { showTitle: true },
+        align: "left" as const,
         render: (text: string) => (
-          <span className="text-gray-700">{text || "-"}</span>
+          <span className="text-gray-700 text-sm">{text || "-"}</span>
         ),
       },
       {
         title: "Ưu tiên",
         dataIndex: "priority",
         key: "priority",
-        width: 120,
+        width: 130,
+        align: "center" as const,
         render: (priority: string) => {
           const priorityText = priority || "CHƯA CÓ";
           const priorityMap: Record<string, string> = {
@@ -538,7 +545,8 @@ export default function TechnicianRepairRequestsPage() {
         title: "Trạng thái",
         dataIndex: "status",
         key: "status",
-        width: 130,
+        width: 140,
+        align: "center" as const,
         render: (status: string) => {
           const normalized = normalizeStatus(status);
           return (
@@ -552,25 +560,34 @@ export default function TechnicianRepairRequestsPage() {
         title: "Hành động",
         key: "action",
         width: 180,
-        render: (_: any, record: any) => (
-          <Space size="small">
-            <Button
-              type="link"
-              icon={<EyeOutlined />}
-              onClick={() => openDetail(record)}
-              className="px-2 text-indigo-600 hover:text-indigo-700"
-            >
-              Chi tiết
-            </Button>
-            <Button
-              type="link"
-              onClick={() => openUpdate(record)}
-              className="px-2 text-purple-600 hover:text-purple-700"
-            >
-              Sửa
-            </Button>
-          </Space>
-        ),
+        align: "center" as const,
+        fixed: "right" as const,
+        render: (_: any, record: any) => {
+          const normalized = normalizeStatus(record.status);
+          const isCompleted = normalized === "COMPLETED";
+          return (
+            <Space size="small">
+              <Button
+                type="link"
+                icon={<EyeOutlined />}
+                onClick={() => openDetail(record)}
+                className="px-2 text-indigo-600 hover:text-indigo-700"
+              >
+                Chi tiết
+              </Button>
+              {!isCompleted && (
+                <Button
+                  type="link"
+                  icon={<EditOutlined />}
+                  onClick={() => openUpdate(record)}
+                  className="px-2 text-purple-600 hover:text-purple-700"
+                >
+                  Sửa
+                </Button>
+              )}
+            </Space>
+          );
+        },
       },
     ],
     []
@@ -641,12 +658,14 @@ export default function TechnicianRepairRequestsPage() {
           dataSource={requests}
           columns={columns}
           size="middle"
+          scroll={{ x: 1000 }}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,
             total: pagination.total,
             showSizeChanger: true,
             showTotal: (total) => `Tổng ${total} yêu cầu`,
+            pageSizeOptions: ["10", "20", "50", "100"],
           }}
           onChange={handleTableChange}
           locale={{ emptyText: "Chưa có yêu cầu nào được giao" }}
