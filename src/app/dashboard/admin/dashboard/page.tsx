@@ -79,7 +79,6 @@ export default function AdminDashboardPage() {
             const chartData = yearResponse.data.monthTotals.map((item) => ({
               month: monthNames[item.month - 1] || `T${item.month}`,
               thu: parseFloat((item.totalRevenue / 1_000_000).toFixed(1)),
-              chi: 0, // Chưa có dữ liệu chi phí từ API này
               revenue: parseFloat((item.totalRevenue / 1_000_000).toFixed(1)),
             }));
             
@@ -307,15 +306,15 @@ export default function AdminDashboardPage() {
         <div className="lg:col-span-2 bg-white border rounded-xl sm:rounded-2xl p-3 sm:p-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp size={20} className="text-emerald-600" />
-            <h2 className="font-semibold text-sm sm:text-base">Thống kê dòng tiền</h2>
+            <h2 className="font-semibold text-sm sm:text-base">Thống kê thu nhập</h2>
           </div>
           {loadingCashflow ? (
             <div className="flex items-center justify-center h-[280px] text-gray-500">
-              <p>Đang tải dữ liệu thống kê dòng tiền...</p>
+              <p>Đang tải dữ liệu thống kê thu nhập...</p>
             </div>
           ) : cashflowData.length === 0 ? (
             <div className="flex items-center justify-center h-[280px] text-gray-500">
-              <p>Chưa có dữ liệu thống kê dòng tiền</p>
+              <p>Chưa có dữ liệu thống kê thu nhập</p>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
@@ -339,34 +338,14 @@ export default function AdminDashboardPage() {
                   borderRadius: "8px",
                 }}
               />
-              <Legend
-                formatter={(value) => {
-                  if (value === "thu") return "Thu nhập";
-                  if (value === "chi") return "Chi phí";
-                  return value;
-                }}
-              />
               <Bar
                 dataKey="thu"
-                name="thu"
+                name="Thu nhập"
                 fill="#10B981"
                 radius={[6, 6, 0, 0]}
               >
                 <LabelList
                   dataKey="thu"
-                  position="top"
-                  formatter={(val: number) => `${val}M`}
-                  style={{ fill: "#0F172A", fontSize: 12 }}
-                />
-              </Bar>
-              <Bar
-                dataKey="chi"
-                name="chi"
-                fill="#EF4444"
-                radius={[6, 6, 0, 0]}
-              >
-                <LabelList
-                  dataKey="chi"
                   position="top"
                   formatter={(val: number) => `${val}M`}
                   style={{ fill: "#0F172A", fontSize: 12 }}

@@ -743,10 +743,18 @@ export default function AdminRepairRequestsPage() {
             rules={[{ required: true, message: "Vui lòng chọn ưu tiên" }]}
           >
             <Select
-              options={priorityOptions.map((priority) => ({
-                label: priority,
-                value: priority,
-              }))}
+              options={priorityOptions.map((priority) => {
+                const priorityMap: Record<string, string> = {
+                  LOW: "Thấp",
+                  MEDIUM: "Trung bình",
+                  HIGH: "Cao",
+                  CRITICAL: "Khẩn cấp",
+                };
+                return {
+                  label: priorityMap[priority] || priority,
+                  value: priority,
+                };
+              })}
             />
           </Form.Item>
 
@@ -756,10 +764,20 @@ export default function AdminRepairRequestsPage() {
             rules={[{ required: true, message: "Vui lòng chọn trạng thái" }]}
           >
             <Select
-              options={statusOptions.map((status) => ({
-                label: status,
-                value: status,
-              }))}
+              options={statusOptions.map((status) => {
+                const statusMap: Record<string, string> = {
+                  PENDING: "Chờ xử lý",
+                  REVIEWING: "Đang xem xét",
+                  ASSIGNED: "Đã phân công",
+                  IN_PROGRESS: "Đang xử lý",
+                  COMPLETED: "Hoàn thành",
+                  CANCELLED: "Đã hủy",
+                };
+                return {
+                  label: statusMap[status] || status,
+                  value: status,
+                };
+              })}
             />
           </Form.Item>
         </Form>
