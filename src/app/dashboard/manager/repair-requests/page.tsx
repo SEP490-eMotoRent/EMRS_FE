@@ -681,13 +681,6 @@ export default function ManagerRepairRequestsPage() {
                       </Tag>
                     </Descriptions.Item>
                   )}
-                  {checklist.controller !== undefined && (
-                    <Descriptions.Item label="Bộ điều khiển">
-                      <Tag color={checklist.controller ? "green" : "red"}>
-                        {checklist.controller ? "Đã kiểm tra" : "Chưa kiểm tra"}
-                      </Tag>
-                    </Descriptions.Item>
-                  )}
                   {checklist.tires && (
                     <Descriptions.Item label="Lốp xe">
                       <Tag color={checklist.tires === "normal" ? "green" : "orange"}>

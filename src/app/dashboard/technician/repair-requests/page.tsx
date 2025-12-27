@@ -297,7 +297,6 @@ export default function TechnicianRepairRequestsPage() {
         checklist_motor: enrichedDetail.checklist?.motor || "",
         checklist_brake: enrichedDetail.checklist?.brake || "",
         checklist_lighting: enrichedDetail.checklist?.lighting || "",
-        checklist_controller: enrichedDetail.checklist?.controller !== undefined ? enrichedDetail.checklist.controller : false,
         checklist_tires: enrichedDetail.checklist?.tires || "",
         checklist_notes: enrichedDetail.checklist?.notes 
           ? (Array.isArray(enrichedDetail.checklist.notes) 
@@ -335,7 +334,6 @@ export default function TechnicianRepairRequestsPage() {
         checklist_motor: enrichedRecord.checklist?.motor || "",
         checklist_brake: enrichedRecord.checklist?.brake || "",
         checklist_lighting: enrichedRecord.checklist?.lighting || "",
-        checklist_controller: enrichedRecord.checklist?.controller !== undefined ? enrichedRecord.checklist.controller : false,
         checklist_tires: enrichedRecord.checklist?.tires || "",
         checklist_notes: enrichedRecord.checklist?.notes 
           ? (Array.isArray(enrichedRecord.checklist.notes) 
@@ -376,11 +374,6 @@ export default function TechnicianRepairRequestsPage() {
       // Cập nhật lighting nếu có
       if (values.checklist_lighting !== undefined && values.checklist_lighting !== null && values.checklist_lighting !== "") {
         checklist.lighting = values.checklist_lighting;
-      }
-      
-      // Cập nhật controller nếu có
-      if (values.checklist_controller !== undefined) {
-        checklist.controller = values.checklist_controller;
       }
       
       // Cập nhật tires nếu có
@@ -922,13 +915,6 @@ export default function TechnicianRepairRequestsPage() {
                       </Tag>
                     </Descriptions.Item>
                   )}
-                  {checklist.controller !== undefined && (
-                    <Descriptions.Item label="Bộ điều khiển">
-                      <Tag color={checklist.controller ? "green" : "red"}>
-                        {checklist.controller ? "Đã kiểm tra" : "Chưa kiểm tra"}
-                      </Tag>
-                    </Descriptions.Item>
-                  )}
                   {checklist.tires && (
                     <Descriptions.Item label="Lốp xe">
                       <Tag color={checklist.tires === "normal" ? "green" : "orange"}>
@@ -1155,17 +1141,6 @@ export default function TechnicianRepairRequestsPage() {
                       { label: "Cần thay bóng đèn", value: "need_replace" },
                     ]}
                   />
-                </Form.Item>
-
-                <Form.Item
-                  name="checklist_controller"
-                  label="Bộ điều khiển"
-                  valuePropName="checked"
-                >
-                  <div className="flex items-center gap-2">
-                    <Switch />
-                    <span className="text-sm text-gray-600">Đã kiểm tra bộ điều khiển</span>
-                  </div>
                 </Form.Item>
 
                 <Form.Item

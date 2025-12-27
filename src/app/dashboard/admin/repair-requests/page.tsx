@@ -187,18 +187,57 @@ export default function AdminRepairRequestsPage() {
     loadRequests(config.current, config.pageSize);
   };
 
+  const parseChecklist = (checklist: any): any => {
+    if (!checklist) return null;
+    
+    // Nếu là string, parse nó
+    if (typeof checklist === "string") {
+      try {
+        // Thử parse trực tiếp
+        const parsed = JSON.parse(checklist);
+        return parsed;
+      } catch (e) {
+        // Nếu parse thất bại, có thể là string đã bị double-encoded
+        // Thử parse lại một lần nữa
+        try {
+          const firstParse = JSON.parse(checklist);
+          if (typeof firstParse === "string") {
+            return JSON.parse(firstParse);
+          }
+          return firstParse;
+        } catch (e2) {
+          console.error("Error parsing checklist:", e2);
+          return null;
+        }
+      }
+    }
+    
+    // Nếu đã là object, trả về trực tiếp
+    return checklist;
+  };
+
   const openDetail = async (record: any) => {
     try {
       setDetailLoading(true);
       setDetailOpen(true);
       // Load chi tiết từ API để có đầy đủ thông tin
       const detail = await getRepairRequestById(record.id);
+      
+      // Parse checklist nếu cần
+      if (detail.checklist) {
+        detail.checklist = parseChecklist(detail.checklist);
+      }
+      
       setSelectedRequest(detail);
     } catch (err: any) {
       console.error("Error loading repair request detail:", err);
       message.error(err.message || "Không thể tải chi tiết yêu cầu sửa chữa");
       // Fallback: dùng data từ table
-      setSelectedRequest(record);
+      const recordWithParsedChecklist = { ...record };
+      if (record.checklist) {
+        recordWithParsedChecklist.checklist = parseChecklist(record.checklist);
+      }
+      setSelectedRequest(recordWithParsedChecklist);
     } finally {
       setDetailLoading(false);
     }
@@ -595,67 +634,161 @@ export default function AdminRepairRequestsPage() {
             </Descriptions>
 
             {/* Checklist */}
-            {selectedRequest.checklist && Object.keys(selectedRequest.checklist).length > 0 ? (
-              <Descriptions title="Checklist kiểm tra" bordered column={2} className="mt-4">
-                {selectedRequest.checklist.oil && (
-                  <Descriptions.Item label="Dầu máy">
-                    <Tag color={selectedRequest.checklist.oil === "done" ? "green" : "default"}>
-                      {selectedRequest.checklist.oil === "done" ? "Đã kiểm tra" : selectedRequest.checklist.oil}
-                    </Tag>
-                  </Descriptions.Item>
-                )}
-                {selectedRequest.checklist.engine_check !== undefined && (
-                  <Descriptions.Item label="Kiểm tra động cơ">
-                    <Tag color={selectedRequest.checklist.engine_check ? "green" : "red"}>
-                      {selectedRequest.checklist.engine_check ? "Đã kiểm tra" : "Chưa kiểm tra"}
-                    </Tag>
-                  </Descriptions.Item>
-                )}
-                {selectedRequest.checklist.extra && 
-                 Object.keys(selectedRequest.checklist.extra).length > 0 && (
-                  <Descriptions.Item label="Thông tin bổ sung" span={2}>
-                    <div className="bg-gray-50 p-3 rounded border">
-                      {selectedRequest.checklist.extra.time && (
-                        <p className="mb-1">
-                          <span className="font-semibold">Thời gian:</span> {selectedRequest.checklist.extra.time}
-                        </p>
-                      )}
-                      {selectedRequest.checklist.extra.technician && (
-                        <p>
-                          <span className="font-semibold">Kỹ thuật viên:</span> {selectedRequest.checklist.extra.technician}
-                        </p>
-                      )}
-                      {Object.keys(selectedRequest.checklist.extra).length > 0 && 
-                       !selectedRequest.checklist.extra.time && 
-                       !selectedRequest.checklist.extra.technician && (
-                        <pre className="text-xs whitespace-pre-wrap">
-                          {JSON.stringify(selectedRequest.checklist.extra, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  </Descriptions.Item>
-                )}
-                {selectedRequest.checklist.notes && 
-                 Array.isArray(selectedRequest.checklist.notes) && 
-                 selectedRequest.checklist.notes.length > 0 && (
-                  <Descriptions.Item label="Ghi chú" span={2}>
-                    <div className="bg-gray-50 p-3 rounded border">
-                      <ul className="list-disc list-inside space-y-1">
-                        {selectedRequest.checklist.notes.map((note: string, index: number) => (
-                          <li key={index} className="text-gray-700">{note}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </Descriptions.Item>
-                )}
-              </Descriptions>
-            ) : (
-              <Descriptions title="Checklist kiểm tra" bordered column={2} className="mt-4">
-                <Descriptions.Item span={2}>
-                  <span className="text-gray-400 italic">Chưa có thông tin checklist</span>
-                </Descriptions.Item>
-              </Descriptions>
-            )}
+            {(() => {
+              const checklist = selectedRequest.checklist 
+                ? (typeof selectedRequest.checklist === "string" 
+                    ? parseChecklist(selectedRequest.checklist) 
+                    : selectedRequest.checklist)
+                : null;
+              
+              const hasChecklist = checklist && 
+                typeof checklist === "object" && 
+                Object.keys(checklist).length > 0;
+              
+              if (!hasChecklist) {
+                return (
+                  <Descriptions title="Checklist kiểm tra" bordered column={2} className="mt-4">
+                    <Descriptions.Item span={2}>
+                      <span className="text-gray-400 italic">Chưa có thông tin checklist</span>
+                    </Descriptions.Item>
+                  </Descriptions>
+                );
+              }
+              
+              // Map các giá trị checklist để hiển thị
+              const batteryMap: Record<string, string> = {
+                normal: "Bình thường",
+                weak: "Yếu",
+                need_replace: "Cần thay",
+                replaced: "Đã thay",
+              };
+              
+              const motorMap: Record<string, string> = {
+                normal: "Bình thường",
+                abnormal_sound: "Có tiếng kêu lạ",
+                overheating: "Quá nóng",
+                need_repair: "Cần sửa chữa",
+              };
+              
+              const brakeMap: Record<string, string> = {
+                normal: "Bình thường",
+                weak: "Yếu",
+                need_adjust: "Cần điều chỉnh",
+                need_replace: "Cần thay",
+              };
+              
+              const lightingMap: Record<string, string> = {
+                normal: "Bình thường",
+                headlight_off: "Đèn pha không sáng",
+                turn_signal_off: "Đèn xi-nhan không hoạt động",
+                need_replace: "Cần thay bóng đèn",
+              };
+              
+              const tiresMap: Record<string, string> = {
+                normal: "Bình thường",
+                worn: "Mòn",
+                low_pressure: "Non hơi",
+                need_replace: "Cần thay",
+              };
+              
+              return (
+                <Descriptions title="Checklist kiểm tra" bordered column={2} className="mt-4">
+                  {/* Format mới cho xe máy điện */}
+                  {checklist.battery && (
+                    <Descriptions.Item label="Pin">
+                      <Tag color={checklist.battery === "normal" ? "green" : checklist.battery === "weak" ? "orange" : "red"}>
+                        {batteryMap[checklist.battery] || checklist.battery}
+                      </Tag>
+                    </Descriptions.Item>
+                  )}
+                  {checklist.motor && (
+                    <Descriptions.Item label="Động cơ điện">
+                      <Tag color={checklist.motor === "normal" ? "green" : "orange"}>
+                        {motorMap[checklist.motor] || checklist.motor}
+                      </Tag>
+                    </Descriptions.Item>
+                  )}
+                  {checklist.brake && (
+                    <Descriptions.Item label="Hệ thống phanh">
+                      <Tag color={checklist.brake === "normal" ? "green" : "orange"}>
+                        {brakeMap[checklist.brake] || checklist.brake}
+                      </Tag>
+                    </Descriptions.Item>
+                  )}
+                  {checklist.lighting && (
+                    <Descriptions.Item label="Hệ thống đèn">
+                      <Tag color={checklist.lighting === "normal" ? "green" : "orange"}>
+                        {lightingMap[checklist.lighting] || checklist.lighting}
+                      </Tag>
+                    </Descriptions.Item>
+                  )}
+                  {checklist.tires && (
+                    <Descriptions.Item label="Lốp xe">
+                      <Tag color={checklist.tires === "normal" ? "green" : "orange"}>
+                        {tiresMap[checklist.tires] || checklist.tires}
+                      </Tag>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {/* Format cũ (backward compatibility) */}
+                  {checklist.oil && (
+                    <Descriptions.Item label="Dầu máy">
+                      <Tag color={checklist.oil === "done" ? "green" : "default"}>
+                        {checklist.oil === "done" ? "Đã kiểm tra" : checklist.oil}
+                      </Tag>
+                    </Descriptions.Item>
+                  )}
+                  {checklist.engine_check !== undefined && (
+                    <Descriptions.Item label="Kiểm tra động cơ">
+                      <Tag color={checklist.engine_check ? "green" : "red"}>
+                        {checklist.engine_check ? "Đã kiểm tra" : "Chưa kiểm tra"}
+                      </Tag>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {/* Extra info */}
+                  {checklist.extra && 
+                   Object.keys(checklist.extra).length > 0 && (
+                    <Descriptions.Item label="Thông tin bổ sung" span={2}>
+                      <div className="bg-gray-50 p-3 rounded border">
+                        {checklist.extra.time && (
+                          <p className="mb-1">
+                            <span className="font-semibold">Thời gian:</span> {checklist.extra.time}
+                          </p>
+                        )}
+                        {checklist.extra.technician && (
+                          <p>
+                            <span className="font-semibold">Kỹ thuật viên:</span> {checklist.extra.technician}
+                          </p>
+                        )}
+                        {Object.keys(checklist.extra).length > 0 && 
+                         !checklist.extra.time && 
+                         !checklist.extra.technician && (
+                          <pre className="text-xs whitespace-pre-wrap">
+                            {JSON.stringify(checklist.extra, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    </Descriptions.Item>
+                  )}
+                  
+                  {/* Notes */}
+                  {checklist.notes && 
+                   Array.isArray(checklist.notes) && 
+                   checklist.notes.length > 0 && (
+                    <Descriptions.Item label="Ghi chú" span={2}>
+                      <div className="bg-gray-50 p-3 rounded border">
+                        <ul className="list-disc list-inside space-y-1">
+                          {checklist.notes.map((note: string, index: number) => (
+                            <li key={index} className="text-gray-700">{note}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </Descriptions.Item>
+                  )}
+                </Descriptions>
+              );
+            })()}
 
             {/* Thông tin chi nhánh */}
             {selectedRequest.branch && (
